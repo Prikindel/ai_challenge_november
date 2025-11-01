@@ -1,0 +1,42 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+gradle-app.setting
+!gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*
+!.env.example
+*.env
+!*.env.example
+config/.env
+config/.env.local
+*.log
+
+# Уроки - конфигурация окружения
+lesson-*/.env
+lesson-*/config/.env
+
+# Kotlin
+*.class
+*.jar
+*.war
+*.ear
+
