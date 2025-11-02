@@ -57,14 +57,40 @@ lesson-XX-brief-description/
    - Telegram бот
    - Мобильное приложение (опционально)
 
+## Шаблон проекта
+
+Для быстрого старта используйте готовый шаблон: **[lesson-00-project-template](./lesson-00-project-template/)**
+
+Шаблон содержит:
+- Базовую структуру проекта (Clean Architecture)
+- Настроенный Ktor сервер (CORS, JSON, логирование)
+- Конфигурацию для загрузки `.env` и YAML файлов
+- Контроллер для отдачи статических файлов клиента
+- Структуру папок для всех слоев архитектуры
+- Gradle конфигурацию с необходимыми зависимостями
+
+**Использование:**
+```bash
+# Скопируйте шаблон
+cp -r lesson-00-project-template lesson-XX-description
+
+# Настройте конфигурацию
+cd lesson-XX-description
+cp .env.example .env
+# Заполните .env файл
+```
+
+Подробнее: [lesson-00-project-template/README.md](./lesson-00-project-template/README.md)
+
 ## Как работать с заданиями
 
-1. Создать папку для нового задания: `lesson-XX-description/`
-2. Скопировать шаблон структуры
-3. Заполнить README.md с описанием задания
+1. Скопировать шаблон проекта: `cp -r lesson-00-project-template lesson-XX-description/`
+2. Заполнить README.md с описанием задания
+3. Настроить конфигурацию (`.env`, `config/`)
 4. Реализовать согласно построенному плану
 5. Документировать результаты в README задания
 
 ## Задания
 
+- [lesson-00-project-template](./lesson-00-project-template/) - Шаблон проекта для новых заданий
 - [lesson-01-simple-chat-agent](./lesson-01-simple-chat-agent/) - Простой чат-агент с HTTP API
