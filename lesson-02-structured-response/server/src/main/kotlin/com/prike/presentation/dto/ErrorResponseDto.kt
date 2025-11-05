@@ -3,13 +3,8 @@ package com.prike.presentation.dto
 import kotlinx.serialization.Serializable
 
 /**
- * DTO для HTTP ответа клиенту
+ * DTO для HTTP ответа с ошибкой
  */
-@Serializable
-data class ChatResponseDto(
-    val response: String
-)
-
 @Serializable
 data class ErrorResponseDto(
     val error: String

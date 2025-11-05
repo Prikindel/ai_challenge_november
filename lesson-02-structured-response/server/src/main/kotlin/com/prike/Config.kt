@@ -1,6 +1,7 @@
 package com.prike
 
 import com.prike.config.AIConfig
+import com.prike.config.TopicConfig
 import io.github.cdimascio.dotenv.dotenv
 import org.yaml.snakeyaml.Yaml
 import java.io.File
@@ -12,10 +13,6 @@ import java.io.File
 object Config {
     private val dotenv = run {
         val currentDir = System.getProperty("user.dir")
-        
-        // Определяем корень урока lesson-02-structured-response
-        // Путь относительно Config.kt: server/src/main/kotlin/com/prike/Config.kt
-        // Нужно найти: lesson-02-structured-response/.env
         val lessonRoot = findLessonRoot(currentDir)
         
         try {
@@ -35,15 +32,33 @@ object Config {
     /**
      * Находит корень урока (lesson-XX-*)
      * Ищет папку lesson-XX-* вверх по дереву директорий от текущей директории
+     * Если не находит вверх, ищет в поддиректориях текущей директории
      */
     private fun findLessonRoot(currentDir: String): String {
         var dir = File(currentDir)
         
-        // Идем вверх по директориям, пока не найдем папку lesson-XX-*
-        while (dir != null) {
+        // Сначала идем вверх по директориям, пока не найдем папку lesson-XX-*
+        while (true) {
             // Проверяем, является ли сама директория корнем урока (lesson-XX-*)
             if (dir.name.matches(Regex("lesson-\\d+.*"))) {
                 return dir.absolutePath
+            }
+            
+            // Проверяем, есть ли в текущей директории поддиректория lesson-XX-*
+            try {
+                val lessonDirs = dir.listFiles()?.filter { file ->
+                    file.isDirectory && file.name.matches(Regex("lesson-\\d+.*"))
+                }
+                if (lessonDirs != null && lessonDirs.isNotEmpty()) {
+                    // Если запускаем из корня проекта, ищем lesson-02-structured-response
+                    val lesson02 = lessonDirs.firstOrNull { it.name.contains("lesson-02") }
+                        ?: lessonDirs.firstOrNull()
+                    if (lesson02 != null) {
+                        return lesson02.absolutePath
+                    }
+                }
+            } catch (e: Exception) {
+                // Игнорируем ошибки доступа к файловой системе
             }
             
             // Идем на уровень выше
@@ -66,6 +81,9 @@ object Config {
 
     // AI Конфигурация из YAML
     val aiConfig: AIConfig = loadAIConfig()
+    
+    // Конфигурация темы из YAML
+    val topicConfig: TopicConfig = loadTopicConfig()
 
     /**
      * Загружает конфигурацию AI из YAML файла
@@ -104,10 +122,19 @@ object Config {
         // API ключ приоритетно из .env (для безопасности)
         val apiKey = dotenv["OPENAI_API_KEY"]
             ?: System.getenv("OPENAI_API_KEY")
-            ?: throw IllegalStateException(
-                "OPENAI_API_KEY не найден. " +
-                "Установите его в .env файле"
-            )
+            ?: run {
+                val currentDir = System.getProperty("user.dir")
+                val foundLessonRoot = findLessonRoot(currentDir)
+                val envFile = File(foundLessonRoot, ".env")
+                throw IllegalStateException(
+                    "OPENAI_API_KEY не найден. " +
+                    "Установите его в .env файле.\n" +
+                    "Ожидаемый путь к .env: ${envFile.absolutePath}\n" +
+                    "Файл существует: ${envFile.exists()}\n" +
+                    "Текущая рабочая директория: $currentDir\n" +
+                    "Найденный корень урока: $foundLessonRoot"
+                )
+            }
         
         return AIConfig(
             apiKey = apiKey,
@@ -124,6 +151,46 @@ object Config {
             systemPrompt = aiSection["systemPrompt"] as? String,
             useJsonFormat = (aiSection["useJsonFormat"] as? Boolean)
                 ?: false
+        )
+    }
+    
+    /**
+     * Загружает конфигурацию темы из YAML файла
+     */
+    private fun loadTopicConfig(): TopicConfig {
+        // Используем тот же lessonRoot, что был найден при инициализации dotenv
+        val currentDir = System.getProperty("user.dir")
+        val lessonRoot = findLessonRoot(currentDir)
+        val configDir = File(lessonRoot, "config")
+        val yamlFile = File(configDir, "topic.yaml")
+        
+        val yaml = Yaml()
+        val configMap: Map<String, Any>? = runCatching {
+            if (yamlFile.exists()) {
+                yamlFile.inputStream().use { stream ->
+                    val loaded = yaml.load<Any>(stream)
+                    @Suppress("UNCHECKED_CAST")
+                    when (loaded) {
+                        is Map<*, *> -> loaded as? Map<String, Any>
+                        else -> null
+                    }
+                }
+            } else null
+        }.getOrNull()
+        
+        @Suppress("UNCHECKED_CAST")
+        val topicSection: Map<String, Any> = runCatching {
+            val topicValue = configMap?.get("topic")
+            when (topicValue) {
+                is Map<*, *> -> topicValue as? Map<String, Any> ?: emptyMap()
+                else -> emptyMap()
+            }
+        }.getOrElse { emptyMap() }
+        
+        return TopicConfig(
+            name = (topicSection["name"] as? String) ?: "Неизвестная тема",
+            description = (topicSection["description"] as? String) ?: "",
+            validationPrompt = (topicSection["validationPrompt"] as? String) ?: ""
         )
     }
 }

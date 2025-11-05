@@ -1,11 +1,13 @@
 package com.prike.data.repository
 
 import com.prike.data.client.OpenAIClient
-import com.prike.data.dto.ChatStructuredResponse
+import com.prike.data.dto.AnimalEncyclopediaResponse
+import com.prike.data.dto.TopicValidationError
+import com.prike.data.dto.TopicValidationErrorCode
 import com.prike.domain.exception.AIServiceException
 import com.prike.domain.repository.AIRepository
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.decodeFromString
+import org.slf4j.LoggerFactory
 
 /**
  * Реализация репозитория AI
@@ -13,51 +15,52 @@ import kotlinx.serialization.decodeFromString
 class AIRepositoryImpl(
     private val aiClient: OpenAIClient
 ) : AIRepository {
+    private val logger = LoggerFactory.getLogger(AIRepositoryImpl::class.java)
     
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
     
-    override suspend fun getAIResponse(userMessage: String): String {
+    override suspend fun getStructuredAIResponse(userMessage: String): AnimalEncyclopediaResponse {
         return try {
             val response = aiClient.getCompletion(userMessage)
-
-            response.choices.firstOrNull()?.message?.content
-                ?: throw AIServiceException("Пустой ответ от AI API")
-        } catch (e: AIServiceException) {
-            throw e
-        } catch (e: Exception) {
-            throw AIServiceException(
-                "Ошибка при получении ответа от AI: ${e.message}",
-                e
-            )
-        }
-    }
-    
-    /**
-     * Получить структурированный JSON ответ от AI
-     * Парсит JSON из ответа LLM и возвращает структурированный объект
-     */
-    suspend fun getStructuredAIResponse(userMessage: String): ChatStructuredResponse {
-        return try {
-            val response = aiClient.getCompletion(userMessage)
-            val content = response.choices.firstOrNull()?.message?.content
-                ?: throw AIServiceException("Пустой ответ от AI API")
+            val rawContent = response.choices.firstOrNull()?.message?.content
+                ?: throw AIServiceException("Пустой ответ от AI API (choices пусты)")
+            
+            val content = rawContent.trim()
+            if (content.isBlank()) {
+                // Возвращаем ошибку валидации темы, если ответ пустой
+                return AnimalEncyclopediaResponse.Error(
+                    error = TopicValidationError(
+                        errorCode = TopicValidationErrorCode.TOPIC_MISMATCH,
+                        message = "Не удалось получить ответ от AI. Возможно, ваш запрос не относится к теме животных. Пожалуйста, задайте вопрос о животных, их видах, питании, среде обитания или продолжительности жизни."
+                    )
+                )
+            }
             
             // Парсим JSON из строки ответа
             try {
-                json.decodeFromString<ChatStructuredResponse>(content)
+                val parsed = json.decodeFromString<AnimalEncyclopediaResponse>(content)
+                // Явная проверка типа для использования подклассов sealed class
+                when (parsed) {
+                    is AnimalEncyclopediaResponse.Success -> parsed
+                    is AnimalEncyclopediaResponse.Error -> parsed
+                }
             } catch (e: Exception) {
-                throw AIServiceException(
-                    "Не удалось распарсить JSON ответ от AI: ${e.message}. " +
-                    "Ответ: $content",
-                    e
+                logger.error("Ошибка парсинга JSON. Ответ от AI (первые 500 символов): ${content.take(500)}", e)
+                // Если не удалось распарсить JSON, возвращаем ошибку валидации темы как fallback
+                return AnimalEncyclopediaResponse.Error(
+                    error = TopicValidationError(
+                        errorCode = TopicValidationErrorCode.TOPIC_MISMATCH,
+                        message = "Не удалось обработать ответ от AI. Возможно, ваш запрос не относится к теме животных. Пожалуйста, задайте вопрос о животных, их видах, питании, среде обитания или продолжительности жизни."
+                    )
                 )
             }
         } catch (e: AIServiceException) {
             throw e
         } catch (e: Exception) {
+            logger.error("Неожиданная ошибка при получении ответа от AI", e)
             throw AIServiceException(
                 "Ошибка при получении структурированного ответа от AI: ${e.message}",
                 e

@@ -10,7 +10,6 @@ import java.io.File
  * Контроллер для отдачи статических файлов из папки client
  */
 class ClientController(private val clientDir: File) {
-    
     /**
      * Настройка маршрутов для статических файлов
      */
@@ -38,6 +37,7 @@ class ClientController(private val clientDir: File) {
      */
     private suspend fun ApplicationCall.serveStaticFile(filename: String) {
         val file = File(clientDir, filename)
+        
         if (file.exists() && file.isFile) {
             when {
                 filename.endsWith(".html") -> respondText(file.readText(), ContentType.Text.Html)

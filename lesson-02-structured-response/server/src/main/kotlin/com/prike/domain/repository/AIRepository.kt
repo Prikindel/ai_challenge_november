@@ -1,6 +1,6 @@
 package com.prike.domain.repository
 
-import com.prike.domain.entity.ChatMessage
+import com.prike.data.dto.AnimalEncyclopediaResponse
 
 /**
  * Репозиторий для взаимодействия с AI сервисом
@@ -8,10 +8,10 @@ import com.prike.domain.entity.ChatMessage
  */
 interface AIRepository {
     /**
-     * Получить ответ от AI на пользовательское сообщение
+     * Получить структурированный JSON ответ от AI для энциклопедии животных
      * @param userMessage сообщение пользователя
-     * @return ответ от AI
+     * @return структурированный ответ от AI
      */
-    suspend fun getAIResponse(userMessage: String): String
+    suspend fun getStructuredAIResponse(userMessage: String): AnimalEncyclopediaResponse
 }
 

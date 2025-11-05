@@ -5,9 +5,8 @@ import com.prike.domain.exception.DomainException
 import com.prike.domain.exception.ValidationException
 import com.prike.domain.usecase.ChatUseCase
 import com.prike.presentation.dto.ChatRequestDto
-import com.prike.presentation.dto.ChatResponseDto
 import com.prike.presentation.dto.ErrorResponseDto
-import com.prike.presentation.dto.StructuredChatResponseDto
+import com.prike.presentation.dto.AnimalEncyclopediaResponseDto
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -27,17 +26,10 @@ class ServerController(
      * Настройка маршрутов
      */
     fun configureRoutes(routing: Routing) {
-        // API endpoints
+        // Структурированный ответ в JSON формате (энциклопедия животных)
         routing.route("/chat") {
             post {
                 call.handleChatRequest()
-            }
-        }
-        
-        // Структурированный ответ в JSON формате
-        routing.route("/chat/structured") {
-            post {
-                call.handleStructuredChatRequest()
             }
         }
         
@@ -47,36 +39,13 @@ class ServerController(
     }
     
     /**
-     * Обработка запроса на отправку сообщения
+     * Обработка запроса на отправку сообщения со структурированным ответом
      */
     private suspend fun ApplicationCall.handleChatRequest() {
         try {
             val request = receive<ChatRequestDto>()
-            val aiResponse = chatUseCase.processMessage(request.message)
-            respond(HttpStatusCode.OK, ChatResponseDto(response = aiResponse))
-            
-        } catch (e: DomainException) {
-            logger.error("Domain error: ${e.message}", e)
-            val (statusCode, errorResponse) = mapErrorToHttpResponse(e)
-            respond(statusCode, errorResponse)
-            
-        } catch (e: Exception) {
-            logger.error("Unexpected error", e)
-            respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponseDto("Внутренняя ошибка сервера: ${e.message ?: "Неизвестная ошибка"}")
-            )
-        }
-    }
-    
-    /**
-     * Обработка запроса на отправку сообщения со структурированным ответом
-     */
-    private suspend fun ApplicationCall.handleStructuredChatRequest() {
-        try {
-            val request = receive<ChatRequestDto>()
-            val structuredResponse = chatUseCase.processMessageStructured(request.message)
-            respond(HttpStatusCode.OK, StructuredChatResponseDto(structuredResponse))
+            val structuredResponse = chatUseCase.processMessage(request.message)
+            respond(HttpStatusCode.OK, AnimalEncyclopediaResponseDto(response = structuredResponse))
             
         } catch (e: DomainException) {
             logger.error("Domain error: ${e.message}", e)

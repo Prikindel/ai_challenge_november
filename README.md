@@ -94,3 +94,4 @@ cp .env.example .env
 
 - [lesson-00-project-template](./lesson-00-project-template/) - Шаблон проекта для новых заданий
 - [lesson-01-simple-chat-agent](./lesson-01-simple-chat-agent/) - Простой чат-агент с HTTP API
+- [lesson-02-structured-response](./lesson-02-structured-response/) - Энциклопедия животных со структурированными JSON ответами

@@ -8,41 +8,100 @@ const sendButton = document.getElementById('sendButton');
 const errorMessage = document.getElementById('errorMessage');
 const loadingIndicator = document.getElementById('loadingIndicator');
 
-// Функция для добавления сообщения в чат
-function addMessage(text, isUser = false) {
+// Функция для добавления сообщения пользователя в чат
+function addUserMessage(text) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+    messageDiv.className = 'message user-message';
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     
-    // Для сообщений от бота используем Markdown, для пользователя - обычный текст
-    if (!isUser && typeof marked !== 'undefined') {
-        try {
-            // Парсим Markdown в HTML с безопасными настройками
-            const html = marked.parse(text, {
-                breaks: true, // Переносы строк превращать в <br>
-                gfm: true, // Поддержка GitHub Flavored Markdown
-            });
-            contentDiv.innerHTML = html;
-        } catch (e) {
-            // Если ошибка парсинга, отображаем как обычный текст
-            console.error('Ошибка парсинга Markdown:', e);
-            const paragraph = document.createElement('p');
-            paragraph.textContent = text;
-            contentDiv.appendChild(paragraph);
-        }
-    } else {
-        // Для сообщений пользователя используем обычный текст (без форматирования)
-        const paragraph = document.createElement('p');
-        paragraph.textContent = text;
-        contentDiv.appendChild(paragraph);
-    }
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    contentDiv.appendChild(paragraph);
     
     messageDiv.appendChild(contentDiv);
     chatMessages.appendChild(messageDiv);
     
-    // Автоскролл вниз
+    scrollToBottom();
+}
+
+// Функция для отображения карточки животного
+function addAnimalCard(animalInfo) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message bot-message';
+    
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'animal-card';
+    
+    // Заголовок с названием животного
+    const title = document.createElement('h3');
+    title.textContent = animalInfo.name;
+    cardDiv.appendChild(title);
+    
+    // Описание
+    const descriptionItem = createInfoItem('Описание', animalInfo.description);
+    cardDiv.appendChild(descriptionItem);
+    
+    // Питание
+    const dietItem = createInfoItem('Питание', animalInfo.diet);
+    cardDiv.appendChild(dietItem);
+    
+    // Продолжительность жизни
+    const lifespanItem = createInfoItem('Продолжительность жизни', animalInfo.lifespan);
+    cardDiv.appendChild(lifespanItem);
+    
+    // Среда обитания
+    const habitatItem = createInfoItem('Среда обитания', animalInfo.habitat);
+    cardDiv.appendChild(habitatItem);
+    
+    messageDiv.appendChild(cardDiv);
+    chatMessages.appendChild(messageDiv);
+    
+    scrollToBottom();
+}
+
+// Функция для создания элемента информации
+function createInfoItem(label, value) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'animal-info-item';
+    
+    const labelSpan = document.createElement('div');
+    labelSpan.className = 'animal-info-label';
+    labelSpan.textContent = label;
+    
+    const valueDiv = document.createElement('div');
+    valueDiv.className = 'animal-info-value';
+    valueDiv.textContent = value;
+    
+    itemDiv.appendChild(labelSpan);
+    itemDiv.appendChild(valueDiv);
+    
+    return itemDiv;
+}
+
+// Функция для отображения ошибки валидации темы
+function addTopicError(errorMessage) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message bot-message';
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'topic-error';
+    
+    const icon = document.createElement('div');
+    icon.className = 'topic-error-icon';
+    icon.textContent = '⚠️';
+    
+    const message = document.createElement('div');
+    message.className = 'topic-error-message';
+    message.textContent = errorMessage;
+    
+    errorDiv.appendChild(icon);
+    errorDiv.appendChild(message);
+    
+    messageDiv.appendChild(errorDiv);
+    chatMessages.appendChild(messageDiv);
+    
     scrollToBottom();
 }
 
@@ -77,7 +136,7 @@ async function sendMessage() {
     }
     
     // Добавляем сообщение пользователя в чат
-    addMessage(message, true);
+    addUserMessage(message);
     
     // Очищаем поле ввода и блокируем его
     messageInput.value = '';
@@ -105,9 +164,20 @@ async function sendMessage() {
             return;
         }
         
-        // Добавляем ответ от AI
+        // Обрабатываем структурированный ответ
         if (data.response) {
-            addMessage(data.response, false);
+            const responseData = data.response;
+            
+            // Проверяем тип ответа (success или error)
+            if (responseData.type === 'success' && responseData.data) {
+                // Отображаем карточку животного
+                addAnimalCard(responseData.data);
+            } else if (responseData.type === 'error' && responseData.error) {
+                // Отображаем ошибку валидации темы
+                addTopicError(responseData.error.message || 'Ошибка валидации темы');
+            } else {
+                showError('Получен некорректный ответ от сервера');
+            }
         } else {
             showError('Получен некорректный ответ от сервера');
         }
@@ -152,4 +222,3 @@ async function checkServerHealth() {
 
 // Проверяем здоровье сервера при загрузке страницы
 checkServerHealth();
-
