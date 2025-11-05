@@ -54,6 +54,26 @@
         </div>
     </div>
     
+    <!-- Модальное окно для отображения JSON -->
+    <div id="jsonModal" class="json-modal" style="display: none;">
+        <div class="json-modal-content">
+            <div class="json-modal-header">
+                <h2>JSON запрос и ответ</h2>
+                <button id="closeJsonModal" class="json-modal-close">×</button>
+            </div>
+            <div class="json-modal-body">
+                <div class="json-section">
+                    <h3>Запрос</h3>
+                    <pre id="requestJson" class="json-code"></pre>
+                </div>
+                <div class="json-section">
+                    <h3>Ответ</h3>
+                    <pre id="responseJson" class="json-code"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="app.js"></script>
 </body>
 </html>

@@ -44,8 +44,17 @@ class ServerController(
     private suspend fun ApplicationCall.handleChatRequest() {
         try {
             val request = receive<ChatRequestDto>()
-            val structuredResponse = chatUseCase.processMessage(request.message)
-            respond(HttpStatusCode.OK, AnimalEncyclopediaResponseDto(response = structuredResponse))
+            val result = chatUseCase.processMessage(request.message)
+            respond(
+                HttpStatusCode.OK,
+                AnimalEncyclopediaResponseDto(
+                    response = result.response,
+                    debug = AnimalEncyclopediaResponseDto.DebugInfo(
+                        llmRequest = result.llmRequestJson,
+                        llmResponse = result.llmResponseJson
+                    )
+                )
+            )
             
         } catch (e: DomainException) {
             logger.error("Domain error: ${e.message}", e)

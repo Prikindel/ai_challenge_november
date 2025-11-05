@@ -1,9 +1,9 @@
 package com.prike.domain.usecase
 
-import com.prike.data.dto.AnimalEncyclopediaResponse
 import com.prike.domain.exception.AIServiceException
 import com.prike.domain.exception.ValidationException
 import com.prike.domain.repository.AIRepository
+import com.prike.presentation.dto.ChatResponseResult
 
 /**
  * Use case для обработки чат-сообщений энциклопедии животных
@@ -14,11 +14,11 @@ class ChatUseCase(
     /**
      * Обработать сообщение пользователя и получить структурированный JSON ответ от AI
      * @param userMessage текст сообщения пользователя
-     * @return структурированный ответ от AI (энциклопедия животных)
+     * @return результат со структурированным ответом от AI и debug информацией (JSON запрос и ответ от LLM)
      * @throws ValidationException если сообщение невалидно
      * @throws AIServiceException если произошла ошибка при обращении к AI или парсинге JSON
      */
-    suspend fun processMessage(userMessage: String): AnimalEncyclopediaResponse {
+    suspend fun processMessage(userMessage: String): ChatResponseResult {
         validateMessage(userMessage)
 
         return try {

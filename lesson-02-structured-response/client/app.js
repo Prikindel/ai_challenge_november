@@ -8,6 +8,10 @@ const sendButton = document.getElementById('sendButton');
 const errorMessage = document.getElementById('errorMessage');
 const loadingIndicator = document.getElementById('loadingIndicator');
 
+// Хранение последнего LLM запроса и ответа
+let lastLlmRequest = null;
+let lastLlmResponse = null;
+
 // Функция для добавления сообщения пользователя в чат
 function addUserMessage(text) {
     const messageDiv = document.createElement('div');
@@ -56,6 +60,10 @@ function addAnimalCard(animalInfo) {
     cardDiv.appendChild(habitatItem);
     
     messageDiv.appendChild(cardDiv);
+    
+    // Добавляем кнопку просмотра JSON
+    addJsonViewButton(messageDiv);
+    
     chatMessages.appendChild(messageDiv);
     
     scrollToBottom();
@@ -100,9 +108,104 @@ function addTopicError(errorMessage) {
     errorDiv.appendChild(message);
     
     messageDiv.appendChild(errorDiv);
+    
+    // Добавляем кнопку просмотра JSON
+    addJsonViewButton(messageDiv);
+    
     chatMessages.appendChild(messageDiv);
     
     scrollToBottom();
+}
+
+// Функция для добавления кнопки просмотра JSON
+function addJsonViewButton(messageDiv) {
+    if (!lastLlmRequest || !lastLlmResponse) {
+        return;
+    }
+    
+    // Находим контейнер карточки или ошибки
+    const cardOrError = messageDiv.querySelector('.animal-card, .topic-error');
+    if (!cardOrError) {
+        return;
+    }
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'json-view-button-container';
+    
+    const jsonButton = document.createElement('button');
+    jsonButton.className = 'json-view-button';
+    jsonButton.innerHTML = '📋 Показать JSON';
+    jsonButton.onclick = () => showJsonModal(lastLlmRequest, lastLlmResponse);
+    
+    buttonContainer.appendChild(jsonButton);
+    
+    // Добавляем кнопку после карточки/ошибки, но внутри messageDiv
+    cardOrError.appendChild(buttonContainer);
+}
+
+// Функция для отображения модального окна с JSON
+function showJsonModal(request, response) {
+    const modal = document.getElementById('jsonModal');
+    const requestJson = document.getElementById('requestJson');
+    const responseJson = document.getElementById('responseJson');
+    const closeButton = document.getElementById('closeJsonModal');
+    
+    // Форматируем JSON с отступами (данные приходят как JSON строки)
+    let requestText = '';
+    let responseText = '';
+    
+    // Парсим и форматируем запрос
+    try {
+        if (typeof request === 'string') {
+            const parsed = JSON.parse(request);
+            requestText = JSON.stringify(parsed, null, 2);
+        } else {
+            requestText = JSON.stringify(request, null, 2);
+        }
+    } catch (e) {
+        // Если не удалось распарсить, показываем как есть
+        requestText = typeof request === 'string' ? request : String(request);
+    }
+    
+    // Парсим и форматируем ответ
+    try {
+        if (typeof response === 'string') {
+            const parsed = JSON.parse(response);
+            responseText = JSON.stringify(parsed, null, 2);
+        } else {
+            responseText = JSON.stringify(response, null, 2);
+        }
+    } catch (e) {
+        // Если не удалось распарсить, показываем как есть
+        responseText = typeof response === 'string' ? response : String(response);
+    }
+    
+    requestJson.textContent = requestText;
+    responseJson.textContent = responseText;
+    
+    // Показываем модальное окно
+    modal.style.display = 'flex';
+    
+    // Закрытие по клику на кнопку
+    closeButton.onclick = () => {
+        modal.style.display = 'none';
+    };
+    
+    // Закрытие по клику вне модального окна
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+    
+    // Закрытие по нажатию Escape
+    const escapeHandler = (e) => {
+        if (e.key === 'Escape') {
+            modal.style.display = 'none';
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    };
+    document.addEventListener('keydown', escapeHandler);
 }
 
 // Функция для отображения ошибки
@@ -146,16 +249,29 @@ async function sendMessage() {
     errorMessage.classList.remove('show');
     
     try {
+        // Сохраняем запрос
+        const requestData = { message: message };
+        lastRequest = requestData;
+        
         // Отправляем запрос на сервер
         const response = await fetch(`${API_BASE_URL}/chat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ message: message }),
+            body: JSON.stringify(requestData),
         });
         
         const data = await response.json();
+        
+        // Сохраняем LLM запрос и ответ для отображения (приходят как JSON строки)
+        if (data.debug) {
+            lastLlmRequest = data.debug.llmRequest;
+            lastLlmResponse = data.debug.llmResponse;
+        } else {
+            lastLlmRequest = null;
+            lastLlmResponse = null;
+        }
         
         if (!response.ok) {
             // Обработка ошибок от сервера
