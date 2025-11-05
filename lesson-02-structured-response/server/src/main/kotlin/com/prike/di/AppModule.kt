@@ -47,36 +47,29 @@ object AppModule {
     
     /**
      * Находит корень урока (lesson-XX-*)
+     * Ищет папку lesson-XX-* вверх по дереву директорий от текущей директории
      */
     private fun findLessonRoot(): String {
         val currentDir = System.getProperty("user.dir")
         var dir = File(currentDir)
         
+        // Идем вверх по директориям, пока не найдем папку lesson-XX-*
         while (dir != null) {
-            // Проверяем, является ли сама директория корнем урока
+            // Проверяем, является ли сама директория корнем урока (lesson-XX-*)
             if (dir.name.matches(Regex("lesson-\\d+.*"))) {
                 return dir.absolutePath
             }
             
-            // Ищем папку lesson-XX-* в текущей директории
-            val lessonDirs = dir.listFiles { file ->
-                file.isDirectory && file.name.matches(Regex("lesson-\\d+.*"))
-            }
-            if (lessonDirs != null && lessonDirs.isNotEmpty()) {
-                // Если мы находимся в корне проекта, ищем lesson-02-structured-response
-                val lesson02 = lessonDirs.find { it.name.contains("lesson-02") }
-                if (lesson02 != null) {
-                    return lesson02.absolutePath
-                }
-            }
-            
+            // Идем на уровень выше
             val parent = dir.parentFile
             if (parent == null || parent == dir) {
+                // Дошли до корня файловой системы
                 break
             }
             dir = parent
         }
         
+        // Если не нашли, возвращаем текущую директорию
         return currentDir
     }
     
