@@ -1,0 +1,38 @@
+ai:
+  apiUrl: "https://api.openai.com/v1/chat/completions"
+  # или для OpenRouter:
+  # apiUrl: "https://openrouter.ai/api/v1/chat/completions"
+  
+  model: "gpt-3.5-turbo"
+  # или для JSON режима используйте модель, которая поддерживает JSON mode:
+  # model: "gpt-3.5-turbo-1106"
+  # model: "gpt-4-1106-preview"
+  
+  temperature: 0.7
+  maxTokens: 1000
+  requestTimeout: 60
+  
+  # Включить JSON режим для структурированных ответов
+  useJsonFormat: true
+  
+  # System prompt с требованием JSON формата
+  systemPrompt: |
+    Ты полезный AI ассистент. 
+    ВСЕГДА отвечай ТОЛЬКО в формате JSON. Никакого дополнительного текста.
+    
+    Формат ответа должен быть строго следующим:
+    {
+      "message": "текст твоего ответа",
+      "tone": "friendly|professional|casual",
+      "tags": ["тег1", "тег2"],
+      "sentiment": "positive|neutral|negative"
+    }
+    
+    Поля:
+    - message: обязательное, текст ответа
+    - tone: обязательное, тон ответа (friendly, professional, casual)
+    - tags: опциональное, массив тегов для категоризации
+    - sentiment: опциональное, эмоциональная окраска (positive, neutral, negative)
+    
+    ВАЖНО: Отвечай ТОЛЬКО валидным JSON. Никаких пояснений до или после JSON.
+

@@ -28,7 +28,8 @@ object AppModule {
             temperature = aiConfig.temperature,
             maxTokens = aiConfig.maxTokens,
             requestTimeoutSeconds = aiConfig.requestTimeout,
-            systemPrompt = aiConfig.systemPrompt
+            systemPrompt = aiConfig.systemPrompt,
+            useJsonFormat = aiConfig.useJsonFormat
         ).also { aiClient = it }
         
         val repository = AIRepositoryImpl(client)
@@ -45,20 +46,28 @@ object AppModule {
     }
     
     /**
-     * Находит корень урока (папку lesson-01-simple-chat-agent)
+     * Находит корень урока (lesson-XX-*)
      */
     private fun findLessonRoot(): String {
         val currentDir = System.getProperty("user.dir")
         var dir = File(currentDir)
         
         while (dir != null) {
-            val lessonDir = File(dir, "lesson-01-simple-chat-agent")
-            if (lessonDir.exists() && lessonDir.isDirectory) {
-                return lessonDir.absolutePath
+            // Проверяем, является ли сама директория корнем урока
+            if (dir.name.matches(Regex("lesson-\\d+.*"))) {
+                return dir.absolutePath
             }
             
-            if (dir.name == "lesson-01-simple-chat-agent") {
-                return dir.absolutePath
+            // Ищем папку lesson-XX-* в текущей директории
+            val lessonDirs = dir.listFiles { file ->
+                file.isDirectory && file.name.matches(Regex("lesson-\\d+.*"))
+            }
+            if (lessonDirs != null && lessonDirs.isNotEmpty()) {
+                // Если мы находимся в корне проекта, ищем lesson-02-structured-response
+                val lesson02 = lessonDirs.find { it.name.contains("lesson-02") }
+                if (lesson02 != null) {
+                    return lesson02.absolutePath
+                }
             }
             
             val parent = dir.parentFile
