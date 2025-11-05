@@ -45,19 +45,19 @@ object AppModule {
     }
     
     /**
-     * Находит корень урока (папку lesson-01-simple-chat-agent)
+     * Находит корень урока (папку lesson-02-structured-response)
      */
     private fun findLessonRoot(): String {
         val currentDir = System.getProperty("user.dir")
         var dir = File(currentDir)
         
         while (dir != null) {
-            val lessonDir = File(dir, "lesson-01-simple-chat-agent")
+            val lessonDir = File(dir, "lesson-02-structured-response")
             if (lessonDir.exists() && lessonDir.isDirectory) {
                 return lessonDir.absolutePath
             }
             
-            if (dir.name == "lesson-01-simple-chat-agent") {
+            if (dir.name == "lesson-02-structured-response") {
                 return dir.absolutePath
             }
             

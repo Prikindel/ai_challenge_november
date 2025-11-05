@@ -13,9 +13,9 @@ object Config {
     private val dotenv = run {
         val currentDir = System.getProperty("user.dir")
         
-        // Определяем корень урока lesson-01-simple-chat-agent
+        // Определяем корень урока lesson-02-structured-response
         // Путь относительно Config.kt: server/src/main/kotlin/com/prike/Config.kt
-        // Нужно найти: lesson-01-simple-chat-agent/.env
+        // Нужно найти: lesson-02-structured-response/.env
         val lessonRoot = findLessonRoot(currentDir)
         
         try {
@@ -33,21 +33,21 @@ object Config {
     }
     
     /**
-     * Находит корень урока (папку lesson-01-simple-chat-agent)
+     * Находит корень урока (папку lesson-02-structured-response)
      */
     private fun findLessonRoot(currentDir: String): String {
         var dir = File(currentDir)
         
-        // Идем вверх по директориям, пока не найдем папку lesson-01-simple-chat-agent
+        // Идем вверх по директориям, пока не найдем папку lesson-02-structured-response
         while (dir != null) {
-            // Проверяем, есть ли в этой директории папка lesson-01-simple-chat-agent
-            val lessonDir = File(dir, "lesson-01-simple-chat-agent")
+            // Проверяем, есть ли в этой директории папка lesson-02-structured-response
+            val lessonDir = File(dir, "lesson-02-structured-response")
             if (lessonDir.exists() && lessonDir.isDirectory) {
                 return lessonDir.absolutePath
             }
             
             // Или проверяем, является ли сама директория корнем урока
-            if (dir.name == "lesson-01-simple-chat-agent") {
+            if (dir.name == "lesson-02-structured-response") {
                 return dir.absolutePath
             }
             

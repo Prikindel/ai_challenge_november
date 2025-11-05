@@ -13,9 +13,9 @@ object Config {
     private val dotenv = run {
         val currentDir = System.getProperty("user.dir")
         
-        // Определяем корень урока lesson-01-simple-chat-agent
+        // Определяем корень урока lesson-02-structured-response
         // Путь относительно Config.kt: server/src/main/kotlin/com/prike/Config.kt
-        // Нужно найти: lesson-01-simple-chat-agent/.env
+        // Нужно найти: lesson-02-structured-response/.env
         val lessonRoot = findLessonRoot(currentDir)
         
         try {

@@ -11,7 +11,7 @@ Kotlin + Ktor сервер для чат-агента с интеграцией 
 
 ### 1. API ключ
 
-Создайте `.env` файл в корне урока (`lesson-01-simple-chat-agent/.env`):
+Создайте `.env` файл в корне урока (`lesson-02-structured-response/.env`):
 ```bash
 OPENAI_API_KEY=your-api-key-here
 ```
