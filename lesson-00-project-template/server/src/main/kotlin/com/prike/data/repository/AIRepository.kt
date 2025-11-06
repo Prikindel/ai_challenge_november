@@ -33,15 +33,29 @@ class AIRepository(
     }
     
     /**
+     * Результат запроса к LLM с текстовым ответом и JSON
+     */
+    data class MessageResult(
+        val message: String,
+        val requestJson: String,
+        val responseJson: String
+    )
+    
+    /**
      * Получить текстовый ответ от LLM с использованием истории сообщений
      * @param messages список сообщений (включая system prompt и историю диалога)
-     * @return текстовый ответ от LLM
+     * @return результат с текстовым ответом и JSON запросом/ответом
      */
-    suspend fun getMessageWithHistory(messages: List<MessageDto>): String {
+    suspend fun getMessageWithHistory(messages: List<MessageDto>): MessageResult {
         return try {
-            val response = openAIClient.getCompletionWithHistory(messages)
-            response.choices.firstOrNull()?.message?.content?.trim()
+            val completionResult = openAIClient.getCompletionWithHistory(messages)
+            val message = completionResult.response.choices.firstOrNull()?.message?.content?.trim()
                 ?: throw AIServiceException("Пустой ответ от AI API (choices пусты)")
+            MessageResult(
+                message = message,
+                requestJson = completionResult.requestJson,
+                responseJson = completionResult.responseJson
+            )
         } catch (e: AIServiceException) {
             throw e
         } catch (e: Exception) {

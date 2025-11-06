@@ -25,9 +25,9 @@ abstract class BaseAgent(
     /**
      * Получить ответ от LLM с использованием истории сообщений
      * @param messages список сообщений (включая system prompt и историю диалога)
-     * @return текстовый ответ от LLM
+     * @return результат с текстовым ответом и JSON запросом/ответом
      */
-    protected suspend fun getMessageWithHistory(messages: List<MessageDto>): String {
+    protected suspend fun getMessageWithHistory(messages: List<MessageDto>): AIRepository.MessageResult {
         return aiRepository.getMessageWithHistory(messages)
     }
 }

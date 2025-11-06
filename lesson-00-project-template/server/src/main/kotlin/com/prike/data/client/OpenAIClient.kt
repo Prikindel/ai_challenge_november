@@ -15,6 +15,8 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import org.slf4j.LoggerFactory
 
 /**
  * Клиент для работы с OpenAI API
@@ -30,6 +32,12 @@ class OpenAIClient(
     private val systemPrompt: String? = null
 ) {
     private val requestTimeoutMs = requestTimeoutSeconds * 1000L
+    private val logger = LoggerFactory.getLogger(OpenAIClient::class.java)
+    private val jsonSerializer = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        prettyPrint = true
+    }
     
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
@@ -51,14 +59,40 @@ class OpenAIClient(
             systemPrompt?.let { add(MessageDto(role = "system", content = it)) }
             add(MessageDto(role = "user", content = userMessage))
         }
-        return getCompletionWithHistory(messages)
+        return getCompletionWithHistory(messages).response
     }
+    
+    /**
+     * Результат запроса к LLM с JSON запросом и ответом
+     */
+    data class CompletionResult(
+        val response: OpenAIResponse,
+        val requestJson: String,
+        val responseJson: String
+    )
     
     /**
      * Получить ответ от LLM с использованием истории сообщений
      * @param messages список сообщений (включая system prompt и историю диалога)
+     * @return результат с ответом и JSON запросом/ответом
      */
-    suspend fun getCompletionWithHistory(messages: List<MessageDto>): OpenAIResponse {
+    suspend fun getCompletionWithHistory(messages: List<MessageDto>): CompletionResult {
+        val request = OpenAIRequest(model, messages, temperature, maxTokens)
+        
+        // Сериализуем запрос в JSON для логирования
+        val requestJson = runCatching {
+            jsonSerializer.encodeToString(request)
+        }.getOrElse { "{}" }
+        
+        // Логируем JSON запрос в формате OkHttp
+        runCatching {
+            logger.info("--> POST $apiUrl")
+            logger.info("Content-Type: application/json")
+            logger.info("")
+            logger.info(requestJson)
+            logger.info("--> END POST")
+        }
+        
         return runCatching {
             val response = client.post(apiUrl) {
                 header(HttpHeaders.Authorization, "Bearer $apiKey")
@@ -67,21 +101,51 @@ class OpenAIClient(
                     header("HTTP-Referer", "http://localhost:8080")
                     header("X-Title", "ChatAgent")
                 }
-                setBody(OpenAIRequest(model, messages, temperature, maxTokens))
+                setBody(request)
             }
+            
+            val statusCode = response.status.value
             
             if (!response.status.isSuccess()) {
                 val errorBody = runCatching {
                     Json.decodeFromString<OpenAIErrorResponse>(response.bodyAsText())
                 }.getOrNull()
                 
+                val errorJson = runCatching {
+                    if (errorBody != null) jsonSerializer.encodeToString(errorBody) else ""
+                }.getOrElse { "" }
+                
+                // Логируем ошибку в формате OkHttp
+                runCatching {
+                    logger.info("<-- $statusCode $apiUrl")
+                    if (errorJson.isNotEmpty()) {
+                        logger.info(errorJson)
+                    }
+                    logger.info("<-- END HTTP")
+                }
+                
                 throw AIServiceException(
-                    "Ошибка API: ${errorBody?.error?.message ?: "HTTP ${response.status.value}"}",
-                    Exception("API вернул статус ${response.status.value}")
+                    "Ошибка API: ${errorBody?.error?.message ?: "HTTP $statusCode"}",
+                    Exception("API вернул статус $statusCode")
                 )
             }
             
-            response.body<OpenAIResponse>()
+            val responseBody = response.body<OpenAIResponse>()
+            
+            // Сериализуем ответ в JSON для логирования
+            val responseJson = runCatching {
+                jsonSerializer.encodeToString(responseBody)
+            }.getOrElse { "{}" }
+            
+            // Логируем JSON ответ в формате OkHttp
+            runCatching {
+                logger.info("<-- $statusCode $apiUrl")
+                logger.info("")
+                logger.info(responseJson)
+                logger.info("<-- END HTTP")
+            }
+            
+            CompletionResult(responseBody, requestJson, responseJson)
         }.getOrElse { throwable ->
             if (throwable is AIServiceException) throw throwable
             throw AIServiceException("Ошибка при обращении к OpenAI API: ${throwable.message}", throwable)

@@ -129,18 +129,22 @@ lesson-XX-description/
 Шаблон включает базовую реализацию для работы с AI API:
 
 - **BaseAgent** - базовый абстрактный класс агента (`domain/agent/BaseAgent.kt`)
-  - Содержит общую логику запросов к LLM через OpenAIClient
-  - Методы `processMessage()` и `processMessageWithHistory()` для работы с LLM
+  - Содержит базовые методы `getMessage()` и `getMessageWithHistory()`
+  - Использует `AIRepository` для получения данных от LLM
+  - `getMessageWithHistory()` возвращает `MessageResult` с текстом и JSON запросом/ответом
   - Специализированные агенты наследуют этот класс и добавляют свою логику
 
 - **AIRepository** - репозиторий для работы с DTO (`data/repository/AIRepository.kt`)
-  - Работа с DTO от LLM API
-  - Парсинг и валидация данных
-  - Используется агентами при необходимости
+  - Работа с DTO от LLM API через `OpenAIClient`
+  - `getMessage()` - простой текстовый ответ
+  - `getMessageWithHistory()` - возвращает `MessageResult` (текст + JSON запрос/ответ)
+  - Используется агентами для получения данных от LLM
 
 - **OpenAIClient** - HTTP клиент для OpenAI/OpenRouter API
   - Поддержка системных промптов
   - Обработка ошибок и таймаутов
+  - Логирование запросов/ответов в формате OkHttp
+  - `getCompletionWithHistory()` возвращает `CompletionResult` (ответ + JSON)
   - Настройка через конфигурацию
 
 - **Конфигурация AI** - загрузка из YAML файла (`config/ai.yaml`)
