@@ -11,12 +11,13 @@ import java.io.File
  */
 object Config {
     private val dotenv = run {
-        val currentDir = System.getProperty("user.dir")
-        val lessonRoot = findLessonRoot(currentDir)
+        // .env файл находится в корне проекта (ai_challenge_november), а не в уроке
+        // Ищем корень проекта, идя вверх от текущей директории
+        val projectRoot = findProjectRoot()
         
         try {
             dotenv {
-                directory = lessonRoot
+                directory = projectRoot
                 filename = ".env"
                 ignoreIfMissing = true
             }
@@ -28,21 +29,50 @@ object Config {
     }
     
     /**
-     * Находит корень урока (папку lesson-XX-...)
-     * Ищет папку, начинающуюся с "lesson-", идя вверх по директориям
+     * Находит корень проекта (ai_challenge_november)
+     * Ищет директорию, содержащую папки lesson-XX-*
+     */
+    private fun findProjectRoot(): String {
+        var dir = File(System.getProperty("user.dir"))
+        
+        while (dir != null) {
+            // Проверяем, есть ли в текущей директории папки lesson-XX-*
+            val hasLessonDirs = dir.listFiles()?.any { 
+                it.isDirectory && it.name.matches(Regex("lesson-\\d+.*"))
+            } ?: false
+            
+            if (hasLessonDirs) {
+                return dir.absolutePath
+            }
+            
+            // Идем на уровень выше
+            val parent = dir.parentFile
+            if (parent == null || parent == dir) {
+                break
+            }
+            dir = parent
+        }
+        
+        // Если не нашли, возвращаем текущую директорию
+        return System.getProperty("user.dir")
+    }
+    
+    /**
+     * Находит корень урока (папку lesson-XX-*)
+     * Ищет папку, соответствующую паттерну lesson-XX-*, идя вверх по директориям
      */
     private fun findLessonRoot(currentDir: String): String {
         var dir = File(currentDir)
         
         while (dir != null) {
             // Проверяем, является ли текущая директория корнем урока
-            if (dir.name.startsWith("lesson-") && dir.isDirectory) {
+            if (dir.name.matches(Regex("lesson-\\d+.*")) && dir.isDirectory) {
                 return dir.absolutePath
             }
             
-            // Проверяем, есть ли папка lesson-XX-... в текущей директории
+            // Проверяем, есть ли папка lesson-XX-* в текущей директории
             dir.listFiles()?.firstOrNull { 
-                it.name.startsWith("lesson-") && it.isDirectory 
+                it.isDirectory && it.name.matches(Regex("lesson-\\d+.*"))
             }?.let { 
                 return it.absolutePath 
             }

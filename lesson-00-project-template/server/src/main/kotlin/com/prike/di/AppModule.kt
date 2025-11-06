@@ -1,5 +1,10 @@
 package com.prike.di
 
+import com.prike.Config
+import com.prike.data.client.OpenAIClient
+import com.prike.data.repository.AIRepository
+import com.prike.domain.agent.BaseAgent
+import com.prike.domain.agent.BaseAgentImpl
 import java.io.File
 
 /**
@@ -17,6 +22,38 @@ object AppModule {
     }
     
     /**
+     * Создать OpenAIClient (если конфигурация доступна)
+     */
+    fun createOpenAIClient(): OpenAIClient? {
+        val config = Config.aiConfig ?: return null
+        return OpenAIClient(
+            apiKey = config.apiKey,
+            apiUrl = config.apiUrl,
+            model = config.model,
+            temperature = config.temperature,
+            maxTokens = config.maxTokens,
+            requestTimeoutSeconds = config.requestTimeout,
+            systemPrompt = config.systemPrompt
+        )
+    }
+    
+    /**
+     * Создать репозиторий для работы с DTO
+     */
+    fun createAIRepository(): AIRepository? {
+        val client = createOpenAIClient() ?: return null
+        return AIRepository(client)
+    }
+    
+    /**
+     * Создать базовый агент
+     */
+    fun createBaseAgent(): BaseAgent? {
+        val client = createOpenAIClient() ?: return null
+        return BaseAgentImpl(client)
+    }
+    
+    /**
      * Находит корень урока (папку lesson-XX-...)
      * Ищет папку, начинающуюся с "lesson-", идя вверх по директориям
      */
@@ -26,13 +63,13 @@ object AppModule {
         
         while (dir != null) {
             // Проверяем, является ли текущая директория корнем урока
-            if (dir.name.startsWith("lesson-") && dir.isDirectory) {
+            if (dir.name.matches(Regex("lesson-\\d+.*")) && dir.isDirectory) {
                 return dir.absolutePath
             }
             
             // Проверяем, есть ли папка lesson-XX-... в текущей директории
             dir.listFiles()?.firstOrNull { 
-                it.name.startsWith("lesson-") && it.isDirectory 
+                it.isDirectory && it.name.matches(Regex("lesson-\\d+.*"))
             }?.let { 
                 return it.absolutePath 
             }
@@ -54,6 +91,7 @@ object AppModule {
      */
     fun close() {
         // Закрываем ресурсы здесь при необходимости
+        // Например, закрыть OpenAIClient
     }
 }
 
