@@ -51,7 +51,14 @@ class OpenAIClient(
             systemPrompt?.let { add(MessageDto(role = "system", content = it)) }
             add(MessageDto(role = "user", content = userMessage))
         }
-        
+        return getCompletionWithHistory(messages)
+    }
+    
+    /**
+     * Получить ответ от LLM с использованием истории сообщений
+     * @param messages список сообщений (включая system prompt и историю диалога)
+     */
+    suspend fun getCompletionWithHistory(messages: List<MessageDto>): OpenAIResponse {
         return runCatching {
             val response = client.post(apiUrl) {
                 header(HttpHeaders.Authorization, "Bearer $apiKey")

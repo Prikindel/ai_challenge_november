@@ -3,8 +3,6 @@ package com.prike.di
 import com.prike.Config
 import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
-import com.prike.domain.agent.BaseAgent
-import com.prike.domain.agent.BaseAgentImpl
 import java.io.File
 
 /**
@@ -38,7 +36,7 @@ object AppModule {
     }
     
     /**
-     * Создать репозиторий для работы с DTO
+     * Создать AIRepository (если конфигурация доступна)
      */
     fun createAIRepository(): AIRepository? {
         val client = createOpenAIClient() ?: return null
@@ -46,12 +44,20 @@ object AppModule {
     }
     
     /**
-     * Создать базовый агент
+     * Пример: Создать специализированного агента
+     * BaseAgent - абстрактный класс, нельзя создать напрямую
+     * Создавайте специализированных агентов, наследуя BaseAgent
+     * 
+     * Пример:
+     * fun createMyAgent(): MyAgent? {
+     *     val aiRepository = createAIRepository() ?: return null
+     *     return MyAgent(aiRepository)
+     * }
+     * 
+     * class MyAgent(aiRepository: AIRepository) : BaseAgent(aiRepository) {
+     *     // ваша логика
+     * }
      */
-    fun createBaseAgent(): BaseAgent? {
-        val client = createOpenAIClient() ?: return null
-        return BaseAgentImpl(client)
-    }
     
     /**
      * Находит корень урока (папку lesson-XX-...)

@@ -1,15 +1,33 @@
 package com.prike.domain.agent
 
-/**
- * Базовый интерфейс для агентов, работающих с LLM
- * Определяет общий контракт для всех агентов
- */
-interface BaseAgent {
-    /**
-     * Обработать сообщение пользователя и получить ответ от LLM
-     * @param userMessage сообщение пользователя
-     * @return ответ от LLM (сырой текст или структурированные данные)
-     */
-    suspend fun processMessage(userMessage: String): String
-}
+import com.prike.data.dto.MessageDto
+import com.prike.data.repository.AIRepository
 
+/**
+ * Базовый абстрактный класс для агентов, работающих с LLM
+ * Использует AIRepository для получения данных от LLM
+ * 
+ * Вся логика работы с LLM API находится в репозитории
+ * Агенты получают уже готовые данные (строки) и работают с ними
+ */
+abstract class BaseAgent(
+    protected val aiRepository: AIRepository
+) {
+    /**
+     * Получить ответ от LLM по сообщению пользователя
+     * @param userMessage сообщение пользователя
+     * @return текстовый ответ от LLM
+     */
+    suspend fun getMessage(userMessage: String): String {
+        return aiRepository.getMessage(userMessage)
+    }
+    
+    /**
+     * Получить ответ от LLM с использованием истории сообщений
+     * @param messages список сообщений (включая system prompt и историю диалога)
+     * @return текстовый ответ от LLM
+     */
+    protected suspend fun getMessageWithHistory(messages: List<MessageDto>): String {
+        return aiRepository.getMessageWithHistory(messages)
+    }
+}
