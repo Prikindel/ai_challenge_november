@@ -31,12 +31,13 @@ lesson-XX-brief-description/
 
 ### Конфигурация окружения
 
-Каждый урок использует `.env` файлы для хранения конфигурации:
-- **`.env.example`** - пример конфигурации (хранится в репозитории)
+Проект использует единый `.env` файл в **корне проекта** (`ai_challenge_november/.env`), общий для всех уроков:
+- **`.env`** - конфигурация окружения (не в git, создайте в корне проекта)
+- **`.env.example`** - пример конфигурации (если есть в репозитории)
 
 **Настройка:**
-1. Скопируйте `.env.example` в `.env` в корне урока
-2. Заполните `.env` файл своими значениями (API ключи, URL, модель и т.д.)
+1. Создайте `.env` файл в корне проекта (`ai_challenge_november/.env`)
+2. Добавьте необходимые переменные (например, `OPENAI_API_KEY=your_key`)
 3. Конфигурация загружается автоматически при запуске приложения
 
 Поддержка dotenv реализована через библиотеку `dotenv-kotlin` для Kotlin проектов.
@@ -77,9 +78,8 @@ lesson-XX-brief-description/
 cp -r lesson-00-project-template lesson-XX-description
 
 # Настройте конфигурацию
-cd lesson-XX-description
-cp .env.example .env
-# Заполните .env файл
+# .env файл должен быть в корне проекта (ai_challenge_november/.env)
+# Если его нет, создайте и добавьте OPENAI_API_KEY
 ```
 
 Подробнее: [lesson-00-project-template/README.md](./lesson-00-project-template/README.md)
@@ -88,7 +88,7 @@ cp .env.example .env
 
 1. Скопировать шаблон проекта: `cp -r lesson-00-project-template lesson-XX-description/`
 2. Заполнить README.md с описанием задания
-3. Настроить конфигурацию (`.env`, `config/`)
+3. Настроить конфигурацию (`.env` в корне проекта, `config/` в уроке)
 4. Реализовать согласно построенному плану
 5. Документировать результаты в README задания
 
@@ -97,3 +97,4 @@ cp .env.example .env
 - [lesson-00-project-template](./lesson-00-project-template/) - Шаблон проекта для новых заданий
 - [lesson-01-simple-chat-agent](./lesson-01-simple-chat-agent/) - Простой чат-агент с HTTP API
 - [lesson-02-structured-response](./lesson-02-structured-response/) - Энциклопедия животных со структурированными JSON ответами
+- [lesson-03-interactive-tz-agent](./lesson-03-interactive-tz-agent/) - Интерактивный сборщик ТЗ с управлением историей и механизмом остановки
