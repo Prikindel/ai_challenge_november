@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сборщик ТЗ - AI Agent</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Сборщик Технического Задания</h1>
+            <p class="subtitle">Общайтесь с AI-агентом, чтобы собрать требования и создать ТЗ</p>
+            <div class="header-buttons">
+                <button id="showHistoryBtn" class="history-btn">📜 История переписки</button>
+                <button id="clearHistoryBtn" class="clear-btn">🔄 Начать новый диалог</button>
+            </div>
+        </header>
+        
+        <main>
+            <div id="chatMessages" class="chat-messages"></div>
+            
+            <div id="tzResult" class="tz-result" style="display: none;">
+                <h2>✅ Техническое задание готово!</h2>
+                <div id="tzContent"></div>
+            </div>
+            
+            <div class="input-area">
+                <div id="errorMessage" class="error-message"></div>
+                <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+                    <span>AI думает...</span>
+                </div>
+                <div class="input-container">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Введите ваше сообщение..."
+                        rows="3"
+                    ></textarea>
+                    <button id="sendButton" class="send-button">Отправить</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Модальное окно для отображения JSON -->
+    <div id="jsonModal" class="json-modal" style="display: none;">
+        <div class="json-modal-content">
+            <div class="json-modal-header">
+                <h2>JSON запрос и ответ</h2>
+                <button id="closeJsonModal" class="json-modal-close">×</button>
+            </div>
+            <div class="json-modal-body">
+                <div class="json-section">
+                    <h3>Запрос</h3>
+                    <pre id="requestJson" class="json-code"></pre>
+                </div>
+                <div class="json-section">
+                    <h3>Ответ</h3>
+                    <pre id="responseJson" class="json-code"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для отображения истории переписки -->
+    <div id="historyModal" class="json-modal" style="display: none;">
+        <div class="json-modal-content history-modal-content">
+            <div class="json-modal-header">
+                <h2>📜 История переписки (JSON)</h2>
+                <button id="closeHistoryModal" class="json-modal-close">×</button>
+            </div>
+            <div class="json-modal-body" id="historyModalBody">
+                <div id="historyLoading" class="history-loading">Загрузка истории...</div>
+                <div id="historyContent" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
