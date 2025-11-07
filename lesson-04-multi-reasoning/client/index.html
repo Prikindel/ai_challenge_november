@@ -3,17 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent</title>
+    <title>Эксперимент: Разные способы рассуждения</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>AI Agent</h1>
+            <h1>Эксперимент: Разные способы рассуждения</h1>
+            <p>Сравниваем четыре стратегии ответа LLM на одну логическую задачу.</p>
         </header>
         
         <main>
-            <p>Здесь будет ваш интерфейс</p>
+            <section class="task-section">
+                <h2>Задача</h2>
+                <p id="taskText" class="task-text">Подгружаем условие...</p>
+                <div class="task-actions">
+                    <button id="runExperimentButton">Повторить эксперимент</button>
+                    <span id="statusLabel" class="status-label"></span>
+                </div>
+            </section>
+
+            <section id="resultsSection" class="results-grid hidden">
+                <article class="result-card" id="directCard">
+                    <h3>Direct</h3>
+                    <p class="prompt-label">Использованный промт:</p>
+                    <pre class="prompt-content" data-role="prompt"></pre>
+                    <p class="answer-label">Ответ:</p>
+                    <div class="answer-content" data-role="answer"></div>
+                </article>
+
+                <article class="result-card" id="stepCard">
+                    <h3>Step-by-step</h3>
+                    <p class="prompt-label">Использованный промт:</p>
+                    <pre class="prompt-content" data-role="prompt"></pre>
+                    <p class="answer-label">Ответ:</p>
+                    <div class="answer-content" data-role="answer"></div>
+                </article>
+
+                <article class="result-card" id="promptCard">
+                    <h3>Prompt from other AI</h3>
+                    <p class="prompt-label">Промт, придуманный другой моделью:</p>
+                    <pre class="prompt-content" data-role="generatedPrompt"></pre>
+                    <p class="answer-label">Ответ основного запроса:</p>
+                    <div class="answer-content" data-role="answer"></div>
+                </article>
+
+                <article class="result-card" id="expertsCard">
+                    <h3>Expert panel</h3>
+                    <div class="experts-list" data-role="experts"></div>
+                    <p class="answer-label">Сводный вывод панели:</p>
+                    <div class="answer-content" data-role="summary"></div>
+                </article>
+            </section>
+
+            <section id="comparisonSection" class="comparison hidden">
+                <h2>Сравнение подходов</h2>
+                <p id="comparisonText"></p>
+            </section>
+
+            <section id="errorSection" class="error hidden">
+                <p id="errorText"></p>
+            </section>
         </main>
     </div>
     

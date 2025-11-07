@@ -3,6 +3,7 @@ package com.prike.di
 import com.prike.Config
 import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
+import com.prike.domain.agent.ReasoningAgent
 import java.io.File
 
 /**
@@ -23,6 +24,7 @@ object AppModule {
      * Создать OpenAIClient (если конфигурация доступна)
      */
     fun createOpenAIClient(): OpenAIClient? {
+        cachedClient?.let { return it }
         val config = Config.aiConfig ?: return null
         return OpenAIClient(
             apiKey = config.apiKey,
@@ -32,15 +34,27 @@ object AppModule {
             maxTokens = config.maxTokens,
             requestTimeoutSeconds = config.requestTimeout,
             systemPrompt = config.systemPrompt
-        )
+        ).also { cachedClient = it }
     }
     
+    private var cachedClient: OpenAIClient? = null
+    private var cachedRepository: AIRepository? = null
+    private var cachedReasoningAgent: ReasoningAgent? = null
+
     /**
      * Создать AIRepository (если конфигурация доступна)
      */
     fun createAIRepository(): AIRepository? {
+        cachedRepository?.let { return it }
         val client = createOpenAIClient() ?: return null
-        return AIRepository(client)
+        cachedClient = client
+        return AIRepository(client).also { cachedRepository = it }
+    }
+
+    fun createReasoningAgent(): ReasoningAgent? {
+        cachedReasoningAgent?.let { return it }
+        val repository = createAIRepository() ?: return null
+        return ReasoningAgent(repository).also { cachedReasoningAgent = it }
     }
     
     /**
@@ -96,8 +110,10 @@ object AppModule {
      * Закрыть ресурсы (если нужно)
      */
     fun close() {
-        // Закрываем ресурсы здесь при необходимости
-        // Например, закрыть OpenAIClient
+        cachedClient?.close()
+        cachedClient = null
+        cachedRepository = null
+        cachedReasoningAgent = null
     }
 }
 
