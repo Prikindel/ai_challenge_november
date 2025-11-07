@@ -27,6 +27,10 @@ class ReasoningController(
         routing.post("/reasoning") {
             call.handleReasoningRequest()
         }
+
+        routing.get("/health") {
+            call.respond(HttpStatusCode.OK, mapOf("status" to "ok"))
+        }
     }
 
     private suspend fun ApplicationCall.handleReasoningRequest() {

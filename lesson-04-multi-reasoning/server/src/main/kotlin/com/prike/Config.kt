@@ -59,34 +59,47 @@ object Config {
     
     /**
      * Находит корень урока (папку lesson-XX-*)
-     * Ищет папку, соответствующую паттерну lesson-XX-*, идя вверх по директориям
+     * Сначала пытается определить по расположению текущего класса,
+     * затем по рабочей директории.
      */
     private fun findLessonRoot(currentDir: String): String {
-        var dir = File(currentDir)
-        
+        resolveLessonFromClassLocation()?.let { return it }
+        resolveLessonFromWorkingDirectory(currentDir)?.let { return it }
+        return currentDir
+    }
+
+    private val lessonRegex = Regex("lesson-\\d+.*")
+
+    private fun resolveLessonFromClassLocation(): String? {
+        val url = Config::class.java.protectionDomain.codeSource.location ?: return null
+        var dir = File(url.toURI())
+        if (!dir.isDirectory) {
+            dir = dir.parentFile
+        }
         while (dir != null) {
-            // Проверяем, является ли текущая директория корнем урока
-            if (dir.name.matches(Regex("lesson-\\d+.*")) && dir.isDirectory) {
+            if (dir.isDirectory && dir.name.matches(lessonRegex)) {
                 return dir.absolutePath
             }
-            
-            // Проверяем, есть ли папка lesson-XX-* в текущей директории
-            dir.listFiles()?.firstOrNull { 
-                it.isDirectory && it.name.matches(Regex("lesson-\\d+.*"))
-            }?.let { 
-                return it.absolutePath 
+            dir = dir.parentFile
+        }
+        return null
+    }
+
+    private fun resolveLessonFromWorkingDirectory(startDir: String): String? {
+        var dir = File(startDir)
+        while (dir != null) {
+            if (dir.isDirectory && dir.name.matches(lessonRegex)) {
+                return dir.absolutePath
             }
-            
-            // Идем на уровень выше
-            val parent = dir.parentFile
-            if (parent == null || parent == dir) {
-                break
+            val lessonDir = dir.listFiles()?.firstOrNull { it.isDirectory && it.name.matches(lessonRegex) }
+            if (lessonDir != null) {
+                return lessonDir.absolutePath
             }
+            val parent = dir.parentFile ?: break
+            if (parent == dir) break
             dir = parent
         }
-        
-        // Если не нашли, возвращаем текущую директорию
-        return currentDir
+        return null
     }
 
     // Сервер

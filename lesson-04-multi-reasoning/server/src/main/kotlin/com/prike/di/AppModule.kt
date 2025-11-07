@@ -78,32 +78,43 @@ object AppModule {
      * Ищет папку, начинающуюся с "lesson-", идя вверх по директориям
      */
     private fun findLessonRoot(): String {
-        val currentDir = System.getProperty("user.dir")
-        var dir = File(currentDir)
-        
+        resolveFromClassLocation()?.let { return it }
+        resolveFromWorkingDirectory()?.let { return it }
+        return System.getProperty("user.dir")
+    }
+
+    private fun resolveFromClassLocation(): String? {
+        val regex = Regex("lesson-\\d+.*")
+        val url = AppModule::class.java.protectionDomain.codeSource.location ?: return null
+        var dir = File(url.toURI())
+        if (!dir.isDirectory) {
+            dir = dir.parentFile
+        }
         while (dir != null) {
-            // Проверяем, является ли текущая директория корнем урока
-            if (dir.name.matches(Regex("lesson-\\d+.*")) && dir.isDirectory) {
+            if (dir.isDirectory && dir.name.matches(regex)) {
                 return dir.absolutePath
             }
-            
-            // Проверяем, есть ли папка lesson-XX-... в текущей директории
-            dir.listFiles()?.firstOrNull { 
-                it.isDirectory && it.name.matches(Regex("lesson-\\d+.*"))
-            }?.let { 
-                return it.absolutePath 
+            dir = dir.parentFile
+        }
+        return null
+    }
+
+    private fun resolveFromWorkingDirectory(): String? {
+        val regex = Regex("lesson-\\d+.*")
+        var dir = File(System.getProperty("user.dir"))
+        while (dir != null) {
+            if (dir.isDirectory && dir.name.matches(regex)) {
+                return dir.absolutePath
             }
-            
-            // Идем на уровень выше
-            val parent = dir.parentFile
-            if (parent == null || parent == dir) {
-                break
+            val lessonDir = dir.listFiles()?.firstOrNull { it.isDirectory && it.name.matches(regex) }
+            if (lessonDir != null) {
+                return lessonDir.absolutePath
             }
+            val parent = dir.parentFile ?: break
+            if (parent == dir) break
             dir = parent
         }
-        
-        // Если не нашли, возвращаем текущую директорию
-        return currentDir
+        return null
     }
     
     /**
