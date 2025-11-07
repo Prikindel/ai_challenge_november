@@ -7,6 +7,7 @@ import com.prike.presentation.dto.ExpertPanelResponseDto
 import com.prike.presentation.dto.ExpertResponseDto
 import com.prike.presentation.dto.PromptFromOtherAIResponseDto
 import com.prike.presentation.dto.ReasoningDebugDto
+import com.prike.presentation.dto.ReasoningDefaultTaskResponseDto
 import com.prike.presentation.dto.ReasoningModeResponseDto
 import com.prike.presentation.dto.ReasoningRequestDto
 import com.prike.presentation.dto.ReasoningResponseDto
@@ -28,6 +29,20 @@ class ReasoningController(
             call.handleReasoningRequest()
         }
 
+        routing.get("/reasoning/default") {
+            if (reasoningAgent == null) {
+                call.respond(
+                    HttpStatusCode.ServiceUnavailable,
+                    ErrorResponseDto("AI агент недоступен. Проверьте конфигурацию OpenAI.")
+                )
+            } else {
+                call.respond(
+                    HttpStatusCode.OK,
+                    ReasoningDefaultTaskResponseDto(defaultTask = reasoningAgent.getDefaultTask())
+                )
+            }
+        }
+
         routing.get("/health") {
             call.respond(HttpStatusCode.OK, mapOf("status" to "ok"))
         }
@@ -42,49 +57,61 @@ class ReasoningController(
             return
         }
 
-        runCatching {
+        val request = runCatching {
             receiveNullable<ReasoningRequestDto>()
         }.onFailure { throwable ->
             logger.warn("Не удалось распарсить тело запроса: ${throwable.message}")
-        }
+        }.getOrNull()
 
         try {
-            val result = reasoningAgent.solve()
+            val mode = ReasoningAgent.ReasoningMode.fromString(request?.mode)
+            val result = reasoningAgent.solve(request?.question, mode)
             val response = ReasoningResponseDto(
                 task = result.task,
-                direct = ReasoningModeResponseDto(
-                    prompt = result.direct.prompt,
-                    answer = result.direct.answer,
-                    debug = result.direct.debug.toDto()
-                ),
-                stepByStep = ReasoningModeResponseDto(
-                    prompt = result.stepByStep.prompt,
-                    answer = result.stepByStep.answer,
-                    debug = result.stepByStep.debug.toDto()
-                ),
-                promptFromOtherAI = PromptFromOtherAIResponseDto(
-                    generatedPrompt = result.promptFromOtherAI.generatedPrompt,
-                    answer = result.promptFromOtherAI.answer,
-                    promptDebug = result.promptFromOtherAI.promptDebug.toDto(),
-                    answerDebug = result.promptFromOtherAI.answerDebug.toDto()
-                ),
-                expertPanel = ExpertPanelResponseDto(
-                    experts = result.expertPanel.experts.map { expert ->
-                        ExpertResponseDto(
-                            name = expert.name,
-                            style = expert.style,
-                            answer = expert.answer,
-                            reasoning = expert.reasoning,
-                            debug = expert.debug.toDto()
-                        )
-                    },
-                    summary = result.expertPanel.summary,
-                    summaryDebug = result.expertPanel.summaryDebug.toDto()
-                ),
+                mode = result.mode.name.lowercase(),
+                direct = result.direct?.let {
+                    ReasoningModeResponseDto(
+                        prompt = it.prompt,
+                        answer = it.answer,
+                        debug = it.debug.toDto()
+                    )
+                },
+                stepByStep = result.stepByStep?.let {
+                    ReasoningModeResponseDto(
+                        prompt = it.prompt,
+                        answer = it.answer,
+                        debug = it.debug.toDto()
+                    )
+                },
+                promptFromOtherAI = result.promptFromOtherAI?.let {
+                    PromptFromOtherAIResponseDto(
+                        generatedPrompt = it.generatedPrompt,
+                        answer = it.answer,
+                        notes = it.notes,
+                        usedFallback = it.usedFallback,
+                        promptDebug = it.promptDebug.toDto(),
+                        answerDebug = it.answerDebug.toDto()
+                    )
+                },
+                expertPanel = result.expertPanel?.let { panel ->
+                    ExpertPanelResponseDto(
+                        experts = panel.experts.map { expert ->
+                            ExpertResponseDto(
+                                name = expert.name,
+                                style = expert.style,
+                                answer = expert.answer,
+                                reasoning = expert.reasoning,
+                                debug = expert.debug.toDto()
+                            )
+                        },
+                        summary = panel.summary,
+                        summaryDebug = panel.summaryDebug.toDto()
+                    )
+                },
                 comparison = result.comparison,
-                debug = ReasoningDebugDto(
-                    comparison = result.comparisonDebug.toDto()
-                )
+                debug = result.comparisonDebug?.let {
+                    ReasoningDebugDto(comparison = it.toDto())
+                }
             )
             respond(HttpStatusCode.OK, response)
         } catch (e: AIServiceException) {

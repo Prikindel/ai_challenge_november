@@ -4,40 +4,49 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ReasoningRequestDto(
-    val question: String? = null
+    val question: String? = null,
+    val mode: String? = null
 )
 
 @Serializable
 data class ReasoningResponseDto(
     val task: String,
-    val direct: ReasoningModeResponseDto,
-    val stepByStep: ReasoningModeResponseDto,
-    val promptFromOtherAI: PromptFromOtherAIResponseDto,
-    val expertPanel: ExpertPanelResponseDto,
-    val comparison: String,
-    val debug: ReasoningDebugDto
+    val mode: String,
+    val direct: ReasoningModeResponseDto? = null,
+    val stepByStep: ReasoningModeResponseDto? = null,
+    val promptFromOtherAI: PromptFromOtherAIResponseDto? = null,
+    val expertPanel: ExpertPanelResponseDto? = null,
+    val comparison: String? = null,
+    val debug: ReasoningDebugDto? = null
 )
 
 @Serializable
 data class ReasoningModeResponseDto(
     val prompt: String,
     val answer: String,
-    val debug: DebugInfoDto
+    val debug: DebugInfoDto? = null
 )
 
 @Serializable
 data class PromptFromOtherAIResponseDto(
     val generatedPrompt: String,
     val answer: String,
-    val promptDebug: DebugInfoDto,
-    val answerDebug: DebugInfoDto
+    val notes: String,
+    val usedFallback: Boolean,
+    val promptDebug: DebugInfoDto? = null,
+    val answerDebug: DebugInfoDto? = null
+)
+
+@Serializable
+data class ReasoningDefaultTaskResponseDto(
+    val defaultTask: String
 )
 
 @Serializable
 data class ExpertPanelResponseDto(
     val experts: List<ExpertResponseDto>,
     val summary: String,
-    val summaryDebug: DebugInfoDto
+    val summaryDebug: DebugInfoDto? = null
 )
 
 @Serializable
@@ -46,12 +55,12 @@ data class ExpertResponseDto(
     val style: String,
     val answer: String,
     val reasoning: String,
-    val debug: DebugInfoDto
+    val debug: DebugInfoDto? = null
 )
 
 @Serializable
 data class ReasoningDebugDto(
-    val comparison: DebugInfoDto
+    val comparison: DebugInfoDto? = null
 )
 
 @Serializable

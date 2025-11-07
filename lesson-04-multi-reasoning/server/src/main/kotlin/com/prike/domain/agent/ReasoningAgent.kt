@@ -3,8 +3,8 @@ package com.prike.domain.agent
 import com.prike.data.dto.MessageDto
 import com.prike.data.repository.AIRepository
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 /**
  * Агент, демонстрирующий разные стратегии рассуждения на одной логической задаче.
@@ -12,6 +12,28 @@ import kotlinx.serialization.decodeFromString
 class ReasoningAgent(
     aiRepository: AIRepository
 ) : BaseAgent(aiRepository) {
+
+    enum class ReasoningMode {
+        ALL,
+        DIRECT,
+        STEP_BY_STEP,
+        PROMPT_FROM_OTHER_AI,
+        EXPERT_PANEL,
+        COMPARISON;
+
+        companion object {
+            fun fromString(raw: String?): ReasoningMode {
+                return when (raw?.trim()?.lowercase()) {
+                    "direct" -> DIRECT
+                    "step", "step_by_step", "step-by-step" -> STEP_BY_STEP
+                    "prompt", "prompt_from_other_ai", "prompt-from-other-ai" -> PROMPT_FROM_OTHER_AI
+                    "experts", "expert_panel", "expert-panel" -> EXPERT_PANEL
+                    "comparison", "compare" -> COMPARISON
+                    else -> ALL
+                }
+            }
+        }
+    }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -35,10 +57,38 @@ class ReasoningAgent(
         val comparison: String
     )
 
-    private val puzzle: String =
+    @Serializable
+    private data class GeneratedPromptResponse(
+        val prompt: String,
+        val overview: String? = null
+    )
+
+    private val defaultPuzzle: String =
         """
         У нас есть три друга — Анна, Борис и Виктор. Они получили три разных подарка: книгу, игру и головоломку.
         Известно, что Анна не получила игру, Борис не получил головоломку. Кто что получил?
+        """.trimIndent()
+
+    private val baseSystemPrompt =
+        """
+        Ты — внимательный логик-аналитик. Работай аккуратно, не выдумывай факты.
+        В финале перечисли соответствия между участниками и объектами задачи в формате «Имя — предмет».
+        """.trimIndent()
+
+    private val stepByStepInstruction =
+        """
+        Решай задачу пошагово: перечисли ограничения, рассмотри возможные комбинации, исключи невозможные варианты и сделай вывод.
+        В финале перечисли пары «Имя — предмет» на основе найденного решения.
+        """.trimIndent()
+
+    private fun buildFallbackGeneratedPrompt(puzzle: String) =
+        """
+        Ты — логический помощник. Вот задача:
+
+        $puzzle
+
+        Проанализируй ограничения, перечисли возможные варианты, последовательно исключи несоответствующие и сформулируй окончательный вывод.
+        В конце перечисли соответствия «Имя — предмет» из задачи, по одному на строку.
         """.trimIndent()
 
     private val experts = listOf(
@@ -59,39 +109,112 @@ class ReasoningAgent(
         )
     )
 
-    suspend fun solve(): ReasoningAgentResult {
-        val directPrompt = puzzle
-        val directResult = runSimplePrompt(directPrompt)
+    fun getDefaultTask(): String = defaultPuzzle
 
-        val stepPrompt = buildString {
-            appendLine(puzzle)
-            appendLine()
-            append("Пожалуйста, решай пошагово, явно перечисляя рассуждения и финальный ответ.")
+    suspend fun solve(
+        question: String? = null,
+        mode: ReasoningMode = ReasoningMode.ALL
+    ): ReasoningAgentResult {
+        val puzzle = question?.trim()?.takeIf { it.isNotEmpty() } ?: defaultPuzzle
+
+        return when (mode) {
+            ReasoningMode.ALL -> solveAll(puzzle)
+            ReasoningMode.DIRECT -> {
+                val directResult = runSimplePrompt(buildDirectPrompt(puzzle))
+                ReasoningAgentResult(
+                    task = puzzle,
+                    mode = mode,
+                    direct = directResult
+                )
+            }
+            ReasoningMode.STEP_BY_STEP -> {
+                val stepResult = runSimplePrompt(buildStepPrompt(puzzle))
+                ReasoningAgentResult(
+                    task = puzzle,
+                    mode = mode,
+                    stepByStep = stepResult
+                )
+            }
+            ReasoningMode.PROMPT_FROM_OTHER_AI -> {
+                val promptGenerationResult = runPromptGeneration(puzzle)
+                val executionResult = runGeneratedPrompt(
+                    promptGenerationResult.generatedPrompt,
+                    promptGenerationResult.usedFallback
+                )
+                ReasoningAgentResult(
+                    task = puzzle,
+                    mode = mode,
+                    promptFromOtherAI = PromptFromOtherAIResult(
+                        generatedPrompt = promptGenerationResult.generatedPrompt,
+                        answer = executionResult.answer,
+                        notes = promptGenerationResult.note,
+                        usedFallback = promptGenerationResult.usedFallback,
+                        promptDebug = promptGenerationResult.debug,
+                        answerDebug = executionResult.debug
+                    )
+                )
+            }
+            ReasoningMode.EXPERT_PANEL -> {
+                val expertResults = runExpertPanel(puzzle)
+                val summary = summarizeExpertPanel(expertResults)
+                ReasoningAgentResult(
+                    task = puzzle,
+                    mode = mode,
+                    expertPanel = ExpertPanelResult(
+                        experts = expertResults,
+                        summary = summary.summary,
+                        summaryDebug = summary.summaryDebug
+                    )
+                )
+            }
+            ReasoningMode.COMPARISON -> {
+                val allResult = solveAll(puzzle)
+                ReasoningAgentResult(
+                    task = puzzle,
+                    mode = mode,
+                    direct = allResult.direct,
+                    stepByStep = allResult.stepByStep,
+                    promptFromOtherAI = allResult.promptFromOtherAI,
+                    expertPanel = allResult.expertPanel,
+                    comparison = allResult.comparison,
+                    comparisonDebug = allResult.comparisonDebug
+                )
+            }
         }
-        val stepByStepResult = runSimplePrompt(stepPrompt)
+    }
 
-        val promptGenerationResult = runPromptGeneration()
-        val promptFromOtherAIResult = runGeneratedPrompt(promptGenerationResult.generatedPrompt)
+    private suspend fun solveAll(puzzle: String): ReasoningAgentResult {
+        val directResult = runSimplePrompt(buildDirectPrompt(puzzle))
+        val stepResult = runSimplePrompt(buildStepPrompt(puzzle))
 
-        val expertResults = runExpertPanel()
+        val promptGenerationResult = runPromptGeneration(puzzle)
+        val promptExecutionResult = runGeneratedPrompt(
+            promptGenerationResult.generatedPrompt,
+            promptGenerationResult.usedFallback
+        )
+
+        val expertResults = runExpertPanel(puzzle)
         val expertSummary = summarizeExpertPanel(expertResults)
 
         val comparison = buildComparison(
             directResult = directResult,
-            stepByStepResult = stepByStepResult,
-            promptFromOtherAIResult = promptFromOtherAIResult,
+            stepByStepResult = stepResult,
+            promptFromOtherAIResult = promptExecutionResult,
             expertSummary = expertSummary.summary
         )
 
         return ReasoningAgentResult(
             task = puzzle,
+            mode = ReasoningMode.ALL,
             direct = directResult,
-            stepByStep = stepByStepResult,
+            stepByStep = stepResult,
             promptFromOtherAI = PromptFromOtherAIResult(
                 generatedPrompt = promptGenerationResult.generatedPrompt,
-                answer = promptFromOtherAIResult.answer,
+                answer = promptExecutionResult.answer,
+                notes = promptGenerationResult.note,
+                usedFallback = promptGenerationResult.usedFallback,
                 promptDebug = promptGenerationResult.debug,
-                answerDebug = promptFromOtherAIResult.debug
+                answerDebug = promptExecutionResult.debug
             ),
             expertPanel = ExpertPanelResult(
                 experts = expertResults,
@@ -103,9 +226,22 @@ class ReasoningAgent(
         )
     }
 
+    private fun buildDirectPrompt(puzzle: String): String = buildString {
+        appendLine(puzzle)
+        appendLine()
+        append("Сделай краткое рассуждение и выведи финальный ответ в требуемом формате.")
+    }
+
+    private fun buildStepPrompt(puzzle: String): String = buildString {
+        appendLine(puzzle)
+        appendLine()
+        append(stepByStepInstruction.trim())
+    }
+
     private suspend fun runSimplePrompt(prompt: String): ModeResult {
         val result = getMessageWithHistory(
             listOf(
+                MessageDto(role = "system", content = baseSystemPrompt),
                 MessageDto(role = "user", content = prompt)
             )
         )
@@ -119,28 +255,50 @@ class ReasoningAgent(
         )
     }
 
-    private suspend fun runPromptGeneration(): PromptGenerationResult {
+    private suspend fun runPromptGeneration(puzzle: String): PromptGenerationResult {
         val promptBuilder = getMessageWithHistory(
             listOf(
                 MessageDto(
                     role = "system",
-                    content = "Ты помогаешь другому ИИ решать логические задачи. Подготовь чёткий и полный промт."
+                    content = "Ты генерируешь промты для другой модели. Помоги ей решить логическую задачу корректно."
                 ),
                 MessageDto(
                     role = "user",
                     content = buildString {
-                        appendLine("Составь лучший промт для решения следующей задачи.")
+                        appendLine("Составь оптимальный промт для решения задачи другой моделью.")
+                        appendLine("Промт должен включать чёткие инструкции по анализу и формат финального ответа.")
                         appendLine()
                         appendLine(puzzle)
                         appendLine()
-                        append("Верни только сам промт без лишнего текста.")
+                        appendLine("Верни результат строго в JSON формате:")
+                        appendLine("{")
+                        appendLine("  \"prompt\": \"...\",")
+                        appendLine("  \"overview\": \"короткое пояснение почему промт хорош\"")
+                        appendLine("}")
                     }
                 )
             )
         )
 
+        val parsed = runCatching {
+            json.decodeFromString<GeneratedPromptResponse>(promptBuilder.message)
+        }.getOrNull()
+
+        val rawPrompt = parsed?.prompt?.trim()
+        val sanitized = sanitizeGeneratedPrompt(rawPrompt)
+
+        val usedFallback = sanitized == null
+        val finalPrompt = sanitized ?: buildFallbackGeneratedPrompt(puzzle)
+        val note = when {
+            usedFallback && rawPrompt.isNullOrBlank() -> "Использован резервный промт: модель вернула пустой ответ."
+            usedFallback -> "Использован резервный промт: сгенерированный вариант оказался недостаточно информативным."
+            else -> parsed?.overview ?: "Промт принят без изменений."
+        }
+
         return PromptGenerationResult(
-            generatedPrompt = promptBuilder.message,
+            generatedPrompt = finalPrompt,
+            note = note,
+            usedFallback = usedFallback,
             debug = DebugInfo(
                 llmRequest = promptBuilder.requestJson,
                 llmResponse = promptBuilder.responseJson
@@ -148,10 +306,33 @@ class ReasoningAgent(
         )
     }
 
-    private suspend fun runGeneratedPrompt(prompt: String): ModeResult {
+    private fun sanitizeGeneratedPrompt(candidate: String?): String? {
+        if (candidate.isNullOrBlank()) return null
+        val trimmed = candidate.trim()
+        val hasLength = trimmed.length > 80
+        val mentionsFormat = trimmed.contains("формат", ignoreCase = true) ||
+            trimmed.contains("перечисли", ignoreCase = true) ||
+            trimmed.contains("финал", ignoreCase = true) ||
+            trimmed.contains("в конце", ignoreCase = true)
+        if (!hasLength || !mentionsFormat) {
+            return null
+        }
+        val hasDelimiter = trimmed.contains("—") || trimmed.contains("-")
+        return if (hasDelimiter) trimmed else buildString {
+            appendLine(trimmed.trimEnd())
+            appendLine()
+            appendLine("Финальный ответ представь в формате «Имя — предмет», по одному соответствию на строку.")
+        }
+    }
+
+    private suspend fun runGeneratedPrompt(prompt: String, usedFallback: Boolean): ModeResult {
         val result = getMessageWithHistory(
             listOf(
-                MessageDto(role = "user", content = prompt)
+                MessageDto(role = "system", content = baseSystemPrompt),
+                MessageDto(
+                    role = "user",
+                    content = if (usedFallback) prompt else "$prompt\n\nНе забывай о требуемом формате финального ответа."
+                )
             )
         )
         return ModeResult(
@@ -164,7 +345,7 @@ class ReasoningAgent(
         )
     }
 
-    private suspend fun runExpertPanel(): List<ExpertResult> {
+    private suspend fun runExpertPanel(puzzle: String): List<ExpertResult> {
         return experts.map { expert ->
             val messages = buildList {
                 add(MessageDto(role = "system", content = expert.systemInstruction))
@@ -180,6 +361,8 @@ class ReasoningAgent(
                             appendLine("  \"answer\": \"краткий итоговый ответ\",")
                             appendLine("  \"reasoning\": \"подробное пошаговое обоснование\"")
                             appendLine("}")
+                            appendLine()
+                            appendLine("Финальный ответ в поле \"answer\" перечисли в формате «Имя — предмет», по одному соответствию на строку.")
                         }
                     )
                 )
@@ -212,7 +395,7 @@ class ReasoningAgent(
         val summaryMessages = listOf(
             MessageDto(
                 role = "system",
-                content = "Ты объединяешь выводы группы экспертов и формируешь общий результат."
+                content = "Ты объединяешь выводы группы экспертов и формируешь общий результат. Соблюдай нейтралитет и четкость."
             ),
             MessageDto(
                 role = "user",
@@ -226,6 +409,7 @@ class ReasoningAgent(
                         appendLine("Обоснование: ${expert.reasoning}")
                         appendLine()
                     }
+                    appendLine("Подтверди финальный ответ, перечислив соответствия «Имя — предмет».")
                 }
             )
         )
@@ -294,12 +478,13 @@ class ReasoningAgent(
 
     data class ReasoningAgentResult(
         val task: String,
-        val direct: ModeResult,
-        val stepByStep: ModeResult,
-        val promptFromOtherAI: PromptFromOtherAIResult,
-        val expertPanel: ExpertPanelResult,
-        val comparison: String,
-        val comparisonDebug: DebugInfo
+        val mode: ReasoningMode,
+        val direct: ModeResult? = null,
+        val stepByStep: ModeResult? = null,
+        val promptFromOtherAI: PromptFromOtherAIResult? = null,
+        val expertPanel: ExpertPanelResult? = null,
+        val comparison: String? = null,
+        val comparisonDebug: DebugInfo? = null
     )
 
     data class ModeResult(
@@ -310,12 +495,16 @@ class ReasoningAgent(
 
     data class PromptGenerationResult(
         val generatedPrompt: String,
+        val note: String,
+        val usedFallback: Boolean,
         val debug: DebugInfo
     )
 
     data class PromptFromOtherAIResult(
         val generatedPrompt: String,
         val answer: String,
+        val notes: String,
+        val usedFallback: Boolean,
         val promptDebug: DebugInfo,
         val answerDebug: DebugInfo
     )

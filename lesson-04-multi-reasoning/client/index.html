@@ -15,41 +15,86 @@
         
         <main>
             <section class="task-section">
-                <h2>Задача</h2>
-                <p id="taskText" class="task-text">Подгружаем условие...</p>
-                <div class="task-actions">
-                    <button id="runExperimentButton">Повторить эксперимент</button>
-                    <span id="statusLabel" class="status-label"></span>
+                <div class="task-header">
+                    <h2>Задача</h2>
+                    <p>Отредактируй формулировку, затем запускай нужный режим или всё сразу.</p>
                 </div>
+                <label for="taskInput" class="task-label">Текст задачи</label>
+                <textarea id="taskInput" class="task-input" rows="6" placeholder="Подгружаем условие..."></textarea>
+                
+                <div class="task-controls">
+                    <button class="control-button primary" data-action="direct" id="runDirect">Запустить Direct</button>
+                    <button class="control-button primary" data-action="step" id="runStep">Запустить Step-by-step</button>
+                    <button class="control-button primary" data-action="prompt" id="runPrompt">Запустить Prompt from other AI</button>
+                    <button class="control-button primary" data-action="experts" id="runExperts">Запустить Expert panel</button>
+                    <button class="control-button accent" data-action="all" id="runAll">Запустить все режимы</button>
+                    <button class="control-button ghost" data-action="compare" id="showComparison">Показать сравнение (локально)</button>
+                    <button class="control-button ghost" data-action="llm-compare" id="runLLMComparison">Запросить сравнение у LLM</button>
+                    <button class="control-button ghost" data-action="reset" id="resetResults">Очистить результаты</button>
+                </div>
+
+                <div class="steps-indicator">
+                    <div class="step-indicator" data-mode="direct">
+                        <span class="step-title">Direct</span>
+                        <span class="step-status" data-status="idle">ожидает</span>
+                    </div>
+                    <div class="step-indicator" data-mode="step">
+                        <span class="step-title">Step-by-step</span>
+                        <span class="step-status" data-status="idle">ожидает</span>
+                    </div>
+                    <div class="step-indicator" data-mode="prompt">
+                        <span class="step-title">Prompt from other AI</span>
+                        <span class="step-status" data-status="idle">ожидает</span>
+                    </div>
+                    <div class="step-indicator" data-mode="experts">
+                        <span class="step-title">Expert panel</span>
+                        <span class="step-status" data-status="idle">ожидает</span>
+                    </div>
+                </div>
+
+                <span id="statusLabel" class="status-label"></span>
             </section>
 
             <section id="resultsSection" class="results-grid hidden">
-                <article class="result-card" id="directCard">
-                    <h3>Direct</h3>
+                <article class="result-card hidden" id="directCard" data-mode="direct">
+                    <header class="card-header">
+                        <h3>Direct</h3>
+                        <span class="card-status" data-role="status">—</span>
+                    </header>
                     <p class="prompt-label">Использованный промт:</p>
                     <pre class="prompt-content" data-role="prompt"></pre>
                     <p class="answer-label">Ответ:</p>
                     <div class="answer-content" data-role="answer"></div>
                 </article>
 
-                <article class="result-card" id="stepCard">
-                    <h3>Step-by-step</h3>
+                <article class="result-card hidden" id="stepCard" data-mode="step">
+                    <header class="card-header">
+                        <h3>Step-by-step</h3>
+                        <span class="card-status" data-role="status">—</span>
+                    </header>
                     <p class="prompt-label">Использованный промт:</p>
                     <pre class="prompt-content" data-role="prompt"></pre>
                     <p class="answer-label">Ответ:</p>
                     <div class="answer-content" data-role="answer"></div>
                 </article>
 
-                <article class="result-card" id="promptCard">
-                    <h3>Prompt from other AI</h3>
+                <article class="result-card hidden" id="promptCard" data-mode="prompt">
+                    <header class="card-header">
+                        <h3>Prompt from other AI</h3>
+                        <span class="card-status" data-role="status">—</span>
+                    </header>
                     <p class="prompt-label">Промт, придуманный другой моделью:</p>
                     <pre class="prompt-content" data-role="generatedPrompt"></pre>
+                    <p class="hint-text" data-role="notes"></p>
                     <p class="answer-label">Ответ основного запроса:</p>
                     <div class="answer-content" data-role="answer"></div>
                 </article>
 
-                <article class="result-card" id="expertsCard">
-                    <h3>Expert panel</h3>
+                <article class="result-card hidden" id="expertsCard" data-mode="experts">
+                    <header class="card-header">
+                        <h3>Expert panel</h3>
+                        <span class="card-status" data-role="status">—</span>
+                    </header>
                     <div class="experts-list" data-role="experts"></div>
                     <p class="answer-label">Сводный вывод панели:</p>
                     <div class="answer-content" data-role="summary"></div>
