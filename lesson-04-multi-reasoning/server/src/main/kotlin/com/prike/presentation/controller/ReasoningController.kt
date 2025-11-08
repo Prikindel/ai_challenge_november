@@ -1,6 +1,8 @@
 package com.prike.presentation.controller
 
 import com.prike.domain.agent.ReasoningAgent
+import com.prike.domain.agent.model.DebugInfo
+import com.prike.domain.agent.model.ReasoningMode
 import com.prike.domain.exception.AIServiceException
 import com.prike.presentation.dto.DebugInfoDto
 import com.prike.presentation.dto.ExpertPanelResponseDto
@@ -64,7 +66,7 @@ class ReasoningController(
         }.getOrNull()
 
         try {
-            val mode = ReasoningAgent.ReasoningMode.fromString(request?.mode)
+            val mode = ReasoningMode.fromString(request?.mode)
             val result = reasoningAgent.solve(request?.question, mode)
             val response = ReasoningResponseDto(
                 task = result.task,
@@ -129,7 +131,7 @@ class ReasoningController(
         }
     }
 
-    private fun ReasoningAgent.DebugInfo.toDto() = DebugInfoDto(
+    private fun DebugInfo.toDto() = DebugInfoDto(
         llmRequest = llmRequest,
         llmResponse = llmResponse
     )

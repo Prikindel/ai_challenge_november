@@ -4,6 +4,11 @@ import com.prike.Config
 import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
 import com.prike.domain.agent.ReasoningAgent
+import com.prike.domain.agent.reasoning.ComparisonReasoningAgent
+import com.prike.domain.agent.reasoning.DirectReasoningAgent
+import com.prike.domain.agent.reasoning.ExpertPanelReasoningAgent
+import com.prike.domain.agent.reasoning.PromptFromOtherAIAgent
+import com.prike.domain.agent.reasoning.StepByStepReasoningAgent
 import java.io.File
 
 /**
@@ -54,7 +59,21 @@ object AppModule {
     fun createReasoningAgent(): ReasoningAgent? {
         cachedReasoningAgent?.let { return it }
         val repository = createAIRepository() ?: return null
-        return ReasoningAgent(repository).also { cachedReasoningAgent = it }
+
+        val direct = DirectReasoningAgent(repository)
+        val step = StepByStepReasoningAgent(repository)
+        val prompt = PromptFromOtherAIAgent(repository)
+        val experts = ExpertPanelReasoningAgent(repository)
+        val comparison = ComparisonReasoningAgent(repository)
+
+        return ReasoningAgent(
+            defaultTask = ReasoningAgent.DEFAULT_TASK,
+            directAgent = direct,
+            stepAgent = step,
+            promptAgent = prompt,
+            expertAgent = experts,
+            comparisonAgent = comparison
+        ).also { cachedReasoningAgent = it }
     }
     
     /**
