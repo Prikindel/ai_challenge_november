@@ -39,6 +39,9 @@ object Config {
         
         // Сначала идем вверх по директориям, пока не найдем папку lesson-XX-*
         while (true) {
+            if (dir.name == CURRENT_LESSON_DIR) {
+                return dir.absolutePath
+            }
             // Проверяем, является ли сама директория корнем урока (lesson-XX-*)
             if (dir.name.matches(Regex("lesson-\\d+.*"))) {
                 return dir.absolutePath
@@ -49,12 +52,11 @@ object Config {
                 val lessonDirs = dir.listFiles()?.filter { file ->
                     file.isDirectory && file.name.matches(Regex("lesson-\\d+.*"))
                 }
-                if (lessonDirs != null && lessonDirs.isNotEmpty()) {
-                    // Если запускаем из корня проекта, ищем lesson-02-structured-response
-                    val lesson02 = lessonDirs.firstOrNull { it.name.contains("lesson-02") }
+                if (!lessonDirs.isNullOrEmpty()) {
+                    val target = lessonDirs.firstOrNull { it.name == CURRENT_LESSON_DIR }
                         ?: lessonDirs.firstOrNull()
-                    if (lesson02 != null) {
-                        return lesson02.absolutePath
+                    if (target != null) {
+                        return target.absolutePath
                     }
                 }
             } catch (e: Exception) {
@@ -178,13 +180,21 @@ object Config {
         }.getOrNull()
 
         @Suppress("UNCHECKED_CAST")
-        val lessonSection: Map<String, Any> = runCatching {
+        val lessonSection: Map<String, Any>? = runCatching {
             val lessonValue = configMap?.get("lesson")
             when (lessonValue) {
-                is Map<*, *> -> lessonValue as? Map<String, Any> ?: emptyMap()
-                else -> emptyMap()
+                is Map<*, *> -> lessonValue as? Map<String, Any>
+                else -> null
             }
-        }.getOrElse { emptyMap() }
+        }.getOrNull()
+
+        if (lessonSection.isNullOrEmpty()) {
+            return TemperatureLessonConfig(
+                defaultQuestion = FALLBACK_DEFAULT_QUESTION,
+                defaultTemperatures = FALLBACK_DEFAULT_TEMPERATURES,
+                comparisonTemperature = FALLBACK_COMPARISON_TEMPERATURE
+            )
+        }
 
         val defaultQuestion = (lessonSection["defaultQuestion"] as? String)
             ?.trim()
@@ -206,6 +216,7 @@ object Config {
         )
     }
 
+    private const val CURRENT_LESSON_DIR = "lesson-05-temperature"
     private const val FALLBACK_COMPARISON_TEMPERATURE = 0.4
     private val FALLBACK_DEFAULT_TEMPERATURES = listOf(0.0, 0.7, 1.2)
     private val FALLBACK_DEFAULT_QUESTION = """

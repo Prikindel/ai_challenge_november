@@ -54,6 +54,7 @@ class TemperatureAgent(
 
         return Result(
             defaultQuestion = defaultQuestion,
+            defaultTemperatures = defaultTemperatures.toList(),
             question = question,
             results = runResults,
             comparison = comparison
@@ -222,6 +223,7 @@ class TemperatureAgent(
 
     data class Result(
         val defaultQuestion: String,
+        val defaultTemperatures: List<Double>,
         val question: String,
         val results: List<TemperatureRun>,
         val comparison: ComparisonResult
@@ -303,12 +305,7 @@ class TemperatureAgent(
         val creativity: String,
         val diversity: String,
         val recommendation: String
-    ) {
-        operator fun component1() = accuracy
-        operator fun component2() = creativity
-        operator fun component3() = diversity
-        operator fun component4() = recommendation
-    }
+    )
 
     companion object {
         private const val MIN_TEMPERATURE = 0.0

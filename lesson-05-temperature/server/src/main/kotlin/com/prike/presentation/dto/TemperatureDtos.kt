@@ -11,6 +11,7 @@ data class TemperatureRequestDto(
 @Serializable
 data class TemperatureResponseDto(
     val defaultQuestion: String,
+    val defaultTemperatures: List<Double>,
     val question: String,
     val results: List<TemperatureResultDto>,
     val comparison: TemperatureComparisonDto

@@ -80,6 +80,7 @@ class TemperatureController(
     private fun TemperatureAgent.Result.toDto(): TemperatureResponseDto =
         TemperatureResponseDto(
             defaultQuestion = defaultQuestion,
+            defaultTemperatures = defaultTemperatures,
             question = question,
             results = results.map { it.toDto() },
             comparison = comparison.toDto()

@@ -61,6 +61,9 @@ object AppModule {
         
         // Идем вверх по директориям, пока не найдем папку lesson-XX-*
         while (true) {
+            if (dir.name == CURRENT_LESSON_DIR) {
+                return dir.absolutePath
+            }
             // Проверяем, является ли сама директория корнем урока (lesson-XX-*)
             if (dir.name.matches(Regex("lesson-\\d+.*"))) {
                 return dir.absolutePath
@@ -71,12 +74,11 @@ object AppModule {
                 val lessonDirs = dir.listFiles()?.filter { file ->
                     file.isDirectory && file.name.matches(Regex("lesson-\\d+.*"))
                 }
-                if (lessonDirs != null && lessonDirs.isNotEmpty()) {
-                    // Если запускаем из корня проекта, ищем lesson-02-structured-response
-                    val lesson02 = lessonDirs.firstOrNull { it.name.contains("lesson-02") }
+                if (!lessonDirs.isNullOrEmpty()) {
+                    val target = lessonDirs.firstOrNull { it.name == CURRENT_LESSON_DIR }
                         ?: lessonDirs.firstOrNull()
-                    if (lesson02 != null) {
-                        return lesson02.absolutePath
+                    if (target != null) {
+                        return target.absolutePath
                     }
                 }
             } catch (e: Exception) {
@@ -103,4 +105,5 @@ object AppModule {
         aiClient?.close()
         aiClient = null
     }
+    private const val CURRENT_LESSON_DIR = "lesson-05-temperature"
 }

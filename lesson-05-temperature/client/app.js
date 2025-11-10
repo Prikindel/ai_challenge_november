@@ -1,340 +1,509 @@
-// Конфигурация
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = '';
 
-// Элементы DOM
-const chatMessages = document.getElementById('chatMessages');
-const messageInput = document.getElementById('messageInput');
-const sendButton = document.getElementById('sendButton');
-const errorMessage = document.getElementById('errorMessage');
-const loadingIndicator = document.getElementById('loadingIndicator');
+const elements = {
+    defaultQuestion: document.getElementById('defaultQuestion'),
+    questionInput: document.getElementById('questionInput'),
+    questionCounter: document.getElementById('questionCounter'),
+    resetQuestionButton: document.getElementById('resetQuestionButton'),
+    addTemperatureButton: document.getElementById('addTemperatureButton'),
+    temperaturesList: document.getElementById('temperaturesList'),
+    runExperimentButton: document.getElementById('runExperimentButton'),
+    loadingIndicator: document.getElementById('loadingIndicator'),
+    errorMessage: document.getElementById('errorMessage'),
+    usedQuestion: document.getElementById('usedQuestion'),
+    usedDefaultQuestion: document.getElementById('usedDefaultQuestion'),
+    temperatureCards: document.getElementById('temperatureCards'),
+    comparisonBlock: document.getElementById('comparisonBlock'),
+    comparisonSummary: document.getElementById('comparisonSummary'),
+    comparisonDetails: document.getElementById('comparisonDetails'),
+    historyList: document.getElementById('historyList'),
+    clearHistoryButton: document.getElementById('clearHistoryButton'),
+};
 
-// Хранение последнего LLM запроса и ответа
-let lastLlmRequest = null;
-let lastLlmResponse = null;
+const state = {
+    defaultQuestion: '',
+    defaultTemperatures: [],
+    currentTemperatures: [],
+    history: [],
+};
 
-// Функция для добавления сообщения пользователя в чат
-function addUserMessage(text) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message user-message';
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    
-    const paragraph = document.createElement('p');
-    paragraph.textContent = text;
-    contentDiv.appendChild(paragraph);
-    
-    messageDiv.appendChild(contentDiv);
-    chatMessages.appendChild(messageDiv);
-    
-    scrollToBottom();
+function init() {
+    bindEvents();
+    fetchDefaults();
+    updateQuestionCounter();
+    renderHistory();
 }
 
-// Функция для отображения карточки животного
-function addAnimalCard(animalInfo) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message bot-message';
-    
-    const cardDiv = document.createElement('div');
-    cardDiv.className = 'animal-card';
-    
-    // Заголовок с названием животного
-    const title = document.createElement('h3');
-    title.textContent = animalInfo.name;
-    cardDiv.appendChild(title);
-    
-    // Описание
-    const descriptionItem = createInfoItem('Описание', animalInfo.description);
-    cardDiv.appendChild(descriptionItem);
-    
-    // Питание
-    const dietItem = createInfoItem('Питание', animalInfo.diet);
-    cardDiv.appendChild(dietItem);
-    
-    // Продолжительность жизни
-    const lifespanItem = createInfoItem('Продолжительность жизни', animalInfo.lifespan);
-    cardDiv.appendChild(lifespanItem);
-    
-    // Среда обитания
-    const habitatItem = createInfoItem('Среда обитания', animalInfo.habitat);
-    cardDiv.appendChild(habitatItem);
-    
-    messageDiv.appendChild(cardDiv);
-    
-    // Добавляем кнопку просмотра JSON
-    addJsonViewButton(messageDiv);
-    
-    chatMessages.appendChild(messageDiv);
-    
-    scrollToBottom();
+function bindEvents() {
+    elements.addTemperatureButton.addEventListener('click', () => {
+        addTemperature(suggestTemperature());
+        renderTemperatures();
+    });
+
+    elements.resetQuestionButton.addEventListener('click', () => {
+        elements.questionInput.value = '';
+        updateQuestionCounter();
+    });
+
+    elements.questionInput.addEventListener('input', updateQuestionCounter);
+
+    elements.runExperimentButton.addEventListener('click', runExperiment);
+
+    elements.clearHistoryButton.addEventListener('click', () => {
+        state.history = [];
+        renderHistory();
+    });
 }
 
-// Функция для создания элемента информации
-function createInfoItem(label, value) {
-    const itemDiv = document.createElement('div');
-    itemDiv.className = 'animal-info-item';
-    
-    const labelSpan = document.createElement('div');
-    labelSpan.className = 'animal-info-label';
-    labelSpan.textContent = label;
-    
-    const valueDiv = document.createElement('div');
-    valueDiv.className = 'animal-info-value';
-    valueDiv.textContent = value;
-    
-    itemDiv.appendChild(labelSpan);
-    itemDiv.appendChild(valueDiv);
-    
-    return itemDiv;
-}
-
-// Функция для отображения ошибки валидации темы
-function addTopicError(errorMessage) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message bot-message';
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'topic-error';
-    
-    const icon = document.createElement('div');
-    icon.className = 'topic-error-icon';
-    icon.textContent = '⚠️';
-    
-    const message = document.createElement('div');
-    message.className = 'topic-error-message';
-    message.textContent = errorMessage;
-    
-    errorDiv.appendChild(icon);
-    errorDiv.appendChild(message);
-    
-    messageDiv.appendChild(errorDiv);
-    
-    // Добавляем кнопку просмотра JSON
-    addJsonViewButton(messageDiv);
-    
-    chatMessages.appendChild(messageDiv);
-    
-    scrollToBottom();
-}
-
-// Функция для добавления кнопки просмотра JSON
-function addJsonViewButton(messageDiv) {
-    if (!lastLlmRequest || !lastLlmResponse) {
-        return;
-    }
-    
-    // Находим контейнер карточки или ошибки
-    const cardOrError = messageDiv.querySelector('.animal-card, .topic-error');
-    if (!cardOrError) {
-        return;
-    }
-    
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'json-view-button-container';
-    
-    const jsonButton = document.createElement('button');
-    jsonButton.className = 'json-view-button';
-    jsonButton.innerHTML = '📋 Показать JSON';
-    jsonButton.onclick = () => showJsonModal(lastLlmRequest, lastLlmResponse);
-    
-    buttonContainer.appendChild(jsonButton);
-    
-    // Добавляем кнопку после карточки/ошибки, но внутри messageDiv
-    cardOrError.appendChild(buttonContainer);
-}
-
-// Функция для отображения модального окна с JSON
-function showJsonModal(request, response) {
-    const modal = document.getElementById('jsonModal');
-    const requestJson = document.getElementById('requestJson');
-    const responseJson = document.getElementById('responseJson');
-    const closeButton = document.getElementById('closeJsonModal');
-    
-    // Форматируем JSON с отступами (данные приходят как JSON строки)
-    let requestText = '';
-    let responseText = '';
-    
-    // Парсим и форматируем запрос
+async function fetchDefaults() {
+    showError();
     try {
-        if (typeof request === 'string') {
-            const parsed = JSON.parse(request);
-            requestText = JSON.stringify(parsed, null, 2);
-        } else {
-            requestText = JSON.stringify(request, null, 2);
+        const response = await fetch(`${API_BASE_URL}/temperature`);
+        if (!response.ok) {
+            throw new Error('Не удалось получить дефолтные настройки');
         }
-    } catch (e) {
-        // Если не удалось распарсить, показываем как есть
-        requestText = typeof request === 'string' ? request : String(request);
+        const data = await response.json();
+        applyDefaults(data);
+    } catch (error) {
+        console.error(error);
+        showError('Ошибка загрузки настроек. Убедитесь, что сервер запущен.');
     }
-    
-    // Парсим и форматируем ответ
-    try {
-        if (typeof response === 'string') {
-            const parsed = JSON.parse(response);
-            responseText = JSON.stringify(parsed, null, 2);
-        } else {
-            responseText = JSON.stringify(response, null, 2);
-        }
-    } catch (e) {
-        // Если не удалось распарсить, показываем как есть
-        responseText = typeof response === 'string' ? response : String(response);
+}
+
+function applyDefaults(data, options = {}) {
+    const { overwriteTemperatures = true } = options;
+
+    state.defaultQuestion = data?.defaultQuestion ?? state.defaultQuestion;
+
+    if (Array.isArray(data?.defaultTemperatures) && data.defaultTemperatures.length > 0) {
+        state.defaultTemperatures = data.defaultTemperatures.map((value) =>
+            roundTemperature(Number(value) || 0)
+        );
     }
-    
-    requestJson.textContent = requestText;
-    responseJson.textContent = responseText;
-    
-    // Показываем модальное окно
-    modal.style.display = 'flex';
-    
-    // Закрытие по клику на кнопку
-    closeButton.onclick = () => {
-        modal.style.display = 'none';
-    };
-    
-    // Закрытие по клику вне модального окна
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
-    };
-    
-    // Закрытие по нажатию Escape
-    const escapeHandler = (e) => {
-        if (e.key === 'Escape') {
-            modal.style.display = 'none';
-            document.removeEventListener('keydown', escapeHandler);
-        }
-    };
-    document.addEventListener('keydown', escapeHandler);
+
+    elements.defaultQuestion.textContent = state.defaultQuestion || '—';
+
+    if (overwriteTemperatures) {
+        state.currentTemperatures = [...state.defaultTemperatures];
+        renderTemperatures();
+    }
 }
 
-// Функция для отображения ошибки
-function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.classList.add('show');
-    
-    // Скрыть ошибку через 5 секунд
-    setTimeout(() => {
-        errorMessage.classList.remove('show');
-    }, 5000);
+function updateQuestionCounter() {
+    const currentLength = elements.questionInput.value.length;
+    elements.questionCounter.textContent = `${currentLength} / 2000`;
 }
 
-// Функция для скролла вниз
-function scrollToBottom() {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
+function renderTemperatures() {
+    elements.temperaturesList.innerHTML = '';
 
-// Функция для отправки сообщения
-async function sendMessage() {
-    const message = messageInput.value.trim();
-    
-    if (!message) {
+    if (state.currentTemperatures.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = `
+            <div class="empty-icon">🌡️</div>
+            <p>Добавьте хотя бы одну температуру, чтобы запустить эксперимент.</p>
+        `;
+        elements.temperaturesList.appendChild(empty);
         return;
     }
-    
-    // Валидация длины сообщения
-    if (message.length > 2000) {
-        showError('Сообщение слишком длинное (максимум 2000 символов)');
+
+    state.currentTemperatures.forEach((temperature, index) => {
+        const item = document.createElement('div');
+        const category = categorizeTemperature(temperature);
+        item.className = `temperature-item ${category}`;
+
+        const badge = document.createElement('div');
+        badge.className = 'temperature-badge';
+        badge.textContent = formatTemperature(temperature);
+
+        const label = document.createElement('label');
+        label.innerHTML = `
+            <span>Температура #${index + 1}</span>
+        `;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.1';
+        input.min = '0';
+        input.max = '2';
+        input.value = temperature.toFixed(2);
+        input.addEventListener('change', (event) => {
+            const value = parseFloat(event.target.value.replace(',', '.'));
+            const normalized = Number.isFinite(value) ? clamp(value, 0, 2) : temperature;
+            state.currentTemperatures[index] = roundTemperature(normalized);
+            renderTemperatures();
+        });
+        input.addEventListener('focus', (event) => event.target.select());
+
+        const buttonsWrapper = document.createElement('div');
+        buttonsWrapper.style.display = 'flex';
+        buttonsWrapper.style.gap = '12px';
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'remove-temperature';
+        removeButton.textContent = 'Удалить';
+        removeButton.disabled = state.currentTemperatures.length === 1;
+        removeButton.addEventListener('click', () => {
+            if (state.currentTemperatures.length === 1) return;
+            state.currentTemperatures.splice(index, 1);
+            renderTemperatures();
+        });
+
+        label.appendChild(input);
+        buttonsWrapper.appendChild(removeButton);
+
+        item.appendChild(badge);
+        item.appendChild(label);
+        item.appendChild(buttonsWrapper);
+        elements.temperaturesList.appendChild(item);
+    });
+}
+
+function addTemperature(value) {
+    const normalized = roundTemperature(clamp(value, 0, 2));
+    state.currentTemperatures.push(normalized);
+}
+
+function suggestTemperature() {
+    if (state.currentTemperatures.length === 0) return 0.7;
+    const last = state.currentTemperatures[state.currentTemperatures.length - 1];
+    return Math.min(last + 0.3, 2);
+}
+
+function roundTemperature(value) {
+    return Math.round(value * 100) / 100;
+}
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+function categorizeTemperature(value) {
+    if (value < 0.35) return 'cool';
+    if (value < 0.85) return 'warm';
+    return 'hot';
+}
+
+function formatTemperature(value) {
+    return value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+async function runExperiment() {
+    const question = elements.questionInput.value.trim();
+    const temperatures = state.currentTemperatures.filter((value) => Number.isFinite(value));
+
+    if (temperatures.length === 0) {
+        showError('Добавьте хотя бы одно корректное значение температуры (0.0 — 2.0).');
         return;
     }
-    
-    // Добавляем сообщение пользователя в чат
-    addUserMessage(message);
-    
-    // Очищаем поле ввода и блокируем его
-    messageInput.value = '';
-    messageInput.disabled = true;
-    sendButton.disabled = true;
-    loadingIndicator.style.display = 'flex';
-    errorMessage.classList.remove('show');
-    
+
+    showError();
+    setLoading(true);
+
+    const payload = {
+        temperatures,
+    };
+
+    if (question.length > 0) {
+        payload.question = question;
+    }
+
     try {
-        // Сохраняем запрос
-        const requestData = { message: message };
-        lastRequest = requestData;
-        
-        // Отправляем запрос на сервер
-        const response = await fetch(`${API_BASE_URL}/chat`, {
+        const response = await fetch(`${API_BASE_URL}/temperature`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestData),
+            body: JSON.stringify(payload),
         });
-        
+
         const data = await response.json();
-        
-        // Сохраняем LLM запрос и ответ для отображения (приходят как JSON строки)
-        if (data.debug) {
-            lastLlmRequest = data.debug.llmRequest;
-            lastLlmResponse = data.debug.llmResponse;
-        } else {
-            lastLlmRequest = null;
-            lastLlmResponse = null;
-        }
-        
+
         if (!response.ok) {
-            // Обработка ошибок от сервера
-            const errorText = data.error || 'Произошла ошибка при отправке сообщения';
-            showError(errorText);
-            return;
+            const message = data?.error ?? 'Не удалось выполнить эксперимент';
+            throw new Error(message);
         }
-        
-        // Обрабатываем структурированный ответ
-        if (data.response) {
-            const responseData = data.response;
-            
-            // Проверяем тип ответа (success или error)
-            if (responseData.type === 'success' && responseData.data) {
-                // Отображаем карточку животного
-                addAnimalCard(responseData.data);
-            } else if (responseData.type === 'error' && responseData.error) {
-                // Отображаем ошибку валидации темы
-                addTopicError(responseData.error.message || 'Ошибка валидации темы');
-            } else {
-                showError('Получен некорректный ответ от сервера');
-            }
-        } else {
-            showError('Получен некорректный ответ от сервера');
+
+        applyDefaults(data, { overwriteTemperatures: false });
+
+        const temperaturesFromResult = Array.isArray(data.results)
+            ? data.results
+                  .map((result) => roundTemperature(Number(result.temperature) || 0))
+                  .filter((value) => Number.isFinite(value))
+            : [];
+
+        if (temperaturesFromResult.length > 0) {
+            state.currentTemperatures = temperaturesFromResult;
         }
-        
+
+        renderTemperatures();
+        renderResults(data);
     } catch (error) {
-        console.error('Error:', error);
-        showError('Не удалось подключиться к серверу. Убедитесь, что сервер запущен на ' + API_BASE_URL);
+        console.error(error);
+        showError(error.message || 'Во время запроса произошла ошибка');
     } finally {
-        // Разблокируем поле ввода
-        messageInput.disabled = false;
-        sendButton.disabled = false;
-        loadingIndicator.style.display = 'none';
-        messageInput.focus();
+        setLoading(false);
     }
 }
 
-// Обработчик клика на кнопку отправки
-sendButton.addEventListener('click', sendMessage);
+function setLoading(isLoading) {
+    elements.runExperimentButton.disabled = isLoading;
+    elements.loadingIndicator.hidden = !isLoading;
+}
 
-// Обработчик нажатия Enter в поле ввода
-messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+function showError(message = '') {
+    if (!message) {
+        elements.errorMessage.hidden = true;
+        elements.errorMessage.textContent = '';
+        return;
     }
-});
+    elements.errorMessage.hidden = false;
+    elements.errorMessage.textContent = message;
+}
 
-// Фокус на поле ввода при загрузке
-messageInput.focus();
+function renderResults(data, options = { addToHistory: true }) {
+    const { defaultQuestion, question, results, comparison } = data;
 
-// Проверка доступности сервера при загрузке
-async function checkServerHealth() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/health`);
-        if (!response.ok) {
-            showError('Сервер недоступен. Убедитесь, что он запущен.');
+    elements.usedQuestion.textContent = question || '—';
+    elements.usedDefaultQuestion.textContent = defaultQuestion || '—';
+
+    elements.temperatureCards.innerHTML = '';
+    results.forEach((result) => {
+        elements.temperatureCards.appendChild(renderResultCard(result));
+    });
+
+    if (comparison?.summary) {
+        elements.comparisonBlock.hidden = false;
+        elements.comparisonSummary.textContent = comparison.summary;
+        elements.comparisonDetails.innerHTML = '';
+
+        comparison.perTemperature.forEach((item) => {
+            const card = document.createElement('article');
+            card.className = 'comparison-card';
+
+            const title = document.createElement('strong');
+            title.textContent = `${item.mode} (${formatTemperature(item.temperature)})`;
+
+            const metrics = document.createElement('div');
+            metrics.className = 'comparison-metrics';
+            metrics.innerHTML = `
+                <span>Точность: ${item.accuracy}</span>
+                <span>Креативность: ${item.creativity}</span>
+                <span>Разнообразие: ${item.diversity}</span>
+            `;
+
+            const recommendation = document.createElement('p');
+            recommendation.textContent = item.recommendation;
+
+            card.appendChild(title);
+            card.appendChild(metrics);
+            card.appendChild(recommendation);
+            elements.comparisonDetails.appendChild(card);
+        });
+    } else {
+        elements.comparisonBlock.hidden = true;
+    }
+
+    if (options.addToHistory) {
+        pushHistoryEntry({
+            timestamp: Date.now(),
+            question,
+            defaultQuestion,
+            temperatures: results.map((result) => result.temperature),
+            payload: data,
+        });
+    }
+}
+
+function renderResultCard(result) {
+    const card = document.createElement('article');
+    const category = categorizeTemperature(result.temperature);
+    const highlightMap = {
+        cool: 'highlight-low',
+        warm: 'highlight-medium',
+        hot: 'highlight-high',
+    };
+    card.className = `temperature-card ${highlightMap[category] ?? ''}`;
+
+    const header = document.createElement('div');
+    header.className = 'temperature-header';
+    header.innerHTML = `
+        <div class="temperature-mode">${result.mode}</div>
+        <div class="temperature-value">t = ${formatTemperature(result.temperature)}</div>
+    `;
+
+    const answer = document.createElement('div');
+    answer.className = 'temperature-answer';
+    if (result.answer) {
+        const html = typeof marked !== 'undefined' ? marked.parse(result.answer) : escapeHtml(result.answer);
+        answer.innerHTML = html;
+    } else {
+        answer.textContent = 'Ответ отсутствует 😢';
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'temperature-meta';
+    const chips = buildMetaChips(result.meta);
+    if (chips.length === 0) {
+        meta.innerHTML = '<span class="meta-chip">Метрики недоступны</span>';
+    } else {
+        chips.forEach((chip) => meta.appendChild(chip));
+    }
+
+    card.appendChild(header);
+    card.appendChild(answer);
+    card.appendChild(meta);
+    return card;
+}
+
+function buildMetaChips(meta = {}) {
+    const chips = [];
+    if (meta.durationMs != null) {
+        const chip = document.createElement('span');
+        chip.className = 'meta-chip';
+        chip.textContent = `⏱ ${formatDuration(meta.durationMs)}`;
+        chips.push(chip);
+    }
+
+    if (meta.totalTokens != null) {
+        const chip = document.createElement('span');
+        chip.className = 'meta-chip';
+        const prompt = meta.promptTokens ?? '—';
+        const completion = meta.completionTokens ?? '—';
+        chip.textContent = `🔤 ${meta.totalTokens} токенов (prompt: ${prompt}, completion: ${completion})`;
+        chips.push(chip);
+    }
+
+    if (meta.requestJson) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'meta-chip';
+        chip.style.cursor = 'pointer';
+        chip.textContent = '📋 Посмотреть JSON';
+        chip.addEventListener('click', () => {
+            openJsonModal(meta.requestJson, meta.responseJson);
+        });
+        chips.push(chip);
+    }
+
+    return chips;
+}
+
+function formatDuration(ms) {
+    if (ms < 1000) {
+        return `${ms} мс`;
+    }
+    return `${(ms / 1000).toFixed(2)} с`;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function openJsonModal(requestJson, responseJson) {
+    const modal = document.createElement('dialog');
+    modal.className = 'json-modal';
+    modal.innerHTML = `
+        <div class="json-modal-content">
+            <header class="json-modal-header">
+                <h3>Запрос и ответ LLM</h3>
+                <button class="json-modal-close" type="button">×</button>
+            </header>
+            <div class="json-modal-body">
+                <section>
+                    <h4>Запрос</h4>
+                    <pre>${formatJsonForDisplay(requestJson)}</pre>
+                </section>
+                <section>
+                    <h4>Ответ</h4>
+                    <pre>${formatJsonForDisplay(responseJson)}</pre>
+                </section>
+            </div>
+        </div>
+    `;
+
+    modal.querySelector('.json-modal-close').addEventListener('click', () => modal.close());
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.close();
         }
-    } catch (error) {
-        showError('Не удалось подключиться к серверу. Убедитесь, что сервер запущен на ' + API_BASE_URL);
+    });
+    modal.addEventListener('close', () => modal.remove());
+
+    document.body.appendChild(modal);
+    modal.showModal();
+}
+
+function formatJsonForDisplay(value) {
+    if (!value) return '—';
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return escapeHtml(JSON.stringify(parsed, null, 2));
+    } catch {
+        return escapeHtml(String(value));
     }
 }
 
-// Проверяем здоровье сервера при загрузке страницы
-checkServerHealth();
+function pushHistoryEntry(entry) {
+    state.history.unshift(entry);
+    if (state.history.length > 10) {
+        state.history.pop();
+    }
+    renderHistory();
+}
+
+function renderHistory() {
+    if (state.history.length === 0) {
+        elements.historyList.classList.add('empty');
+        elements.historyList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📜</div>
+                <p>Пока ничего нет. Проведите эксперимент и история появится здесь.</p>
+            </div>
+        `;
+        return;
+    }
+
+    elements.historyList.classList.remove('empty');
+    elements.historyList.innerHTML = '';
+
+    state.history.forEach((entry) => {
+        const item = document.createElement('article');
+        item.className = 'history-entry';
+
+        const time = document.createElement('time');
+        time.dateTime = new Date(entry.timestamp).toISOString();
+        time.textContent = new Date(entry.timestamp).toLocaleString();
+
+        const question = document.createElement('div');
+        question.innerHTML = `<strong>Вопрос:</strong> ${entry.question || 'дефолтный пример'}`;
+
+        const temps = document.createElement('ul');
+        entry.temperatures.forEach((temp) => {
+            const li = document.createElement('li');
+            li.textContent = `t = ${formatTemperature(temp)}`;
+            temps.appendChild(li);
+        });
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Открыть результаты';
+        button.addEventListener('click', () => {
+            renderResults(entry.payload, { addToHistory: false });
+        });
+
+        item.appendChild(time);
+        item.appendChild(question);
+        item.appendChild(temps);
+        item.appendChild(button);
+
+        elements.historyList.appendChild(item);
+    });
+}
+
+init();
+
