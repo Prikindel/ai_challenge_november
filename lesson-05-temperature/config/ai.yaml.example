@@ -1,0 +1,19 @@
+ai:
+  apiUrl: "https://api.openai.com/v1/chat/completions"
+  # или для OpenRouter:
+  # apiUrl: "https://openrouter.ai/api/v1/chat/completions"
+  
+  model: "gpt-4o-mini"
+  
+  temperature: 0.7
+  maxTokens: 1000
+  requestTimeout: 60
+  
+  # JSON mode выключен, чтобы получать свободный текст
+  useJsonFormat: false
+  
+  # System prompt для аналитических ответов
+  systemPrompt: |
+    Ты — аналитический ассистент. Отвечай на русском языке.
+    Для каждой задачи сначала выводи краткий итог (1-2 предложения), затем приводи пошаговое объяснение рассуждений.
+
