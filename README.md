@@ -94,7 +94,9 @@ cp -r lesson-00-project-template lesson-XX-description
 
 ## Задания
 
-- [lesson-00-project-template](./lesson-00-project-template/) - Шаблон проекта для новых заданий
-- [lesson-01-simple-chat-agent](./lesson-01-simple-chat-agent/) - Простой чат-агент с HTTP API
-- [lesson-02-structured-response](./lesson-02-structured-response/) - Энциклопедия животных со структурированными JSON ответами
-- [lesson-03-interactive-tz-agent](./lesson-03-interactive-tz-agent/) - Интерактивный сборщик ТЗ с управлением историей и механизмом остановки
+- [lesson-00-project-template](./lesson-00-project-template/) — шаблон для новых уроков
+- [lesson-01-simple-chat-agent](./lesson-01-simple-chat-agent/) — базовый чат-агент с HTTP API
+- [lesson-02-structured-response](./lesson-02-structured-response/) — энциклопедия животных со структурированными JSON-ответами
+- [lesson-03-interactive-tz-agent](./lesson-03-interactive-tz-agent/) — интерактивный сборщик ТЗ с управлением историей
+- [lesson-04-multi-reasoning](./lesson-04-multi-reasoning/) — агент с несколькими стратегиями рассуждения и сравнением результатов
+- [lesson-05-temperature](./lesson-05-temperature/) — температурные режимы LLM: сравнение точности, креативности и метрик
