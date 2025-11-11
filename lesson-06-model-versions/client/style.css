@@ -507,6 +507,7 @@ main {
     overflow: hidden;
     box-shadow: var(--shadow-sm);
     transition: transform var(--transition-fast), box-shadow var(--transition-fast), border var(--transition-fast);
+    width: 100%;
 }
 
 .model-card::after {
@@ -581,6 +582,15 @@ main {
 .model-answer {
     color: rgba(226, 232, 240, 0.88);
     line-height: 1.65;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.model-answer pre,
+.model-answer code {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre-wrap;
 }
 
 .model-answer h3,
@@ -870,6 +880,22 @@ dialog.json-modal::backdrop {
 
 .links-block li a:hover {
     color: #f8fafc;
+}
+
+.comparison-toggle {
+    background: rgba(15, 23, 42, 0.55);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    padding: 14px 18px;
+    font-size: 14px;
+    color: rgba(226, 232, 240, 0.88);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.comparison-toggle input {
+    accent-color: #f97316;
 }
 
 @media (max-width: 992px) {

@@ -5,7 +5,7 @@ const elements = {
     questionInput: document.getElementById('questionInput'),
     questionCounter: document.getElementById('questionCounter'),
     resetQuestionButton: document.getElementById('resetQuestionButton'),
-    resetModelsButton: document.getElementById('resetModelsButton'),
+    includeComparisonToggle: document.getElementById('includeComparisonToggle'),
     selectedModels: document.getElementById('selectedModels'),
     modelsCatalog: document.getElementById('modelsCatalog'),
     runButton: document.getElementById('runExperimentButton'),
@@ -28,6 +28,7 @@ const state = {
     catalog: [],
     selectedModelIds: [],
     history: [],
+    includeComparison: true,
 };
 
 function init() {
@@ -45,10 +46,8 @@ function bindEvents() {
         updateQuestionCounter();
     });
 
-    elements.resetModelsButton.addEventListener('click', () => {
-        state.selectedModelIds = [...(state.catalogDefaults ?? state.selectedModelIds)];
-        renderSelectedModels();
-        renderModelsCatalog();
+    elements.includeComparisonToggle.addEventListener('change', (event) => {
+        state.includeComparison = event.target.checked;
     });
 
     elements.clearHistoryButton.addEventListener('click', () => {
@@ -213,7 +212,9 @@ async function runComparison() {
     showError();
     setLoading(true);
 
-    const payload = {};
+    const payload = {
+        includeComparison: state.includeComparison,
+    };
     if (question.length > 0) {
         payload.question = question;
     }
@@ -240,6 +241,7 @@ async function runComparison() {
             question: data.question,
             modelIds: data.modelResults?.map((item) => item.modelId) ?? modelIds,
             summary: data.comparisonSummary,
+            includeComparison: data.comparisonEnabled,
             payload: data,
         });
     } catch (error) {
@@ -255,6 +257,9 @@ function renderResults(data, options = { addToHistory: false }) {
     const modelNames = (data.modelResults || []).map((item) => item.displayName || item.modelId);
     const modelIds = (data.modelResults || []).map((item) => item.modelId);
     state.selectedModelIds = modelIds.length ? [...modelIds] : state.selectedModelIds;
+    const comparisonEnabled = data.comparisonEnabled ?? state.includeComparison ?? true;
+    state.includeComparison = comparisonEnabled;
+    elements.includeComparisonToggle.checked = comparisonEnabled;
     renderSelectedModels();
     renderModelsCatalog();
     elements.usedModels.textContent = modelNames.length ? modelNames.join(', ') : '—';
@@ -264,15 +269,20 @@ function renderResults(data, options = { addToHistory: false }) {
         elements.modelCards.appendChild(renderModelCard(result, index));
     });
 
-    if (data.comparisonSummary) {
+    const summaryText = (data.comparisonSummary || '').trim();
+    if (comparisonEnabled && summaryText.length > 0) {
         elements.comparisonBlock.hidden = false;
-        elements.comparisonSummary.textContent = data.comparisonSummary;
+        elements.comparisonSummary.innerHTML = typeof marked !== 'undefined'
+            ? marked.parse(summaryText)
+            : summaryText;
         elements.comparisonDetails.innerHTML = '';
         (data.modelResults || []).forEach((result) => {
             elements.comparisonDetails.appendChild(renderComparisonRow(result));
         });
     } else {
         elements.comparisonBlock.hidden = true;
+        elements.comparisonSummary.innerHTML = '';
+        elements.comparisonDetails.innerHTML = '';
     }
 
     if (Array.isArray(data.modelLinks) && data.modelLinks.length) {
@@ -297,7 +307,8 @@ function renderResults(data, options = { addToHistory: false }) {
             timestamp: Date.now(),
             question: data.question,
             modelIds: data.modelResults?.map((item) => item.modelId) ?? [],
-            summary: data.comparisonSummary,
+            summary: summaryText,
+            includeComparison: comparisonEnabled,
             payload: data,
         });
     }
@@ -482,6 +493,7 @@ function renderHistory() {
     elements.historyList.innerHTML = '';
 
     state.history.forEach((entry) => {
+        const includeComparison = entry.includeComparison ?? true;
         const item = document.createElement('article');
         item.className = 'history-entry';
 
@@ -500,12 +512,16 @@ function renderHistory() {
         });
 
         const summary = document.createElement('p');
-        summary.textContent = entry.summary || 'Без сравнительного комментария';
+        summary.textContent = includeComparison
+            ? (entry.summary || 'Сводка отсутствует')
+            : 'Сравнение не строилось';
 
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = 'Открыть результаты';
         button.addEventListener('click', () => {
+            state.includeComparison = includeComparison;
+            elements.includeComparisonToggle.checked = includeComparison;
             renderResults(entry.payload, { addToHistory: false });
         });
 

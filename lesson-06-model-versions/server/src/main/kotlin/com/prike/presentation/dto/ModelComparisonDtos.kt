@@ -22,7 +22,8 @@ data class ModelInfoDto(
 @Serializable
 data class ModelComparisonRequestDto(
     val question: String? = null,
-    val modelIds: List<String>? = null
+    val modelIds: List<String>? = null,
+    val includeComparison: Boolean? = null
 )
 
 @Serializable
@@ -32,7 +33,8 @@ data class ModelComparisonResponseDto(
     val question: String,
     val modelResults: List<ModelResultDto>,
     val comparisonSummary: String,
-    val modelLinks: List<ModelLinkDto>
+    val modelLinks: List<ModelLinkDto>,
+    val comparisonEnabled: Boolean
 )
 
 @Serializable

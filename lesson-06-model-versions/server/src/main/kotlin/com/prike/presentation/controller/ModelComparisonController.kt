@@ -62,7 +62,11 @@ class ModelComparisonController(
     private suspend fun ApplicationCall.handleCompareRequest() {
         try {
             val request = receive<ModelComparisonRequestDto>()
-            val result = agent.compare(request.question, request.modelIds)
+            val result = agent.compare(
+                requestedQuestion = request.question,
+                requestedModelIds = request.modelIds,
+                includeComparison = request.includeComparison ?: true
+            )
             respond(
                 HttpStatusCode.OK,
                 result.toDto()
@@ -97,7 +101,8 @@ class ModelComparisonController(
             question = question,
             modelResults = modelResults.map { it.toDto() },
             comparisonSummary = comparisonSummary,
-            modelLinks = modelLinks.map { it.toDto() }
+            modelLinks = modelLinks.map { it.toDto() },
+            comparisonEnabled = comparisonEnabled
         )
 
     private fun ModelComparisonAgent.ModelRun.toDto(): ModelResultDto =

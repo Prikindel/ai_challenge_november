@@ -6,6 +6,7 @@ import com.prike.domain.exception.ValidationException
 import com.prike.domain.repository.AIRepository
 import com.prike.domain.repository.AIResponseFormat
 import com.prike.domain.repository.ModelInvocationRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -28,12 +29,14 @@ class ModelComparisonAgent(
 
     suspend fun compare(
         requestedQuestion: String?,
-        requestedModelIds: List<String>?): Result = coroutineScope {
+        requestedModelIds: List<String>?,
+        includeComparison: Boolean
+    ): Result = coroutineScope {
         val question = sanitizeQuestion(requestedQuestion)
         val models = resolveModels(requestedModelIds)
 
         val runs = models.map { model ->
-            async {
+            async(Dispatchers.IO) {
                 val settings = buildInvocationSettings(model)
                 val startedAt = System.currentTimeMillis()
                 runCatching {
@@ -90,18 +93,20 @@ class ModelComparisonAgent(
             }
         }.awaitAll()
 
-        val referenceModel = runs.firstOrNull { !it.isError }
-            ?.let { run -> models.firstOrNull { it.id == run.modelId } }
+        val summary = if (includeComparison) {
+            val referenceModel = runs.firstOrNull { !it.isError }
+                ?.let { run -> models.firstOrNull { it.id == run.modelId } }
 
-        val summary = if (referenceModel != null) {
-            runCatching {
-                generateSummary(question, runs, referenceModel)
-            }.getOrElse {
+            if (referenceModel != null) {
+                runCatching {
+                    generateSummary(question, runs, referenceModel)
+                }.getOrElse {
+                    fallbackSummary(runs)
+                }
+            } else {
                 fallbackSummary(runs)
             }
-        } else {
-            fallbackSummary(runs)
-        }
+        } else ""
 
         val modelLinks = models.map { model ->
             ModelLink(
@@ -115,10 +120,15 @@ class ModelComparisonAgent(
             defaultModelIds = lessonConfig.defaultModelIds,
             question = question,
             modelResults = runs,
-            comparisonSummary = summary,
-            modelLinks = modelLinks
+            comparisonSummary = summary.cleanSummary(),
+            modelLinks = modelLinks,
+            comparisonEnabled = includeComparison
         )
     }
+
+    private fun String.cleanSummary(): String =
+        this.replace(Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL), "")
+            .trim()
 
     private fun sanitizeQuestion(requestedQuestion: String?): String {
         val normalized = requestedQuestion
@@ -273,7 +283,8 @@ class ModelComparisonAgent(
         val question: String,
         val modelResults: List<ModelRun>,
         val comparisonSummary: String,
-        val modelLinks: List<ModelLink>
+        val modelLinks: List<ModelLink>,
+        val comparisonEnabled: Boolean
     )
 
     data class ModelRun(
