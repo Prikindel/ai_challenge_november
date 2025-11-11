@@ -3,40 +3,56 @@ lesson:
     Какие ключевые отличия между моделями и в каких сценариях лучше выбрать каждую?
     Сформулируй сравнительный ответ с акцентом на практические рекомендации.
   defaultModelIds:
-    - mistralai/Mistral-7B-Instruct-v0.3
-    - tiiuae/falcon-7b-instruct
-    - HuggingFaceH4/zephyr-7b-beta
+    - deepseek-ai/DeepSeek-R1
+    - Qwen/Qwen2.5-7B-Instruct
+    - google/gemma-2-9b-it
 models:
-  - id: mistralai/Mistral-7B-Instruct-v0.3
-    displayName: Mistral 7B Instruct v0.3
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3
-    defaultParams:
-      temperature: 0.7
-      max_tokens: 550
-      top_p: 0.95
-  - id: tiiuae/falcon-7b-instruct
-    displayName: Falcon 7B Instruct
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/tiiuae/falcon-7b-instruct
-    defaultParams:
-      temperature: 0.75
-      max_tokens: 520
-      top_k: 40
-  - id: HuggingFaceH4/zephyr-7b-beta
-    displayName: Zephyr 7B Beta
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/HuggingFaceH4/zephyr-7b-beta
+  - id: deepseek-ai/DeepSeek-R1
+    displayName: DeepSeek R1
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/deepseek-ai/DeepSeek-R1
     defaultParams:
       temperature: 0.6
-      max_tokens: 600
+      max_tokens: 700
       top_p: 0.9
-  - id: openchat/openchat-3.5-0106
-    displayName: OpenChat 3.5-0106
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/openchat/openchat-3.5-0106
+  - id: openai/gpt-oss-120b
+    displayName: GPT-OSS 120B
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/openai/gpt-oss-120b
     defaultParams:
       temperature: 0.65
-      max_tokens: 600
+      max_tokens: 750
+      top_p: 0.95
+  - id: Qwen/Qwen2.5-7B-Instruct
+    displayName: Qwen2.5 7B Instruct
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/Qwen/Qwen2.5-7B-Instruct
+    defaultParams:
+      temperature: 0.6
+      max_tokens: 650
+      top_p: 0.9
+  - id: google/gemma-2-9b-it
+    displayName: Gemma 2 9B IT
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/google/gemma-2-9b-it
+    defaultParams:
+      temperature: 0.6
+      max_tokens: 650
       top_p: 0.92
+  - id: meta-llama/Llama-3.2-3B-Instruct
+    displayName: Llama 3.2 3B Instruct
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+    defaultParams:
+      temperature: 0.55
+      max_tokens: 600
+      top_p: 0.9
+  - id: MiniMaxAI/MiniMax-M2
+    displayName: MiniMax M2
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/MiniMaxAI/MiniMax-M2
+    defaultParams:
+      temperature: 0.6
+      max_tokens: 620
+      top_p: 0.9
 
