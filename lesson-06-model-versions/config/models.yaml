@@ -6,6 +6,7 @@ lesson:
     - meta-llama/Meta-Llama-3.1-8B-Instruct
     - mistralai/Mistral-7B-Instruct-v0.3
     - tiiuae/falcon-7b-instruct
+    - zai-org/GLM-4.6
 models:
   - id: meta-llama/Meta-Llama-3.1-8B-Instruct
     displayName: Llama 3.1 8B Instruct
@@ -35,4 +36,31 @@ models:
       temperature: 0.75
       max_tokens: 520
       top_k: 40
+  - id: zai-org/GLM-4.6
+    displayName: GLM-4.6 (zai-org)
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/zai-org/GLM-4.6
+    defaultParams:
+      temperature: 0.65
+      max_tokens: 640
+      top_p: 0.9
+  - id: unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
+    displayName: Qwen3 Coder 30B (Unsloth)
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
+    pricePer1kTokensUsd: 0.16
+    defaultParams:
+      temperature: 0.55
+      max_tokens: 700
+      top_p: 0.9
+      frequency_penalty: 0.1
+  - id: mlx-community/aquif-3.5-Max-42B-A3B-mlx-bf16
+    displayName: Aquif 3.5 Max 42B (mlx)
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/mlx-community/aquif-3.5-Max-42B-A3B-mlx-bf16
+    pricePer1kTokensUsd: 0.22
+    defaultParams:
+      temperature: 0.6
+      max_tokens: 720
+      top_p: 0.92
 
