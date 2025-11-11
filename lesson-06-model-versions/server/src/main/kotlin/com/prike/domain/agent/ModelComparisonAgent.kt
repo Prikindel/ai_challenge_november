@@ -6,6 +6,9 @@ import com.prike.domain.exception.ValidationException
 import com.prike.domain.repository.AIRepository
 import com.prike.domain.repository.AIResponseFormat
 import com.prike.domain.repository.ModelInvocationRequest
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import kotlin.math.max
 import kotlin.math.round
@@ -25,66 +28,67 @@ class ModelComparisonAgent(
 
     suspend fun compare(
         requestedQuestion: String?,
-        requestedModelIds: List<String>?
-    ): Result {
+        requestedModelIds: List<String>?): Result = coroutineScope {
         val question = sanitizeQuestion(requestedQuestion)
         val models = resolveModels(requestedModelIds)
 
         val runs = models.map { model ->
-            val settings = buildInvocationSettings(model)
-            val startedAt = System.currentTimeMillis()
-            runCatching {
-                val completion = aiRepository.getCompletion(
-                    ModelInvocationRequest(
-                        prompt = buildAnswerPrompt(question),
-                        modelId = model.id,
-                        endpoint = model.endpoint,
-                        temperature = settings.temperature,
-                        maxTokens = settings.maxTokens,
-                        systemPrompt = settings.systemPrompt,
-                        responseFormat = AIResponseFormat.TEXT,
-                        additionalParams = settings.additionalParams
+            async {
+                val settings = buildInvocationSettings(model)
+                val startedAt = System.currentTimeMillis()
+                runCatching {
+                    val completion = aiRepository.getCompletion(
+                        ModelInvocationRequest(
+                            prompt = buildAnswerPrompt(question),
+                            modelId = model.id,
+                            endpoint = model.endpoint,
+                            temperature = settings.temperature,
+                            maxTokens = settings.maxTokens,
+                            systemPrompt = settings.systemPrompt,
+                            responseFormat = AIResponseFormat.TEXT,
+                            additionalParams = settings.additionalParams
+                        )
                     )
-                )
 
-                val costUsd = computeCostUsd(
-                    pricePer1kTokensUsd = model.pricePer1kTokensUsd,
-                    totalTokens = completion.meta.totalTokens
-                )
+                    val costUsd = computeCostUsd(
+                        pricePer1kTokensUsd = model.pricePer1kTokensUsd,
+                        totalTokens = completion.meta.totalTokens
+                    )
 
-                ModelRun(
-                    modelId = model.id,
-                    displayName = model.displayName,
-                    huggingFaceUrl = model.huggingFaceUrl,
-                    answer = completion.content,
-                    meta = ModelRunMeta(
-                        durationMs = completion.meta.durationMs,
-                        promptTokens = completion.meta.promptTokens,
-                        completionTokens = completion.meta.completionTokens,
-                        totalTokens = completion.meta.totalTokens,
-                        costUsd = costUsd
-                    ),
-                    isError = false
-                )
-            }.getOrElse { throwable ->
-                val duration = System.currentTimeMillis() - startedAt
-                logger.warn("Не удалось получить ответ от модели ${model.id}", throwable)
-                ModelRun(
-                    modelId = model.id,
-                    displayName = model.displayName,
-                    huggingFaceUrl = model.huggingFaceUrl,
-                    answer = formatFailureMessage(throwable),
-                    meta = ModelRunMeta(
-                        durationMs = duration,
-                        promptTokens = null,
-                        completionTokens = null,
-                        totalTokens = null,
-                        costUsd = null
-                    ),
-                    isError = true
-                )
+                    ModelRun(
+                        modelId = model.id,
+                        displayName = model.displayName,
+                        huggingFaceUrl = model.huggingFaceUrl,
+                        answer = completion.content,
+                        meta = ModelRunMeta(
+                            durationMs = completion.meta.durationMs,
+                            promptTokens = completion.meta.promptTokens,
+                            completionTokens = completion.meta.completionTokens,
+                            totalTokens = completion.meta.totalTokens,
+                            costUsd = costUsd
+                        ),
+                        isError = false
+                    )
+                }.getOrElse { throwable ->
+                    val duration = System.currentTimeMillis() - startedAt
+                    logger.warn("Не удалось получить ответ от модели ${model.id}", throwable)
+                    ModelRun(
+                        modelId = model.id,
+                        displayName = model.displayName,
+                        huggingFaceUrl = model.huggingFaceUrl,
+                        answer = formatFailureMessage(throwable),
+                        meta = ModelRunMeta(
+                            durationMs = duration,
+                            promptTokens = null,
+                            completionTokens = null,
+                            totalTokens = null,
+                            costUsd = null
+                        ),
+                        isError = true
+                    )
+                }
             }
-        }
+        }.awaitAll()
 
         val referenceModel = runs.firstOrNull { !it.isError }
             ?.let { run -> models.firstOrNull { it.id == run.modelId } }
@@ -106,7 +110,7 @@ class ModelComparisonAgent(
             )
         }
 
-        return Result(
+        Result(
             defaultQuestion = lessonConfig.defaultQuestion,
             defaultModelIds = lessonConfig.defaultModelIds,
             question = question,
