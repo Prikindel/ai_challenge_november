@@ -3,26 +3,14 @@ lesson:
     Какие ключевые отличия между моделями и в каких сценариях лучше выбрать каждую?
     Сформулируй сравнительный ответ с акцентом на практические рекомендации.
   defaultModelIds:
-    - meta-llama/Meta-Llama-3.1-8B-Instruct
     - mistralai/Mistral-7B-Instruct-v0.3
     - tiiuae/falcon-7b-instruct
-    - zai-org/GLM-4.6
+    - HuggingFaceH4/zephyr-7b-beta
 models:
-  - id: meta-llama/Meta-Llama-3.1-8B-Instruct
-    displayName: Llama 3.1 8B Instruct
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
-    pricePer1kTokensUsd: 0.12
-    defaultParams:
-      temperature: 0.6
-      max_tokens: 600
-      top_p: 0.9
-      presence_penalty: 0.2
   - id: mistralai/Mistral-7B-Instruct-v0.3
     displayName: Mistral 7B Instruct v0.3
     endpoint: https://api-inference.huggingface.co/v1/chat/completions
     huggingFaceUrl: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3
-    pricePer1kTokensUsd: 0.08
     defaultParams:
       temperature: 0.7
       max_tokens: 550
@@ -31,36 +19,24 @@ models:
     displayName: Falcon 7B Instruct
     endpoint: https://api-inference.huggingface.co/v1/chat/completions
     huggingFaceUrl: https://huggingface.co/tiiuae/falcon-7b-instruct
-    pricePer1kTokensUsd: 0.06
     defaultParams:
       temperature: 0.75
       max_tokens: 520
       top_k: 40
-  - id: zai-org/GLM-4.6
-    displayName: GLM-4.6 (zai-org)
+  - id: HuggingFaceH4/zephyr-7b-beta
+    displayName: Zephyr 7B Beta
     endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/zai-org/GLM-4.6
-    defaultParams:
-      temperature: 0.65
-      max_tokens: 640
-      top_p: 0.9
-  - id: unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
-    displayName: Qwen3 Coder 30B (Unsloth)
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
-    pricePer1kTokensUsd: 0.16
-    defaultParams:
-      temperature: 0.55
-      max_tokens: 700
-      top_p: 0.9
-      frequency_penalty: 0.1
-  - id: mlx-community/aquif-3.5-Max-42B-A3B-mlx-bf16
-    displayName: Aquif 3.5 Max 42B (mlx)
-    endpoint: https://api-inference.huggingface.co/v1/chat/completions
-    huggingFaceUrl: https://huggingface.co/mlx-community/aquif-3.5-Max-42B-A3B-mlx-bf16
-    pricePer1kTokensUsd: 0.22
+    huggingFaceUrl: https://huggingface.co/HuggingFaceH4/zephyr-7b-beta
     defaultParams:
       temperature: 0.6
-      max_tokens: 720
+      max_tokens: 600
+      top_p: 0.9
+  - id: openchat/openchat-3.5-0106
+    displayName: OpenChat 3.5-0106
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/openchat/openchat-3.5-0106
+    defaultParams:
+      temperature: 0.65
+      max_tokens: 600
       top_p: 0.92
 
