@@ -5,62 +5,66 @@ const elements = {
     questionInput: document.getElementById('questionInput'),
     questionCounter: document.getElementById('questionCounter'),
     resetQuestionButton: document.getElementById('resetQuestionButton'),
-    addTemperatureButton: document.getElementById('addTemperatureButton'),
-    temperaturesList: document.getElementById('temperaturesList'),
-    runExperimentButton: document.getElementById('runExperimentButton'),
+    resetModelsButton: document.getElementById('resetModelsButton'),
+    selectedModels: document.getElementById('selectedModels'),
+    modelsCatalog: document.getElementById('modelsCatalog'),
+    runButton: document.getElementById('runExperimentButton'),
     loadingIndicator: document.getElementById('loadingIndicator'),
     errorMessage: document.getElementById('errorMessage'),
     usedQuestion: document.getElementById('usedQuestion'),
-    usedDefaultQuestion: document.getElementById('usedDefaultQuestion'),
-    temperatureCards: document.getElementById('temperatureCards'),
+    usedModels: document.getElementById('usedModels'),
+    modelCards: document.getElementById('modelCards'),
     comparisonBlock: document.getElementById('comparisonBlock'),
     comparisonSummary: document.getElementById('comparisonSummary'),
     comparisonDetails: document.getElementById('comparisonDetails'),
+    modelLinksBlock: document.getElementById('modelLinksBlock'),
+    modelLinksList: document.getElementById('modelLinksList'),
     historyList: document.getElementById('historyList'),
     clearHistoryButton: document.getElementById('clearHistoryButton'),
 };
 
 const state = {
     defaultQuestion: '',
-    defaultTemperatures: [],
-    currentTemperatures: [],
+    catalog: [],
+    selectedModelIds: [],
     history: [],
 };
 
 function init() {
     bindEvents();
-    fetchDefaults();
+    fetchCatalog();
     updateQuestionCounter();
     renderHistory();
 }
 
 function bindEvents() {
-    elements.addTemperatureButton.addEventListener('click', () => {
-        addTemperature(suggestTemperature());
-        renderTemperatures();
-    });
+    elements.questionInput.addEventListener('input', updateQuestionCounter);
 
     elements.resetQuestionButton.addEventListener('click', () => {
         elements.questionInput.value = '';
         updateQuestionCounter();
     });
 
-    elements.questionInput.addEventListener('input', updateQuestionCounter);
-
-    elements.runExperimentButton.addEventListener('click', runExperiment);
+    elements.resetModelsButton.addEventListener('click', () => {
+        state.selectedModelIds = [...(state.catalogDefaults ?? state.selectedModelIds)];
+        renderSelectedModels();
+        renderModelsCatalog();
+    });
 
     elements.clearHistoryButton.addEventListener('click', () => {
         state.history = [];
         renderHistory();
     });
+
+    elements.runButton.addEventListener('click', runComparison);
 }
 
-async function fetchDefaults() {
+async function fetchCatalog() {
     showError();
     try {
-        const response = await fetch(`${API_BASE_URL}/temperature`);
+        const response = await fetch(`${API_BASE_URL}/api/models`);
         if (!response.ok) {
-            throw new Error('Не удалось получить дефолтные настройки');
+            throw new Error('Не удалось получить список моделей');
         }
         const data = await response.json();
         applyDefaults(data);
@@ -70,176 +74,174 @@ async function fetchDefaults() {
     }
 }
 
-function applyDefaults(data, options = {}) {
-    const { overwriteTemperatures = true } = options;
-
+function applyDefaults(data) {
     state.defaultQuestion = data?.defaultQuestion ?? state.defaultQuestion;
-
-    if (Array.isArray(data?.defaultTemperatures) && data.defaultTemperatures.length > 0) {
-        state.defaultTemperatures = data.defaultTemperatures.map((value) =>
-            roundTemperature(Number(value) || 0)
-        );
+    const catalog = Array.isArray(data?.models) ? data.models : [];
+    state.catalog = catalog;
+    state.catalogDefaults = Array.isArray(data?.defaultModelIds) ? data.defaultModelIds : [];
+    if (!state.selectedModelIds.length) {
+        state.selectedModelIds = [...state.catalogDefaults];
     }
 
     elements.defaultQuestion.textContent = state.defaultQuestion || '—';
 
-    if (overwriteTemperatures) {
-        state.currentTemperatures = [...state.defaultTemperatures];
-        renderTemperatures();
-    }
+    renderSelectedModels();
+    renderModelsCatalog();
 }
 
 function updateQuestionCounter() {
     const currentLength = elements.questionInput.value.length;
-    elements.questionCounter.textContent = `${currentLength} / 2000`;
+    elements.questionCounter.textContent = `${currentLength} / 4000`;
 }
 
-function renderTemperatures() {
-    elements.temperaturesList.innerHTML = '';
+function renderSelectedModels() {
+    elements.selectedModels.innerHTML = '';
 
-    if (state.currentTemperatures.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'empty-state';
-        empty.innerHTML = `
-            <div class="empty-icon">🌡️</div>
-            <p>Добавьте хотя бы одну температуру, чтобы запустить эксперимент.</p>
+    if (!state.selectedModelIds.length) {
+        elements.selectedModels.classList.add('empty');
+        elements.selectedModels.innerHTML = `
+            <div>Не выбрано ни одной модели. Добавьте карточки ниже.</div>
         `;
-        elements.temperaturesList.appendChild(empty);
         return;
     }
 
-    state.currentTemperatures.forEach((temperature, index) => {
-        const item = document.createElement('div');
-        const category = categorizeTemperature(temperature);
-        item.className = `temperature-item ${category}`;
+    elements.selectedModels.classList.remove('empty');
 
-        const badge = document.createElement('div');
-        badge.className = 'temperature-badge';
-        badge.textContent = formatTemperature(temperature);
-
-        const label = document.createElement('label');
-        label.innerHTML = `
-            <span>Температура #${index + 1}</span>
+    state.selectedModelIds.forEach((modelId) => {
+        const info = getModelById(modelId);
+        const chip = document.createElement('span');
+        chip.className = 'model-chip';
+        chip.innerHTML = `
+            <span>${info?.displayName ?? modelId}</span>
         `;
-
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.step = '0.1';
-        input.min = '0';
-        input.max = '2';
-        input.value = temperature.toFixed(2);
-        input.addEventListener('change', (event) => {
-            const value = parseFloat(event.target.value.replace(',', '.'));
-            const normalized = Number.isFinite(value) ? clamp(value, 0, 2) : temperature;
-            state.currentTemperatures[index] = roundTemperature(normalized);
-            renderTemperatures();
-        });
-        input.addEventListener('focus', (event) => event.target.select());
-
-        const buttonsWrapper = document.createElement('div');
-        buttonsWrapper.style.display = 'flex';
-        buttonsWrapper.style.gap = '12px';
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'remove-temperature';
-        removeButton.textContent = 'Удалить';
-        removeButton.disabled = state.currentTemperatures.length === 1;
+        removeButton.setAttribute('aria-label', `Удалить модель ${info?.displayName ?? modelId}`);
+        removeButton.textContent = '×';
         removeButton.addEventListener('click', () => {
-            if (state.currentTemperatures.length === 1) return;
-            state.currentTemperatures.splice(index, 1);
-            renderTemperatures();
+            state.selectedModelIds = state.selectedModelIds.filter((id) => id !== modelId);
+            renderSelectedModels();
+            renderModelsCatalog();
         });
 
-        label.appendChild(input);
-        buttonsWrapper.appendChild(removeButton);
-
-        item.appendChild(badge);
-        item.appendChild(label);
-        item.appendChild(buttonsWrapper);
-        elements.temperaturesList.appendChild(item);
+        chip.appendChild(removeButton);
+        elements.selectedModels.appendChild(chip);
     });
 }
 
-function addTemperature(value) {
-    const normalized = roundTemperature(clamp(value, 0, 2));
-    state.currentTemperatures.push(normalized);
-}
+function renderModelsCatalog() {
+    elements.modelsCatalog.innerHTML = '';
 
-function suggestTemperature() {
-    if (state.currentTemperatures.length === 0) return 0.7;
-    const last = state.currentTemperatures[state.currentTemperatures.length - 1];
-    return Math.min(last + 0.3, 2);
-}
-
-function roundTemperature(value) {
-    return Math.round(value * 100) / 100;
-}
-
-function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-}
-
-function categorizeTemperature(value) {
-    if (value < 0.35) return 'cool';
-    if (value < 0.85) return 'warm';
-    return 'hot';
-}
-
-function formatTemperature(value) {
-    return value.toFixed(2).replace(/\.?0+$/, '');
-}
-
-async function runExperiment() {
-    const question = elements.questionInput.value.trim();
-    const temperatures = state.currentTemperatures.filter((value) => Number.isFinite(value));
-
-    if (temperatures.length === 0) {
-        showError('Добавьте хотя бы одно корректное значение температуры (0.0 — 2.0).');
+    if (!state.catalog.length) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'empty-state';
+        placeholder.innerHTML = `
+            <div class="empty-icon">🧩</div>
+            <p>Список моделей пуст. Проверьте конфигурацию.</p>
+        `;
+        elements.modelsCatalog.appendChild(placeholder);
         return;
     }
+
+    state.catalog.forEach((model) => {
+        const card = document.createElement('article');
+        card.className = 'catalog-card';
+        if (state.selectedModelIds.includes(model.id)) {
+            card.classList.add('selected');
+        }
+
+        const title = document.createElement('h4');
+        title.textContent = model.displayName;
+
+        const description = document.createElement('p');
+        description.textContent = model.huggingFaceUrl.replace('https://huggingface.co/', '');
+
+        const meta = document.createElement('div');
+        meta.className = 'catalog-meta';
+        if (typeof model.pricePer1kTokensUsd === 'number') {
+            meta.innerHTML += `<span>💰 $${model.pricePer1kTokensUsd.toFixed(2)} за 1k токенов</span>`;
+        } else {
+            meta.innerHTML += '<span>💰 цена не указана</span>';
+        }
+        meta.innerHTML += `<span>🔁 endpoint: ${model.endpoint.split('//')[1] ?? model.endpoint}</span>`;
+
+        const params = formatDefaultParams(model.defaultParams);
+        if (params) {
+            meta.innerHTML += `<span>⚙️ ${params}</span>`;
+        }
+
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.textContent = state.selectedModelIds.includes(model.id)
+            ? 'Убрать'
+            : 'Добавить';
+        toggleButton.addEventListener('click', () => toggleModelSelection(model.id));
+
+        card.appendChild(title);
+        card.appendChild(description);
+        card.appendChild(meta);
+        card.appendChild(toggleButton);
+        elements.modelsCatalog.appendChild(card);
+    });
+}
+
+function toggleModelSelection(modelId) {
+    if (state.selectedModelIds.includes(modelId)) {
+        state.selectedModelIds = state.selectedModelIds.filter((id) => id !== modelId);
+    } else {
+        state.selectedModelIds = [...state.selectedModelIds, modelId];
+    }
+    renderSelectedModels();
+    renderModelsCatalog();
+}
+
+function formatDefaultParams(params = {}) {
+    const entries = Object.entries(params).filter(([, value]) => value != null);
+    if (!entries.length) {
+        return '';
+    }
+    return entries
+        .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(',') : value}`)
+        .join(' • ');
+}
+
+async function runComparison() {
+    const question = elements.questionInput.value.trim();
+    const modelIds = state.selectedModelIds.filter(Boolean);
 
     showError();
     setLoading(true);
 
-    const payload = {
-        temperatures,
-    };
-
+    const payload = {};
     if (question.length > 0) {
         payload.question = question;
     }
+    if (modelIds.length > 0) {
+        payload.modelIds = modelIds;
+    }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/temperature`, {
+        const response = await fetch(`${API_BASE_URL}/api/models/compare`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
 
         const data = await response.json();
-
         if (!response.ok) {
-            const message = data?.error ?? 'Не удалось выполнить эксперимент';
+            const message = data?.error ?? 'Не удалось выполнить сравнение моделей';
             throw new Error(message);
         }
 
-        applyDefaults(data, { overwriteTemperatures: false });
-
-        const temperaturesFromResult = Array.isArray(data.results)
-            ? data.results
-                  .map((result) => roundTemperature(Number(result.temperature) || 0))
-                  .filter((value) => Number.isFinite(value))
-            : [];
-
-        if (temperaturesFromResult.length > 0) {
-            state.currentTemperatures = temperaturesFromResult;
-        }
-
-        renderTemperatures();
         renderResults(data);
+        pushHistoryEntry({
+            timestamp: Date.now(),
+            question: data.question,
+            modelIds: data.modelResults?.map((item) => item.modelId) ?? modelIds,
+            summary: data.comparisonSummary,
+            payload: data,
+        });
     } catch (error) {
         console.error(error);
         showError(error.message || 'Во время запроса произошла ошибка');
@@ -248,94 +250,83 @@ async function runExperiment() {
     }
 }
 
-function setLoading(isLoading) {
-    elements.runExperimentButton.disabled = isLoading;
-    elements.loadingIndicator.hidden = !isLoading;
-}
+function renderResults(data, options = { addToHistory: false }) {
+    elements.usedQuestion.textContent = data.question || '—';
+    const modelNames = (data.modelResults || []).map((item) => item.displayName || item.modelId);
+    const modelIds = (data.modelResults || []).map((item) => item.modelId);
+    state.selectedModelIds = modelIds.length ? [...modelIds] : state.selectedModelIds;
+    renderSelectedModels();
+    renderModelsCatalog();
+    elements.usedModels.textContent = modelNames.length ? modelNames.join(', ') : '—';
 
-function showError(message = '') {
-    if (!message) {
-        elements.errorMessage.hidden = true;
-        elements.errorMessage.textContent = '';
-        return;
-    }
-    elements.errorMessage.hidden = false;
-    elements.errorMessage.textContent = message;
-}
-
-function renderResults(data, options = { addToHistory: true }) {
-    const { defaultQuestion, question, results, comparison } = data;
-
-    elements.usedQuestion.textContent = question || '—';
-    elements.usedDefaultQuestion.textContent = defaultQuestion || '—';
-
-    elements.temperatureCards.innerHTML = '';
-    results.forEach((result) => {
-        elements.temperatureCards.appendChild(renderResultCard(result));
+    elements.modelCards.innerHTML = '';
+    (data.modelResults || []).forEach((result, index) => {
+        elements.modelCards.appendChild(renderModelCard(result, index));
     });
 
-    if (comparison?.summary) {
+    if (data.comparisonSummary) {
         elements.comparisonBlock.hidden = false;
-        elements.comparisonSummary.textContent = comparison.summary;
+        elements.comparisonSummary.textContent = data.comparisonSummary;
         elements.comparisonDetails.innerHTML = '';
-
-        comparison.perTemperature.forEach((item) => {
-            const card = document.createElement('article');
-            card.className = 'comparison-card';
-
-            const title = document.createElement('strong');
-            title.textContent = `${item.mode} (${formatTemperature(item.temperature)})`;
-
-            const metrics = document.createElement('div');
-            metrics.className = 'comparison-metrics';
-            metrics.innerHTML = `
-                <span>Точность: ${item.accuracy}</span>
-                <span>Креативность: ${item.creativity}</span>
-                <span>Разнообразие: ${item.diversity}</span>
-            `;
-
-            const recommendation = document.createElement('p');
-            recommendation.textContent = item.recommendation;
-
-            card.appendChild(title);
-            card.appendChild(metrics);
-            card.appendChild(recommendation);
-            elements.comparisonDetails.appendChild(card);
+        (data.modelResults || []).forEach((result) => {
+            elements.comparisonDetails.appendChild(renderComparisonRow(result));
         });
     } else {
         elements.comparisonBlock.hidden = true;
     }
 
+    if (Array.isArray(data.modelLinks) && data.modelLinks.length) {
+        elements.modelLinksBlock.hidden = false;
+        elements.modelLinksList.innerHTML = '';
+        data.modelLinks.forEach((link) => {
+            const li = document.createElement('li');
+            const anchor = document.createElement('a');
+            anchor.href = link.huggingFaceUrl;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            anchor.textContent = `${link.modelId}`;
+            li.appendChild(anchor);
+            elements.modelLinksList.appendChild(li);
+        });
+    } else {
+        elements.modelLinksBlock.hidden = true;
+    }
+
     if (options.addToHistory) {
         pushHistoryEntry({
             timestamp: Date.now(),
-            question,
-            defaultQuestion,
-            temperatures: results.map((result) => result.temperature),
+            question: data.question,
+            modelIds: data.modelResults?.map((item) => item.modelId) ?? [],
+            summary: data.comparisonSummary,
             payload: data,
         });
     }
 }
 
-function renderResultCard(result) {
+function renderModelCard(result, index) {
     const card = document.createElement('article');
-    const category = categorizeTemperature(result.temperature);
-    const highlightMap = {
-        cool: 'highlight-low',
-        warm: 'highlight-medium',
-        hot: 'highlight-high',
-    };
-    card.className = `temperature-card ${highlightMap[category] ?? ''}`;
+    const variants = ['variant-a', 'variant-b', 'variant-c'];
+    card.className = `model-card ${variants[index % variants.length]}`;
 
     const header = document.createElement('div');
-    header.className = 'temperature-header';
-    header.innerHTML = `
-        <div class="temperature-mode">${result.mode}</div>
-        <div class="temperature-value">t = ${formatTemperature(result.temperature)}</div>
-    `;
+    header.className = 'model-header';
+
+    const name = document.createElement('div');
+    name.className = 'model-name';
+    name.textContent = result.displayName ?? result.modelId;
+
+    const link = document.createElement('a');
+    link.className = 'model-link';
+    link.href = result.huggingFaceUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'Открыть на HF';
+
+    header.appendChild(name);
+    header.appendChild(link);
 
     const answer = document.createElement('div');
-    answer.className = 'temperature-answer';
+    answer.className = 'model-answer';
     if (result.answer) {
         const html = typeof marked !== 'undefined' ? marked.parse(result.answer) : escapeHtml(result.answer);
         answer.innerHTML = html;
@@ -344,9 +335,9 @@ function renderResultCard(result) {
     }
 
     const meta = document.createElement('div');
-    meta.className = 'temperature-meta';
+    meta.className = 'model-meta';
     const chips = buildMetaChips(result.meta);
-    if (chips.length === 0) {
+    if (!chips.length) {
         meta.innerHTML = '<span class="meta-chip">Метрики недоступны</span>';
     } else {
         chips.forEach((chip) => meta.appendChild(chip));
@@ -356,6 +347,26 @@ function renderResultCard(result) {
     card.appendChild(answer);
     card.appendChild(meta);
     return card;
+}
+
+function renderComparisonRow(result) {
+    const row = document.createElement('article');
+    row.className = 'comparison-card';
+
+    const title = document.createElement('strong');
+    title.textContent = result.displayName ?? result.modelId;
+
+    const metrics = document.createElement('div');
+    metrics.className = 'comparison-metrics';
+    metrics.innerHTML = `
+        <span>⏱ ${formatDuration(result.meta?.durationMs)}</span>
+        <span>🔤 ${formatTokens(result.meta)}</span>
+        <span>💰 ${formatCost(result.meta?.costUsd)}</span>
+    `;
+
+    row.appendChild(title);
+    row.appendChild(metrics);
+    return row;
 }
 
 function buildMetaChips(meta = {}) {
@@ -376,26 +387,38 @@ function buildMetaChips(meta = {}) {
         chips.push(chip);
     }
 
-    if (meta.requestJson) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
+    if (meta.costUsd != null) {
+        const chip = document.createElement('span');
         chip.className = 'meta-chip';
-        chip.style.cursor = 'pointer';
-        chip.textContent = '📋 Посмотреть JSON';
-        chip.addEventListener('click', () => {
-            openJsonModal(meta.requestJson, meta.responseJson);
-        });
+        chip.textContent = `💰 ${formatCost(meta.costUsd)}`;
         chips.push(chip);
     }
 
     return chips;
 }
 
-function formatDuration(ms) {
-    if (ms < 1000) {
-        return `${ms} мс`;
+function formatDuration(value) {
+    if (value == null) {
+        return 'недоступно';
     }
-    return `${(ms / 1000).toFixed(2)} с`;
+    if (value < 1000) {
+        return `${value} мс`;
+    }
+    return `${(value / 1000).toFixed(2)} с`;
+}
+
+function formatTokens(meta = {}) {
+    if (meta.totalTokens == null) {
+        return 'недоступно';
+    }
+    return `${meta.totalTokens} токенов`;
+}
+
+function formatCost(value) {
+    if (value == null) {
+        return 'недоступно';
+    }
+    return `$${value.toFixed(2)}`;
 }
 
 function escapeHtml(text) {
@@ -404,48 +427,19 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function openJsonModal(requestJson, responseJson) {
-    const modal = document.createElement('dialog');
-    modal.className = 'json-modal';
-    modal.innerHTML = `
-        <div class="json-modal-content">
-            <header class="json-modal-header">
-                <h3>Запрос и ответ LLM</h3>
-                <button class="json-modal-close" type="button">×</button>
-            </header>
-            <div class="json-modal-body">
-                <section>
-                    <h4>Запрос</h4>
-                    <pre>${formatJsonForDisplay(requestJson)}</pre>
-                </section>
-                <section>
-                    <h4>Ответ</h4>
-                    <pre>${formatJsonForDisplay(responseJson)}</pre>
-                </section>
-            </div>
-        </div>
-    `;
-
-    modal.querySelector('.json-modal-close').addEventListener('click', () => modal.close());
-    modal.addEventListener('click', (event) => {
-        if (event.target === modal) {
-            modal.close();
-        }
-    });
-    modal.addEventListener('close', () => modal.remove());
-
-    document.body.appendChild(modal);
-    modal.showModal();
+function setLoading(isLoading) {
+    elements.runButton.disabled = isLoading;
+    elements.loadingIndicator.hidden = !isLoading;
 }
 
-function formatJsonForDisplay(value) {
-    if (!value) return '—';
-    try {
-        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-        return escapeHtml(JSON.stringify(parsed, null, 2));
-    } catch {
-        return escapeHtml(String(value));
+function showError(message = '') {
+    if (!message) {
+        elements.errorMessage.hidden = true;
+        elements.errorMessage.textContent = '';
+        return;
     }
+    elements.errorMessage.hidden = false;
+    elements.errorMessage.textContent = message;
 }
 
 function pushHistoryEntry(entry) {
@@ -457,12 +451,12 @@ function pushHistoryEntry(entry) {
 }
 
 function renderHistory() {
-    if (state.history.length === 0) {
+    if (!state.history.length) {
         elements.historyList.classList.add('empty');
         elements.historyList.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">📜</div>
-                <p>Пока ничего нет. Проведите эксперимент и история появится здесь.</p>
+                <p>Пока ничего нет. Проведите сравнение и истории появятся здесь.</p>
             </div>
         `;
         return;
@@ -480,14 +474,17 @@ function renderHistory() {
         time.textContent = new Date(entry.timestamp).toLocaleString();
 
         const question = document.createElement('div');
-        question.innerHTML = `<strong>Вопрос:</strong> ${entry.question || 'дефолтный пример'}`;
+        question.innerHTML = `<strong>Вопрос:</strong> ${entry.question || 'дефолтный'}`;
 
-        const temps = document.createElement('ul');
-        entry.temperatures.forEach((temp) => {
+        const models = document.createElement('ul');
+        (entry.modelIds || []).forEach((modelId) => {
             const li = document.createElement('li');
-            li.textContent = `t = ${formatTemperature(temp)}`;
-            temps.appendChild(li);
+            li.textContent = getModelById(modelId)?.displayName || modelId;
+            models.appendChild(li);
         });
+
+        const summary = document.createElement('p');
+        summary.textContent = entry.summary || 'Без сравнительного комментария';
 
         const button = document.createElement('button');
         button.type = 'button';
@@ -498,11 +495,16 @@ function renderHistory() {
 
         item.appendChild(time);
         item.appendChild(question);
-        item.appendChild(temps);
+        item.appendChild(models);
+        item.appendChild(summary);
         item.appendChild(button);
 
         elements.historyList.appendChild(item);
     });
+}
+
+function getModelById(modelId) {
+    return state.catalog.find((model) => model.id === modelId);
 }
 
 init();

@@ -217,7 +217,7 @@ main {
     color: #e2e8f0;
 }
 
-.temperatures-control {
+.models-control {
     background: rgba(15, 23, 42, 0.5);
     border-radius: var(--radius-lg);
     border: 1px solid rgba(148, 163, 184, 0.12);
@@ -226,124 +226,150 @@ main {
     gap: 20px;
 }
 
-.temperatures-header {
+.models-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
 }
 
-.temperatures-header h3 {
+.models-header h3 {
     font-size: 18px;
     margin-bottom: 6px;
 }
 
-.temperatures-header p {
+.models-header p {
     font-size: 14px;
     color: rgba(148, 163, 184, 0.9);
     line-height: 1.5;
 }
 
-.secondary-button {
-    background: rgba(251, 191, 36, 0.14);
-    color: #facc15;
-    padding: 10px 18px;
-    border-radius: var(--radius-sm);
+.selected-models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-height: 48px;
+}
+
+.selected-models.empty {
+    justify-content: center;
+    align-items: center;
+    padding: 18px;
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+    color: rgba(148, 163, 184, 0.7);
+}
+
+.model-chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(94, 234, 212, 0.16), rgba(59, 130, 246, 0.16));
+    border: 1px solid rgba(94, 234, 212, 0.35);
+    color: var(--text-primary);
+    font-size: 14px;
 }
 
-.secondary-button:hover {
-    background: rgba(251, 191, 36, 0.22);
-    color: #fef3c7;
+.model-chip button {
+    background: transparent;
+    border: none;
+    color: rgba(226, 232, 240, 0.75);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
 }
 
-.temperatures-list {
+.model-chip button:hover {
+    color: #fca5a5;
+}
+
+.catalog-control {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    padding: 24px;
     display: grid;
-    gap: 18px;
+    gap: 20px;
 }
 
-.temperature-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    align-items: center;
-    gap: 16px;
-    background: rgba(15, 23, 42, 0.55);
-    border-radius: var(--radius-md);
-    padding: 16px 18px;
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+.catalog-header h3 {
+    font-size: 18px;
+    margin-bottom: 6px;
 }
 
-.temperature-badge {
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: #0f172a;
-    background: linear-gradient(135deg, #bae6fd, #22d3ee);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    box-shadow: 0 12px 30px rgba(34, 211, 238, 0.25);
-}
-
-.temperature-item.hot .temperature-badge {
-    background: linear-gradient(135deg, #f97316, #ef4444);
-    color: #fff7ed;
-    box-shadow: 0 12px 30px rgba(239, 68, 68, 0.28);
-}
-
-.temperature-item.warm .temperature-badge {
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #451a03;
-    box-shadow: 0 12px 30px rgba(245, 158, 11, 0.22);
-}
-
-.temperature-item.cool .temperature-badge {
-    background: linear-gradient(135deg, #60a5fa, #34d399);
-    color: #0f172a;
-    box-shadow: 0 12px 30px rgba(96, 165, 250, 0.2);
-}
-
-.temperature-item label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.catalog-header p {
     font-size: 14px;
     color: rgba(148, 163, 184, 0.9);
+    line-height: 1.5;
 }
 
-.temperature-item input {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(94, 234, 212, 0.35);
-    border-radius: 12px;
-    padding: 10px 14px;
-    color: var(--text-primary);
-    font-size: 15px;
-    transition: border var(--transition-fast), box-shadow var(--transition-fast);
+.models-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
-.temperature-item input:focus {
-    outline: none;
-    border-color: rgba(94, 234, 212, 0.7);
-    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18);
+.catalog-card {
+    display: grid;
+    gap: 14px;
+    background: rgba(15, 23, 42, 0.55);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
-.remove-temperature {
-    background: rgba(239, 68, 68, 0.12);
-    color: #fca5a5;
+.catalog-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.catalog-card.selected {
+    border-color: rgba(94, 234, 212, 0.6);
+    box-shadow: 0 12px 24px rgba(94, 234, 212, 0.16);
+}
+
+.catalog-card h4 {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.catalog-card p {
+    font-size: 14px;
+    color: rgba(148, 163, 184, 0.82);
+    line-height: 1.5;
+}
+
+.catalog-card .catalog-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: rgba(148, 163, 184, 0.75);
+}
+
+.catalog-card button {
+    justify-self: flex-start;
+    padding: 8px 14px;
+    border-radius: 999px;
     border: none;
-    border-radius: 12px;
-    padding: 10px 14px;
     cursor: pointer;
+    font-weight: 600;
+    background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+    color: #0f172a;
 }
 
-.remove-temperature:hover {
-    background: rgba(239, 68, 68, 0.22);
-    color: #fee2e2;
+.catalog-card.selected button {
+    background: rgba(248, 113, 113, 0.18);
+    color: #fecaca;
+}
+
+.catalog-card button:hover {
+    transform: translateY(-1px);
 }
 
 .actions {
@@ -464,13 +490,13 @@ main {
     white-space: pre-wrap;
 }
 
-.temperature-cards {
+.model-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 20px;
 }
 
-.temperature-card {
+.model-card {
     background: rgba(15, 23, 42, 0.6);
     border-radius: var(--radius-lg);
     border: 1px solid rgba(148, 163, 184, 0.16);
@@ -480,9 +506,10 @@ main {
     position: relative;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border var(--transition-fast);
 }
 
-.temperature-card::after {
+.model-card::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -490,57 +517,64 @@ main {
     pointer-events: none;
 }
 
-.temperature-card.highlight-low {
+.model-card.variant-a {
     border-color: rgba(59, 130, 246, 0.5);
     box-shadow: 0 16px 30px rgba(59, 130, 246, 0.22);
 }
 
-.temperature-card.highlight-medium {
-    border-color: rgba(251, 191, 36, 0.5);
-    box-shadow: 0 16px 30px rgba(251, 191, 36, 0.22);
+.model-card.variant-b {
+    border-color: rgba(251, 191, 36, 0.45);
+    box-shadow: 0 16px 30px rgba(251, 191, 36, 0.2);
 }
 
-.temperature-card.highlight-high {
-    border-color: rgba(239, 68, 68, 0.5);
-    box-shadow: 0 16px 30px rgba(239, 68, 68, 0.24);
+.model-card.variant-c {
+    border-color: rgba(94, 234, 212, 0.55);
+    box-shadow: 0 16px 30px rgba(94, 234, 212, 0.24);
 }
 
-.temperature-header {
+.model-header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 12px;
 }
 
-.temperature-mode {
+.model-name {
     font-size: 18px;
     font-weight: 600;
 }
 
-.temperature-value {
+.model-link {
     font-size: 14px;
     padding: 6px 12px;
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.14);
     color: rgba(226, 232, 240, 0.85);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.temperature-answer {
+.model-link:hover {
+    background: rgba(148, 163, 184, 0.22);
+    color: #f8fafc;
+}
+
+.model-answer {
     color: rgba(226, 232, 240, 0.88);
     line-height: 1.65;
 }
 
-.temperature-answer h3,
-.temperature-answer h4 {
+.model-answer h3,
+.model-answer h4 {
     margin: 16px 0 8px;
     font-size: 16px;
 }
 
-.temperature-answer p {
+.model-answer p {
     margin-bottom: 10px;
 }
 
-.temperature-meta {
+.model-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 10px 14px;
@@ -771,6 +805,45 @@ dialog.json-modal::backdrop {
     white-space: pre-wrap;
 }
 
+.links-block {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    padding: 24px;
+    display: grid;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.links-block h3 {
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.links-block h3::before {
+    content: '🔗';
+}
+
+.links-block ul {
+    display: grid;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.links-block li a {
+    color: rgba(148, 163, 184, 0.9);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.links-block li a:hover {
+    color: #f8fafc;
+}
+
 @media (max-width: 992px) {
     body {
         padding: 24px 16px 32px;
@@ -811,21 +884,13 @@ dialog.json-modal::backdrop {
         padding: 24px;
     }
 
-    .temperature-item {
-        grid-template-columns: 1fr;
-    }
-
-    .temperature-badge {
-        justify-self: flex-start;
-    }
-
     .history-section,
     .results-section,
     .controls {
         padding: 24px;
     }
 
-    .temperature-cards {
+    .model-cards {
         grid-template-columns: 1fr;
     }
 }
