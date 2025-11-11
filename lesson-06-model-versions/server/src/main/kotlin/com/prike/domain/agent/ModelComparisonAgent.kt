@@ -6,6 +6,7 @@ import com.prike.domain.exception.ValidationException
 import com.prike.domain.repository.AIRepository
 import com.prike.domain.repository.AIResponseFormat
 import com.prike.domain.repository.ModelInvocationRequest
+import org.slf4j.LoggerFactory
 import kotlin.math.max
 import kotlin.math.round
 
@@ -13,6 +14,8 @@ class ModelComparisonAgent(
     private val aiRepository: AIRepository,
     private val lessonConfig: ModelComparisonLessonConfig
 ) {
+
+    private val logger = LoggerFactory.getLogger(ModelComparisonAgent::class.java)
 
     fun getDefaultQuestion(): String = lessonConfig.defaultQuestion
 
@@ -29,42 +32,70 @@ class ModelComparisonAgent(
 
         val runs = models.map { model ->
             val settings = buildInvocationSettings(model)
-            val completion = aiRepository.getCompletion(
-                ModelInvocationRequest(
-                    prompt = buildAnswerPrompt(question),
+            val startedAt = System.currentTimeMillis()
+            runCatching {
+                val completion = aiRepository.getCompletion(
+                    ModelInvocationRequest(
+                        prompt = buildAnswerPrompt(question),
+                        modelId = model.id,
+                        endpoint = model.endpoint,
+                        temperature = settings.temperature,
+                        maxTokens = settings.maxTokens,
+                        systemPrompt = settings.systemPrompt,
+                        responseFormat = AIResponseFormat.TEXT,
+                        additionalParams = settings.additionalParams
+                    )
+                )
+
+                val costUsd = computeCostUsd(
+                    pricePer1kTokensUsd = model.pricePer1kTokensUsd,
+                    totalTokens = completion.meta.totalTokens
+                )
+
+                ModelRun(
                     modelId = model.id,
-                    endpoint = model.endpoint,
-                    temperature = settings.temperature,
-                    maxTokens = settings.maxTokens,
-                    systemPrompt = settings.systemPrompt,
-                    responseFormat = AIResponseFormat.TEXT,
-                    additionalParams = settings.additionalParams
+                    displayName = model.displayName,
+                    huggingFaceUrl = model.huggingFaceUrl,
+                    answer = completion.content,
+                    meta = ModelRunMeta(
+                        durationMs = completion.meta.durationMs,
+                        promptTokens = completion.meta.promptTokens,
+                        completionTokens = completion.meta.completionTokens,
+                        totalTokens = completion.meta.totalTokens,
+                        costUsd = costUsd
+                    ),
+                    isError = false
                 )
-            )
-
-            val costUsd = computeCostUsd(
-                pricePer1kTokensUsd = model.pricePer1kTokensUsd,
-                totalTokens = completion.meta.totalTokens
-            )
-
-            ModelRun(
-                modelId = model.id,
-                displayName = model.displayName,
-                huggingFaceUrl = model.huggingFaceUrl,
-                answer = completion.content,
-                meta = ModelRunMeta(
-                    durationMs = completion.meta.durationMs,
-                    promptTokens = completion.meta.promptTokens,
-                    completionTokens = completion.meta.completionTokens,
-                    totalTokens = completion.meta.totalTokens,
-                    costUsd = costUsd
+            }.getOrElse { throwable ->
+                val duration = System.currentTimeMillis() - startedAt
+                logger.warn("Не удалось получить ответ от модели ${model.id}", throwable)
+                ModelRun(
+                    modelId = model.id,
+                    displayName = model.displayName,
+                    huggingFaceUrl = model.huggingFaceUrl,
+                    answer = formatFailureMessage(throwable),
+                    meta = ModelRunMeta(
+                        durationMs = duration,
+                        promptTokens = null,
+                        completionTokens = null,
+                        totalTokens = null,
+                        costUsd = null
+                    ),
+                    isError = true
                 )
-            )
+            }
         }
 
-        val summary = runCatching {
-            generateSummary(question, runs, models.first())
-        }.getOrElse {
+        val referenceModel = runs.firstOrNull { !it.isError }
+            ?.let { run -> models.firstOrNull { it.id == run.modelId } }
+
+        val summary = if (referenceModel != null) {
+            runCatching {
+                generateSummary(question, runs, referenceModel)
+            }.getOrElse {
+                fallbackSummary(runs)
+            }
+        } else {
             fallbackSummary(runs)
         }
 
@@ -131,8 +162,13 @@ class ModelComparisonAgent(
         runs: List<ModelRun>,
         referenceModel: ModelDefinitionConfig
     ): String {
+        val successRuns = runs.filterNot { it.isError }
+        if (successRuns.isEmpty()) {
+            return fallbackSummary(runs)
+        }
+
         val settings = buildInvocationSettings(referenceModel)
-        val answersBlock = runs.joinToString(separator = "\n\n") { run ->
+        val answersBlock = successRuns.joinToString(separator = "\n\n") { run ->
             """
             Модель: ${run.displayName} (${run.modelId})
             Ответ:
@@ -172,13 +208,28 @@ class ModelComparisonAgent(
             return "Не удалось сформировать сравнение: нет результатов."
         }
 
-        return runs.joinToString(
-            separator = " ",
-            postfix = " Сформируйте собственный вывод на основе приведённых ответов."
-        ) { run ->
-            val duration = run.meta.durationMs?.let { "${it} мс" } ?: "время неизвестно"
-            "Модель ${run.displayName} ответила за $duration."
+        val successful = runs.filterNot { it.isError }
+        val successPart = if (successful.isNotEmpty()) {
+            successful.joinToString(
+                separator = " ",
+                postfix = " Сформируйте собственный вывод на основе приведённых ответов."
+            ) { run ->
+                val duration = run.meta.durationMs?.let { "${it} мс" } ?: "время неизвестно"
+                "Модель ${run.displayName} ответила за $duration."
+            }
+        } else {
+            "Не удалось получить ответы ни от одной модели."
         }
+
+        val errorPart = runs.filter { it.isError }
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(separator = " ") { run ->
+                "${run.displayName}: ${run.answer}"
+            }
+
+        return listOfNotNull(successPart, errorPart)
+            .joinToString(separator = " ")
+            .trim()
     }
 
     private fun buildInvocationSettings(model: ModelDefinitionConfig): InvocationSettings {
@@ -226,7 +277,8 @@ class ModelComparisonAgent(
         val displayName: String,
         val huggingFaceUrl: String,
         val answer: String,
-        val meta: ModelRunMeta
+        val meta: ModelRunMeta,
+        val isError: Boolean
     )
 
     data class ModelRunMeta(
@@ -252,6 +304,11 @@ class ModelComparisonAgent(
     companion object {
         private const val MAX_QUESTION_LENGTH = 4000
         private const val DEFAULT_SUMMARY_MAX_TOKENS = 512
+    }
+
+    private fun formatFailureMessage(throwable: Throwable): String {
+        val message = throwable.message?.takeIf { it.isNotBlank() } ?: "Неизвестная ошибка"
+        return "Не удалось получить ответ: $message"
     }
 }
 

@@ -106,6 +106,7 @@ class ModelComparisonController(
             displayName = displayName,
             huggingFaceUrl = huggingFaceUrl,
             answer = answer,
+            isError = isError,
             meta = ModelMetaDto(
                 durationMs = meta.durationMs,
                 promptTokens = meta.promptTokens,

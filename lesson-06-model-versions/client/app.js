@@ -307,6 +307,9 @@ function renderModelCard(result, index) {
     const card = document.createElement('article');
     const variants = ['variant-a', 'variant-b', 'variant-c'];
     card.className = `model-card ${variants[index % variants.length]}`;
+    if (result.isError) {
+        card.classList.add('error');
+    }
 
     const header = document.createElement('div');
     header.className = 'model-header';
@@ -327,7 +330,9 @@ function renderModelCard(result, index) {
 
     const answer = document.createElement('div');
     answer.className = 'model-answer';
-    if (result.answer) {
+    if (result.isError) {
+        answer.textContent = result.answer || 'Не удалось получить ответ от модели.';
+    } else if (result.answer) {
         const html = typeof marked !== 'undefined' ? marked.parse(result.answer) : escapeHtml(result.answer);
         answer.innerHTML = html;
     } else {
@@ -336,11 +341,15 @@ function renderModelCard(result, index) {
 
     const meta = document.createElement('div');
     meta.className = 'model-meta';
-    const chips = buildMetaChips(result.meta);
-    if (!chips.length) {
-        meta.innerHTML = '<span class="meta-chip">Метрики недоступны</span>';
+    if (result.isError) {
+        meta.innerHTML = '<span class="meta-chip">⚠️ Модель не вернула ответ</span>';
     } else {
-        chips.forEach((chip) => meta.appendChild(chip));
+        const chips = buildMetaChips(result.meta);
+        if (!chips.length) {
+            meta.innerHTML = '<span class="meta-chip">Метрики недоступны</span>';
+        } else {
+            chips.forEach((chip) => meta.appendChild(chip));
+        }
     }
 
     card.appendChild(header);
@@ -352,17 +361,24 @@ function renderModelCard(result, index) {
 function renderComparisonRow(result) {
     const row = document.createElement('article');
     row.className = 'comparison-card';
+    if (result.isError) {
+        row.classList.add('error');
+    }
 
     const title = document.createElement('strong');
     title.textContent = result.displayName ?? result.modelId;
 
     const metrics = document.createElement('div');
     metrics.className = 'comparison-metrics';
-    metrics.innerHTML = `
+    if (result.isError) {
+        metrics.innerHTML = `<span>⚠️ ${escapeHtml(result.answer || 'Модель не ответила')}</span>`;
+    } else {
+        metrics.innerHTML = `
         <span>⏱ ${formatDuration(result.meta?.durationMs)}</span>
         <span>🔤 ${formatTokens(result.meta)}</span>
         <span>💰 ${formatCost(result.meta?.costUsd)}</span>
     `;
+    }
 
     row.appendChild(title);
     row.appendChild(metrics);

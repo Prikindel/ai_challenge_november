@@ -532,6 +532,25 @@ main {
     box-shadow: 0 16px 30px rgba(94, 234, 212, 0.24);
 }
 
+.model-card.error {
+    border-color: rgba(248, 113, 113, 0.6);
+    box-shadow: 0 16px 36px rgba(248, 113, 113, 0.25);
+}
+
+.model-card.error .model-answer {
+    color: #fecaca;
+}
+
+.model-card.error .model-link {
+    background: rgba(248, 113, 113, 0.18);
+    color: #fee2e2;
+}
+
+.model-card.error .model-link:hover {
+    background: rgba(248, 113, 113, 0.26);
+    color: #ffffff;
+}
+
 .model-header {
     display: flex;
     justify-content: space-between;
@@ -640,6 +659,15 @@ main {
     gap: 10px 14px;
     font-size: 13px;
     color: rgba(148, 163, 184, 0.85);
+}
+
+.comparison-card.error {
+    border-color: rgba(248, 113, 113, 0.45);
+    background: rgba(127, 29, 29, 0.35);
+}
+
+.comparison-card.error .comparison-metrics {
+    color: #fecaca;
 }
 
 .history-section {

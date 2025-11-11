@@ -41,6 +41,7 @@ data class ModelResultDto(
     val displayName: String,
     val huggingFaceUrl: String,
     val answer: String,
+    val isError: Boolean,
     val meta: ModelMetaDto
 )
 
