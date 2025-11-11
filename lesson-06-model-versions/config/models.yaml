@@ -55,4 +55,12 @@ models:
       temperature: 0.6
       max_tokens: 620
       top_p: 0.9
+  - id: autoprogrammer/Llama-3.2-1B-Instruct-MGSM8K-sft-haf
+    displayName: Llama 3.2 1B MGSM8K (auto)
+    endpoint: https://router.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/autoprogrammer/Llama-3.2-1B-Instruct-MGSM8K-sft-haf
+    defaultParams:
+      temperature: 0.55
+      max_tokens: 580
+      top_p: 0.9
 
