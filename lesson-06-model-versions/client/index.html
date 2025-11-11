@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 День 5. Температура</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js" defer></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 5. Температура</h1>
+            <p class="subtitle">
+                Исследуем, как температура влияет на работу LLM: точность, креативность и разнообразие ответов.
+            </p>
+        </header>
+
+        <main>
+            <section class="lesson-intro">
+                <div class="intro-card">
+                    <div class="intro-icon">🧠</div>
+                    <div>
+                        <h2>Цель урока</h2>
+                        <p>
+                            Выполни одну аналитическую задачу в нескольких температурах. Сравни ответы и пойми,
+                            когда стоит выбирать детерминированную или креативную генерацию.
+                        </p>
+                    </div>
+                </div>
+                <div class="defaults-card">
+                    <h3>Встроенный вопрос</h3>
+                    <p id="defaultQuestion">Загрузка...</p>
+                </div>
+            </section>
+
+            <section class="controls" aria-label="Управление экспериментом">
+                <div class="question-control">
+                    <label for="questionInput">Свой вопрос (опционально)</label>
+                    <textarea
+                        id="questionInput"
+                        placeholder="Оставьте пустым, чтобы использовать встроенный логический пример"
+                        maxlength="2000"
+                    ></textarea>
+                    <div class="question-actions">
+                        <button id="resetQuestionButton" class="ghost-button" type="button">Сбросить</button>
+                        <span id="questionCounter" class="counter">0 / 2000</span>
+                    </div>
+                </div>
+
+                <div class="temperatures-control">
+                    <div class="temperatures-header">
+                        <div>
+                            <h3>Температуры</h3>
+                            <p>Измени значения или добавь свои режимы. Диапазон 0.0 — 2.0.</p>
+                        </div>
+                        <button id="addTemperatureButton" type="button" class="secondary-button">+ Добавить</button>
+                    </div>
+                    <div id="temperaturesList" class="temperatures-list"></div>
+                </div>
+
+                <div class="actions">
+                    <button id="runExperimentButton" class="primary-button" type="button">
+                        🚀 Запустить эксперимент
+                    </button>
+                    <div id="loadingIndicator" class="loading-indicator" role="status" aria-live="polite" hidden>
+                        <div class="spinner"></div>
+                        <span>LLM думает...</span>
+                    </div>
+                </div>
+
+                <div id="errorMessage" class="error-banner" role="alert" hidden></div>
+            </section>
+
+            <section id="resultsSection" class="results-section" aria-live="polite">
+                <h2>Результаты</h2>
+                <div class="results-meta">
+                    <div>
+                        <span class="meta-label">Использованный вопрос:</span>
+                        <span id="usedQuestion" class="meta-value">—</span>
+                    </div>
+                    <div>
+                        <span class="meta-label">Предыдущий пример:</span>
+                        <span id="usedDefaultQuestion" class="meta-value">—</span>
+                    </div>
+                </div>
+
+                <div id="temperatureCards" class="temperature-cards"></div>
+
+                <div id="comparisonBlock" class="comparison-block" hidden>
+                    <h3>Сравнение температур</h3>
+                    <p id="comparisonSummary"></p>
+                    <div id="comparisonDetails" class="comparison-details"></div>
+                </div>
+            </section>
+
+            <section id="historySection" class="history-section">
+                <div class="history-header">
+                    <h2>История запусков</h2>
+                    <button id="clearHistoryButton" type="button" class="ghost-button">Очистить</button>
+                </div>
+                <div id="historyList" class="history-list empty">
+                    <div class="empty-state">
+                        <div class="empty-icon">📜</div>
+                        <p>Пока ничего нет. Проведите эксперимент и история появится здесь.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
+

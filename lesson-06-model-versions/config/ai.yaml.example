@@ -1,0 +1,11 @@
+ai:
+  apiUrl: "https://api-inference.huggingface.co/v1/chat/completions"
+  model: null
+  temperature: null
+  maxTokens: null
+  requestTimeout: 60
+  useJsonFormat: false
+  systemPrompt: |
+    Ты — аналитический ассистент. Отвечай на русском языке.
+    Сначала коротко сформулируй итог, затем приведи шаги рассуждений.
+

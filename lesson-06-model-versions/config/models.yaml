@@ -1,0 +1,38 @@
+lesson:
+  defaultQuestion: >
+    Какие ключевые отличия между моделями и в каких сценариях лучше выбрать каждую?
+    Сформулируй сравнительный ответ с акцентом на практические рекомендации.
+  defaultModelIds:
+    - meta-llama/Meta-Llama-3.1-8B-Instruct
+    - mistralai/Mistral-7B-Instruct-v0.3
+    - tiiuae/falcon-7b-instruct
+models:
+  - id: meta-llama/Meta-Llama-3.1-8B-Instruct
+    displayName: Llama 3.1 8B Instruct
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
+    pricePer1kTokensUsd: 0.12
+    defaultParams:
+      temperature: 0.6
+      max_tokens: 600
+      top_p: 0.9
+      presence_penalty: 0.2
+  - id: mistralai/Mistral-7B-Instruct-v0.3
+    displayName: Mistral 7B Instruct v0.3
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3
+    pricePer1kTokensUsd: 0.08
+    defaultParams:
+      temperature: 0.7
+      max_tokens: 550
+      top_p: 0.95
+  - id: tiiuae/falcon-7b-instruct
+    displayName: Falcon 7B Instruct
+    endpoint: https://api-inference.huggingface.co/v1/chat/completions
+    huggingFaceUrl: https://huggingface.co/tiiuae/falcon-7b-instruct
+    pricePer1kTokensUsd: 0.06
+    defaultParams:
+      temperature: 0.75
+      max_tokens: 520
+      top_k: 40
+
