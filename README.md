@@ -100,3 +100,4 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-03-interactive-tz-agent](./lesson-03-interactive-tz-agent/) — интерактивный сборщик ТЗ с управлением историей
 - [lesson-04-multi-reasoning](./lesson-04-multi-reasoning/) — агент с несколькими стратегиями рассуждения и сравнением результатов
 - [lesson-05-temperature](./lesson-05-temperature/) — температурные режимы LLM: сравнение точности, креативности и метрик
+- [lesson-06-model-versions](./lesson-06-model-versions/) — сравнение версий моделей с Hugging Face: ответы, скорость, стоимость

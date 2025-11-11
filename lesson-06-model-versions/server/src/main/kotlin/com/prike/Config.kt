@@ -132,8 +132,8 @@ object Config {
             ?.filter { it.isNotBlank() }
             ?: emptyList()
 
-        val modelDefinitions = ((configMap["models"] as? List<*>) ?: emptyList())
-            .mapNotNull { node ->
+        val modelDefinitions = ((configMap["models"] as? List<*>))
+            ?.mapNotNull { node ->
                 node as? Map<*, *> ?: return@mapNotNull null
                 val id = (node["id"] as? String)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 val displayName = (node["displayName"] as? String)?.takeIf { it.isNotBlank() } ?: id
@@ -157,7 +157,7 @@ object Config {
                     pricePer1kTokensUsd = price,
                     defaultParams = defaultParams
                 )
-            }
+            }.orEmpty()
 
         if (modelDefinitions.isEmpty()) {
             throw IllegalStateException("Список моделей в models.yaml пуст")
