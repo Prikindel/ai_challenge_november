@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>День 7. Анализ использования токенов</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+    <header class="page__header">
+        <h1>🔥 День 7. Работа с токенами</h1>
+        <p class="page__subtitle">
+            Изучаем, как разные запросы влияют на использование токенов.
+            Настройте подсказки, запустите анализ и наблюдайте историю запусков.
+        </p>
+    </header>
+
+    <main class="page__content">
+        <section class="card">
+            <div class="card__header">
+                <h2>Сценарии</h2>
+                <div class="card__meta" id="tokenLimitsInfo">
+                    Загрузка ограничений…
+                </div>
+            </div>
+            <form id="scenariosForm" class="scenarios">
+                <div class="loader loader--inline" id="templatesLoader">
+                    <div class="spinner"></div>
+                    Загружаем сценарии…
+                </div>
+            </form>
+            <div class="card__actions">
+                <button type="button" class="button button--primary" id="runButton">
+                    Запустить анализ
+                </button>
+                <div class="loader loader--inline hidden" id="runLoader">
+                    <div class="spinner"></div>
+                    Выполняем запросы…
+                </div>
+            </div>
+            <div class="error-banner hidden" id="formError"></div>
+        </section>
+
+        <section class="card">
+            <div class="card__header">
+                <h2>Результаты текущего запуска</h2>
+            </div>
+            <div id="resultsContainer" class="results"></div>
+        </section>
+
+        <section class="card">
+            <div class="card__header">
+                <h2>История запусков</h2>
+                <button type="button" class="button button--ghost" id="refreshHistoryButton">
+                    Обновить
+                </button>
+            </div>
+            <div id="historyEmptyState" class="empty-state hidden">
+                История пока пуста — запустите анализ, чтобы увидеть первую запись.
+            </div>
+            <div id="historyContainer" class="history"></div>
+        </section>
+    </main>
+</div>
+
+<template id="scenarioTemplate">
+    <fieldset class="scenario">
+        <legend class="scenario__title"></legend>
+        <p class="scenario__description"></p>
+        <label class="scenario__label">
+            Текст подсказки
+            <textarea class="scenario__textarea" rows="6"></textarea>
+        </label>
+        <div class="scenario__stats">
+            <span class="scenario__prompt-tokens">Промпт: <strong>0 токенов</strong></span>
+        </div>
+    </fieldset>
+</template>
+
+<template id="resultTemplate">
+    <article class="result">
+        <header class="result__header">
+            <div class="result__title">
+                <span class="result__icon"></span>
+                <h3></h3>
+            </div>
+            <span class="result__status"></span>
+        </header>
+        <dl class="result__metrics">
+            <div>
+                <dt>Токены промпта</dt>
+                <dd class="result__prompt">—</dd>
+            </div>
+            <div>
+                <dt>Токены ответа</dt>
+                <dd class="result__completion">—</dd>
+            </div>
+            <div>
+                <dt>Всего токенов</dt>
+                <dd class="result__total">—</dd>
+            </div>
+            <div>
+                <dt>Время</dt>
+                <dd class="result__duration">—</dd>
+            </div>
+        </dl>
+        <details class="result__details">
+            <summary>Ответ / сообщение об ошибке</summary>
+            <p class="result__message"></p>
+        </details>
+    </article>
+</template>
+
+<template id="historyTemplate">
+    <article class="history-item">
+        <header class="history-item__header">
+            <div>
+                <h3></h3>
+                <p class="history-item__meta"></p>
+            </div>
+            <span class="history-item__badge"></span>
+        </header>
+        <ul class="history-item__list"></ul>
+    </article>
+</template>
+
+<script src="app.js" type="module"></script>
+</body>
+</html>
+
