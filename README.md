@@ -101,3 +101,10 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-04-multi-reasoning](./lesson-04-multi-reasoning/) — агент с несколькими стратегиями рассуждения и сравнением результатов
 - [lesson-05-temperature](./lesson-05-temperature/) — температурные режимы LLM: сравнение точности, креативности и метрик
 - [lesson-06-model-versions](./lesson-06-model-versions/) — сравнение версий моделей с Hugging Face: ответы, скорость, стоимость
+- [lesson-07-token-usage](./lesson-07-token-usage/) — анализ использования токенов: сценарии, лимиты, история запусков
+
+### Как запустить lesson-07-token-usage
+
+1. Скопируйте `lesson-07-token-usage/example.env` в `.env` и пропишите `OPENAI_API_KEY`.
+2. Перейдите в `lesson-07-token-usage/server` и выполните `gradle run` (нужен Gradle 8+, можно подключить wrapper).
+3. Откройте `http://localhost:8080/` — веб-клиент позволяет редактировать подсказки, запускать анализ и смотреть историю.
