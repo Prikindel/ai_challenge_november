@@ -1,0 +1,11 @@
+ai:
+  apiUrl: https://api.openai.com/v1/chat/completions
+  model: gpt-4o-mini
+  temperature: 0.2
+  maxTokens: 512
+  requestTimeout: 60
+  systemPrompt: >
+    Ты — помощник, который демонстрирует анализ использования токенов.
+    Отвечай кратко и структурированно, подчёркивая количество ключевых фактов.
+  useJsonFormat: false
+
