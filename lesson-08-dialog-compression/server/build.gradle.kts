@@ -42,6 +42,9 @@ dependencies {
     
     // Dotenv для загрузки переменных окружения из .env файла
     implementation("io.github.cdimascio:dotenv-kotlin:6.4.1")
+
+    // Подсчёт токенов
+    implementation("com.knuddels:jtokkit:0.6.1")
 }
 
 tasks.withType<KotlinCompile> {

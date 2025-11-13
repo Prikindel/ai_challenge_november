@@ -10,3 +10,8 @@ sealed class DomainException(message: String, cause: Throwable? = null) : Except
  */
 class AIServiceException(message: String, cause: Throwable? = null) : DomainException(message, cause)
 
+/**
+ * Исключение валидации входящих данных
+ */
+class ValidationException(message: String) : DomainException(message)
+

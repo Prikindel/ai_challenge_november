@@ -4,6 +4,7 @@ import com.prike.data.dto.MessageDto
 import com.prike.data.dto.OpenAIErrorResponse
 import com.prike.data.dto.OpenAIRequest
 import com.prike.data.dto.OpenAIResponse
+import com.prike.data.dto.ResponseFormatDto
 import com.prike.domain.exception.AIServiceException
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -27,9 +28,10 @@ class OpenAIClient(
     private val apiUrl: String,
     private val model: String,
     private val temperature: Double,
-    private val maxTokens: Int,
+    private val maxTokens: Int?,
     private val requestTimeoutSeconds: Int,
-    private val systemPrompt: String? = null
+    private val systemPrompt: String? = null,
+    private val defaultUseJsonResponse: Boolean = false
 ) {
     private val requestTimeoutMs = requestTimeoutSeconds * 1000L
     private val logger = LoggerFactory.getLogger(OpenAIClient::class.java)
@@ -54,12 +56,12 @@ class OpenAIClient(
         }
     }
     
-    suspend fun getCompletion(userMessage: String): OpenAIResponse {
+    suspend fun getCompletion(userMessage: String): CompletionResult {
         val messages = buildList {
             systemPrompt?.let { add(MessageDto(role = "system", content = it)) }
             add(MessageDto(role = "user", content = userMessage))
         }
-        return getCompletionWithHistory(messages).response
+        return getCompletionWithHistory(messages)
     }
     
     /**
@@ -76,8 +78,27 @@ class OpenAIClient(
      * @param messages список сообщений (включая system prompt и историю диалога)
      * @return результат с ответом и JSON запросом/ответом
      */
-    suspend fun getCompletionWithHistory(messages: List<MessageDto>): CompletionResult {
-        val request = OpenAIRequest(model, messages, temperature, maxTokens)
+    data class RequestOptions(
+        val model: String? = null,
+        val temperature: Double? = null,
+        val maxTokens: Int? = null,
+        val useJsonResponseFormat: Boolean? = null
+    )
+
+    suspend fun getCompletionWithHistory(
+        messages: List<MessageDto>,
+        options: RequestOptions = RequestOptions()
+    ): CompletionResult {
+        val request = OpenAIRequest(
+            model = options.model ?: model,
+            messages = messages,
+            temperature = options.temperature ?: temperature,
+            maxTokens = options.maxTokens ?: maxTokens,
+            responseFormat = when (options.useJsonResponseFormat ?: defaultUseJsonResponse) {
+                true -> ResponseFormatDto(type = "json_object")
+                else -> null
+            }
+        )
         
         // Сериализуем запрос в JSON для логирования
         val requestJson = runCatching {

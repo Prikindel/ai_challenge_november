@@ -3,6 +3,10 @@ package com.prike.di
 import com.prike.Config
 import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
+import com.prike.domain.agent.DialogCompressionAgent
+import com.prike.domain.service.SummaryParser
+import com.prike.domain.service.TokenEstimator
+import com.prike.presentation.controller.DialogCompressionController
 import java.io.File
 
 /**
@@ -10,7 +14,10 @@ import java.io.File
  * Создает и связывает все зависимости приложения
  */
 object AppModule {
-    
+    private var openAIClient: OpenAIClient? = null
+    private var aiRepository: AIRepository? = null
+    private var dialogCompressionAgent: DialogCompressionAgent? = null
+
     /**
      * Получить директорию с клиентом
      */
@@ -23,24 +30,50 @@ object AppModule {
      * Создать OpenAIClient (если конфигурация доступна)
      */
     fun createOpenAIClient(): OpenAIClient? {
-        val config = Config.aiConfig ?: return null
-        return OpenAIClient(
+        if (openAIClient != null) return openAIClient
+        val config = Config.aiConfig
+        val client = OpenAIClient(
             apiKey = config.apiKey,
             apiUrl = config.apiUrl,
-            model = config.model,
-            temperature = config.temperature,
+            model = config.model ?: "gpt-3.5-turbo",
+            temperature = config.temperature ?: 0.7,
             maxTokens = config.maxTokens,
             requestTimeoutSeconds = config.requestTimeout,
-            systemPrompt = config.systemPrompt
+            systemPrompt = config.systemPrompt,
+            defaultUseJsonResponse = config.useJsonFormat
         )
+        openAIClient = client
+        return client
     }
     
     /**
      * Создать AIRepository (если конфигурация доступна)
      */
     fun createAIRepository(): AIRepository? {
+        if (aiRepository != null) return aiRepository
         val client = createOpenAIClient() ?: return null
-        return AIRepository(client)
+        val repository = AIRepository(client)
+        aiRepository = repository
+        return repository
+    }
+
+    fun createDialogCompressionAgent(): DialogCompressionAgent? {
+        if (dialogCompressionAgent != null) return dialogCompressionAgent
+        val repository = createAIRepository() ?: return null
+        val agent = DialogCompressionAgent(
+            aiRepository = repository,
+            lessonConfig = Config.dialogCompressionConfig,
+            tokenEstimator = TokenEstimator(),
+            summaryParser = SummaryParser(),
+            baseModel = Config.aiConfig.model
+        )
+        dialogCompressionAgent = agent
+        return agent
+    }
+
+    fun createDialogCompressionController(): DialogCompressionController? {
+        val agent = createDialogCompressionAgent() ?: return null
+        return DialogCompressionController(agent, Config.dialogCompressionConfig)
     }
     
     /**
@@ -96,8 +129,10 @@ object AppModule {
      * Закрыть ресурсы (если нужно)
      */
     fun close() {
-        // Закрываем ресурсы здесь при необходимости
-        // Например, закрыть OpenAIClient
+        openAIClient?.close()
+        openAIClient = null
+        aiRepository = null
+        dialogCompressionAgent = null
     }
 }
 

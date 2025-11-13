@@ -3,6 +3,7 @@ package com.prike.data.repository
 import com.prike.data.client.OpenAIClient
 import com.prike.data.dto.MessageDto
 import com.prike.data.dto.OpenAIResponse
+import com.prike.data.dto.UsageDto
 import com.prike.domain.exception.AIServiceException
 
 /**
@@ -22,7 +23,7 @@ class AIRepository(
      */
     suspend fun getMessage(userMessage: String): String {
         return try {
-            val response = openAIClient.getCompletion(userMessage)
+            val response = openAIClient.getCompletion(userMessage).response
             response.choices.firstOrNull()?.message?.content?.trim()
                 ?: throw AIServiceException("Пустой ответ от AI API (choices пусты)")
         } catch (e: AIServiceException) {
@@ -38,7 +39,8 @@ class AIRepository(
     data class MessageResult(
         val message: String,
         val requestJson: String,
-        val responseJson: String
+        val responseJson: String,
+        val usage: UsageDto?
     )
     
     /**
@@ -46,15 +48,34 @@ class AIRepository(
      * @param messages список сообщений (включая system prompt и историю диалога)
      * @return результат с текстовым ответом и JSON запросом/ответом
      */
-    suspend fun getMessageWithHistory(messages: List<MessageDto>): MessageResult {
+    data class ChatCompletionOptions(
+        val model: String? = null,
+        val temperature: Double? = null,
+        val maxTokens: Int? = null,
+        val useJsonResponseFormat: Boolean? = null
+    )
+
+    suspend fun getMessageWithHistory(
+        messages: List<MessageDto>,
+        options: ChatCompletionOptions = ChatCompletionOptions()
+    ): MessageResult {
         return try {
-            val completionResult = openAIClient.getCompletionWithHistory(messages)
+            val completionResult = openAIClient.getCompletionWithHistory(
+                messages = messages,
+                options = OpenAIClient.RequestOptions(
+                    model = options.model,
+                    temperature = options.temperature,
+                    maxTokens = options.maxTokens,
+                    useJsonResponseFormat = options.useJsonResponseFormat
+                )
+            )
             val message = completionResult.response.choices.firstOrNull()?.message?.content?.trim()
                 ?: throw AIServiceException("Пустой ответ от AI API (choices пусты)")
             MessageResult(
                 message = message,
                 requestJson = completionResult.requestJson,
-                responseJson = completionResult.responseJson
+                responseJson = completionResult.responseJson,
+                usage = completionResult.response.usage
             )
         } catch (e: AIServiceException) {
             throw e
@@ -70,7 +91,7 @@ class AIRepository(
      */
     suspend fun getRawResponse(userMessage: String): OpenAIResponse {
         return try {
-            openAIClient.getCompletion(userMessage)
+            openAIClient.getCompletion(userMessage).response
         } catch (e: AIServiceException) {
             throw e
         } catch (e: Exception) {

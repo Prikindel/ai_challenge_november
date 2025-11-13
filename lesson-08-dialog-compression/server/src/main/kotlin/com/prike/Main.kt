@@ -2,6 +2,7 @@ package com.prike
 
 import com.prike.di.AppModule
 import com.prike.presentation.controller.ClientController
+import com.prike.presentation.controller.DialogCompressionController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -51,11 +52,12 @@ fun Application.module() {
     }
 
     val clientController = ClientController(AppModule.getClientDirectory())
+    val dialogController: DialogCompressionController? = AppModule.createDialogCompressionController()
 
     routing {
         // Добавьте свои контроллеры здесь
         // exampleController.configureRoutes(this)
-        
+        dialogController?.configureRoutes(this)
         clientController.configureRoutes(this)
     }
 
