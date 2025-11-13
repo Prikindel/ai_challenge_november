@@ -48,7 +48,30 @@ class DialogCompressionAgent(
         val maxSummaries = command.maxSummariesInContext?.takeIf { it >= 0 }
             ?: lessonConfig.lesson.maxSummariesInContext
 
-        historyState.addUserMessage(command.userMessage)
+        val newUserMessage = historyState.addUserMessage(command.userMessage)
+
+        while (true) {
+            val messagesToSummarize = historyState.takeMessagesForSummaryBeforeMessage(
+                targetMessageId = newUserMessage.id,
+                summaryInterval = summaryInterval
+            )
+
+            if (messagesToSummarize.isEmpty()) {
+                break
+            }
+
+            val result = runCatching {
+                performSummaryForMessages(messagesToSummarize, anchorMessageId = newUserMessage.id)
+            }
+
+            if (result.isFailure) {
+                logger.warn(
+                    "Не удалось сформировать summary: ${result.exceptionOrNull()?.message}",
+                    result.exceptionOrNull()
+                )
+                break
+            }
+        }
 
         val context = buildContext(maxSummaries)
         val completionResult = aiRepository.getMessageWithHistory(
@@ -59,21 +82,17 @@ class DialogCompressionAgent(
         val assistantAnswer = completionResult.message
         historyState.addAssistantMessage(assistantAnswer)
 
-        if (historyState.needsSummary(summaryInterval)) {
-            runCatching { performSummary(summaryInterval) }
-                .onFailure { throwable ->
-                    logger.warn("Не удалось сформировать summary: ${throwable.message}", throwable)
-                }
-        }
-
-        val promptTokensApprox = calculatePromptTokens(context.messages)
         val usage = completionResult.usage
-        val promptTokens = usage?.promptTokens ?: promptTokensApprox
+        val promptTokens = usage?.promptTokens ?: calculatePromptTokens(context.messages)
         val completionTokens = usage?.completionTokens
         val totalTokens = usage?.totalTokens
 
         val hypotheticalMessages = buildHypotheticalFullHistory()
-        val hypotheticalPromptTokens = calculateHypotheticalTokens(hypotheticalMessages)
+        val summaries = historyState.getSummaries()
+        val hypotheticalPromptTokens = calculateHypotheticalTokens(
+            messages = hypotheticalMessages,
+            allowEstimate = summaries.isNotEmpty()
+        )
         val tokensSaved = if (promptTokens != null && hypotheticalPromptTokens != null) {
             (hypotheticalPromptTokens - promptTokens).coerceAtLeast(0)
         } else null
@@ -88,7 +107,7 @@ class DialogCompressionAgent(
                 hypotheticalPromptTokens = hypotheticalPromptTokens,
                 tokensSavedByCompression = tokensSaved
             ),
-            summaries = historyState.getSummaries(),
+            summaries = summaries,
             rawMessagesCount = historyState.getRawMessages().size,
             summaryInterval = summaryInterval
         )
@@ -100,7 +119,7 @@ class DialogCompressionAgent(
 
     suspend fun getState(): DialogStateSnapshot = mutex.withLock {
         DialogStateSnapshot(
-            rawMessages = historyState.getRawMessages(),
+            messages = historyState.getTimelineMessages(),
             summaries = historyState.getSummaries()
         )
     }
@@ -245,8 +264,14 @@ class DialogCompressionAgent(
 
     private suspend fun performSummary(summaryInterval: Int) {
         val messages = historyState.takeMessagesForSummary(summaryInterval)
-        if (messages.size < summaryInterval) return
+        performSummaryForMessages(messages, anchorMessageId = null)
+    }
 
+    private suspend fun performSummaryForMessages(
+        messages: List<DialogMessage>,
+        anchorMessageId: String?
+    ) {
+        if (messages.isEmpty()) return
         val summaryPrompt = buildSummaryPrompt(messages)
         val completionResult = aiRepository.getMessageWithHistory(
             messages = summaryPrompt,
@@ -258,7 +283,7 @@ class DialogCompressionAgent(
         )
 
         val parsed = summaryParser.parse(completionResult.message)
-        val summaryNode = createSummaryNode(parsed, messages)
+        val summaryNode = createSummaryNode(parsed, messages, anchorMessageId)
         historyState.applySummary(summaryNode, messages)
     }
 
@@ -277,26 +302,29 @@ class DialogCompressionAgent(
         )
     }
 
-    private fun createSummaryNode(summary: SummaryContent, messages: List<DialogMessage>): SummaryNode =
+    private fun createSummaryNode(
+        summary: SummaryContent,
+        messages: List<DialogMessage>,
+        anchorMessageId: String?
+    ): SummaryNode =
         SummaryNode(
             id = UUID.randomUUID().toString(),
             createdAt = Instant.now(),
             summary = summary.summary,
             facts = summary.facts,
             openQuestions = summary.openQuestions,
-            sourceMessageIds = messages.map { it.id }
+            sourceMessageIds = messages.map { it.id },
+            anchorMessageId = anchorMessageId
         )
 
     private fun buildHypotheticalFullHistory(): List<MessageDto> {
-        return historyState.getAllMessages()
-            .sortedBy { it.createdAt }
-            .map { message ->
-                MessageDto(role = message.role.toApiRole(), content = message.content)
-            }
+        return historyState.getTimelineMessages().map { message ->
+            MessageDto(role = message.role.toApiRole(), content = message.content)
+        }
     }
 
-    private fun calculateHypotheticalTokens(messages: List<MessageDto>): Int? {
-        if (messages.isEmpty()) return null
+    private fun calculateHypotheticalTokens(messages: List<MessageDto>, allowEstimate: Boolean): Int? {
+        if (!allowEstimate || messages.isEmpty()) return null
         return tokenEstimator.approximateForModel(messages, baseModel)
     }
 

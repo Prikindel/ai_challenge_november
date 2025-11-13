@@ -16,8 +16,16 @@ class TokenEstimator(
         countWithEncoding(messages, defaultEncoding)
 
     fun approximateForModel(messages: List<MessageDto>, model: String?): Int {
-        val encoding = model?.let { resolveEncodingForModel(it) } ?: defaultEncoding
-        return countWithEncoding(messages, encoding)
+        if (messages.isEmpty()) return 0
+
+        val modelName = model?.lowercase()
+        val encoding = modelName?.let { resolveEncodingForModel(it) } ?: defaultEncoding
+        val encodedCount = countWithEncoding(messages, encoding)
+
+        return when {
+            modelName != null && modelName.contains("llama") -> scaleForLlama(encodedCount)
+            else -> encodedCount
+        }
     }
 
     private fun countWithEncoding(messages: List<MessageDto>, encoding: Encoding): Int {
@@ -54,5 +62,14 @@ class TokenEstimator(
         }
 
         return encodingRegistry.getEncoding(fallbackType)
+    }
+
+    private fun scaleForLlama(rawCount: Int): Int {
+        val scaled = (rawCount * LLAMA_SCALING_FACTOR).toInt()
+        return if (scaled <= 0) 1 else scaled
+    }
+
+    companion object {
+        private const val LLAMA_SCALING_FACTOR = 0.36
     }
 }

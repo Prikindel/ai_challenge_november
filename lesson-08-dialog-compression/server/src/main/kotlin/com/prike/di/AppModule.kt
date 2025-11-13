@@ -17,7 +17,7 @@ object AppModule {
     private var openAIClient: OpenAIClient? = null
     private var aiRepository: AIRepository? = null
     private var dialogCompressionAgent: DialogCompressionAgent? = null
-
+    
     /**
      * Получить директорию с клиентом
      */

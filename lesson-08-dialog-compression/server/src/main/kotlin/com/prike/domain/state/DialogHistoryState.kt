@@ -34,12 +34,27 @@ class DialogHistoryState {
         return message
     }
 
-    fun needsSummary(summaryInterval: Int): Boolean = rawMessages.size >= summaryInterval
+    fun needsSummary(summaryInterval: Int): Boolean =
+        rawMessages.count { it.role == MessageRole.USER } >= summaryInterval
 
     fun takeMessagesForSummary(summaryInterval: Int): List<DialogMessage> {
-        val candidates = rawMessages.takeLast(summaryInterval)
-        if (candidates.size < summaryInterval) return emptyList()
-        return candidates
+        if (!needsSummary(summaryInterval)) return emptyList()
+
+        val chunk = mutableListOf<DialogMessage>()
+        var userCount = 0
+
+        for (message in rawMessages.asReversed()) {
+            chunk.add(message)
+            if (message.role == MessageRole.USER) {
+                userCount++
+                if (userCount == summaryInterval) break
+            }
+        }
+
+        if (userCount < summaryInterval) return emptyList()
+
+        chunk.reverse()
+        return chunk
     }
 
     fun applySummary(summaryNode: SummaryNode, summarizedMessages: List<DialogMessage>) {
@@ -53,7 +68,32 @@ class DialogHistoryState {
 
     fun getRawMessages(): List<DialogMessage> = rawMessages.toList()
 
-    fun getAllMessages(): List<DialogMessage> = archivedMessages + rawMessages
+    fun getTimelineMessages(): List<DialogMessage> =
+        (archivedMessages + rawMessages).sortedBy { it.createdAt }
+
+    fun takeMessagesForSummaryBeforeMessage(targetMessageId: String, summaryInterval: Int): List<DialogMessage> {
+        val targetIndex = rawMessages.indexOfFirst { it.id == targetMessageId }
+        if (targetIndex <= 0) return emptyList()
+
+        val candidates = rawMessages.subList(0, targetIndex)
+        if (candidates.isEmpty()) return emptyList()
+
+        val chunk = mutableListOf<DialogMessage>()
+        var userCount = 0
+
+        for (message in candidates.asReversed()) {
+            chunk.add(message)
+            if (message.role == MessageRole.USER) {
+                userCount++
+                if (userCount == summaryInterval) break
+            }
+        }
+
+        if (userCount < summaryInterval) return emptyList()
+
+        chunk.reverse()
+        return chunk
+    }
 
     fun getSummaries(): List<SummaryNode> = summaries.toList()
 

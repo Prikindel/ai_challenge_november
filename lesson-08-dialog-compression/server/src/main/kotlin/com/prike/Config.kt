@@ -35,7 +35,7 @@ object Config {
             }
         }
     }
-
+    
     val serverHost: String = dotenv["SERVER_HOST"] ?: System.getenv("SERVER_HOST") ?: "0.0.0.0"
     val serverPort: Int = (dotenv["SERVER_PORT"] ?: System.getenv("SERVER_PORT") ?: "8080").toInt()
 
@@ -74,7 +74,7 @@ object Config {
         val requestTimeout = (aiSection["requestTimeout"] as? Number)?.toInt() ?: 60
         val systemPrompt = (aiSection["systemPrompt"] as? String)?.takeIf { it.isNotBlank() }
         val useJsonFormat = aiSection["useJsonFormat"] as? Boolean ?: false
-
+        
         return AIConfig(
             apiKey = apiKey,
             apiUrl = apiUrl,

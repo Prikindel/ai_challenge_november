@@ -100,46 +100,6 @@
                 </section>
             </aside>
         </main>
-
-        <section class="card theory-card">
-            <header class="card-header">
-                <h2>Теория</h2>
-            </header>
-            <div class="theory-grid">
-                <article class="theory-block">
-                    <h3>Почему важно сжимать историю</h3>
-                    <p>
-                        Каждое новое сообщение увеличивает длину промпта. Чем больше контекст, тем выше стоимость и
-                        время отклика модели. Управление историей помогает удерживать затраты под контролем и ускоряет
-                        ответы.
-                    </p>
-                </article>
-                <article class="theory-block">
-                    <h3>Подходы к компрессии</h3>
-                    <ul>
-                        <li><strong>Rolling summary:</strong> периодически создаём конспект последних сообщений.</li>
-                        <li><strong>Retrieval-based:</strong> сохраняем факты и достаём только релевантные.</li>
-                        <li><strong>Hybrid:</strong> объединяем summary и выборку фактов.</li>
-                    </ul>
-                </article>
-                <article class="theory-block">
-                    <h3>Компромиссы</h3>
-                    <p>
-                        Аggрессивное сжатие может потерять нюансы. Summary стоит обновлять, когда появляются новые
-                        договорённости. Необходим контроль за искажениями и пересказами модели.
-                    </p>
-                </article>
-                <article class="theory-block">
-                    <h3>Метрики</h3>
-                    <ul>
-                        <li>Длина запроса (prompt tokens)</li>
-                        <li>Точность и логическая связность ответов</li>
-                        <li>Субъективное восприятие пользователя</li>
-                        <li>Экономия токенов относительно «полной» истории</li>
-                    </ul>
-                </article>
-            </div>
-        </section>
     </div>
 
     <div id="summaryModal" class="modal" aria-hidden="true">

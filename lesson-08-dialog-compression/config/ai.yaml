@@ -1,8 +1,8 @@
 ai:
-  apiUrl: "https://api.openai.com/v1/chat/completions"
-  model: "gpt-4o-mini"
+  apiUrl: "https://openrouter.ai/api/v1/chat/completions"
+  model: "meta-llama/llama-3.1-8b-instruct"
   temperature: 0.3
-  maxTokens: 1024
+  maxTokens: 3048
   requestTimeout: 90
   systemPrompt: |
     Ты — помощник по управлению историей диалога. Поддерживай краткость, уточняй детали, не допускай искажений при сжатии.

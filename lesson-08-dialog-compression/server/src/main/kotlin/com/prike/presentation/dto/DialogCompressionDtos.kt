@@ -48,12 +48,14 @@ data class SummaryDto(
     val createdAt: String,
     val summary: String,
     val facts: List<String>,
-    val openQuestions: List<String>
+    val openQuestions: List<String>,
+    val sourceMessageIds: List<String>,
+    val anchorMessageId: String?
 )
 
 @Serializable
 data class DialogStateResponseDto(
-    val rawMessages: List<StateMessageDto>,
+    val messages: List<StateMessageDto>,
     val summaries: List<SummaryDto>
 )
 
@@ -62,7 +64,8 @@ data class StateMessageDto(
     val id: String,
     val role: String,
     val content: String,
-    val createdAt: String
+    val createdAt: String,
+    val summarized: Boolean
 )
 
 @Serializable

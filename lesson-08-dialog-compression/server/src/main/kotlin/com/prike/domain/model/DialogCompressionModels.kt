@@ -18,7 +18,8 @@ data class SummaryNode(
     val summary: String,
     val facts: List<String>,
     val openQuestions: List<String>,
-    val sourceMessageIds: List<String>
+    val sourceMessageIds: List<String>,
+    val anchorMessageId: String? = null
 )
 
 data class SummaryContent(
@@ -57,7 +58,7 @@ data class AgentResponseMetrics(
 )
 
 data class DialogStateSnapshot(
-    val rawMessages: List<DialogMessage>,
+    val messages: List<DialogMessage>,
     val summaries: List<SummaryNode>
 )
 

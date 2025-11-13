@@ -92,7 +92,7 @@ class DialogCompressionController(
         respond(
             HttpStatusCode.OK,
             DialogStateResponseDto(
-                rawMessages = state.rawMessages.sortedBy { it.createdAt }.map { it.toDto() },
+                messages = state.messages.sortedBy { it.createdAt }.map { it.toDto() },
                 summaries = state.summaries.sortedBy { it.createdAt }.map { it.toDto() }
             )
         )
@@ -159,7 +159,9 @@ class DialogCompressionController(
             createdAt = formatter.format(createdAt),
             summary = summary,
             facts = facts,
-            openQuestions = openQuestions
+            openQuestions = openQuestions,
+            sourceMessageIds = sourceMessageIds,
+            anchorMessageId = anchorMessageId
         )
 
     private fun DialogMessage.toDto(): StateMessageDto =
@@ -167,7 +169,8 @@ class DialogCompressionController(
             id = id,
             role = role.name.lowercase(),
             content = content,
-            createdAt = formatter.format(createdAt)
+            createdAt = formatter.format(createdAt),
+            summarized = summarized
         )
 
     private fun ComparisonReport.toDto(): ComparisonResponseDto =

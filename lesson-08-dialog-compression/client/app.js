@@ -28,7 +28,7 @@
         summaryInterval: Number(elements.summaryIntervalInput.value) || 10,
         maxSummaries: Number(elements.maxSummariesInput.value) || 3,
         mode: elements.modeSelect.value,
-        rawMessages: [],
+        messages: [],
         summaries: [],
         lastResponse: null,
         contextUsed: null,
@@ -108,8 +108,9 @@
 
     const refreshState = async () => {
         try {
+            const previousSummaryIds = new Set(state.summaries.map((summary) => summary.id));
             const data = await request('/state', { method: 'GET' });
-            state.rawMessages = (data?.rawMessages || []).map((message) => ({
+            state.messages = (data?.messages || []).map((message) => ({
                 ...message,
                 createdAt: message.createdAt
             }));
@@ -117,6 +118,19 @@
                 ...summary,
                 createdAt: summary.createdAt
             }));
+
+            const newSummaryIds = state.summaries
+                .map((summary) => summary.id)
+                .filter((id) => !previousSummaryIds.has(id));
+            if (newSummaryIds.length > 0) {
+                const latestSummaryId = newSummaryIds.at(-1);
+                showToast(
+                    latestSummaryId
+                        ? `Сформирован summary #${latestSummaryId.slice(0, 6)}`
+                        : 'Сформирован новый summary'
+                );
+            }
+
             renderConversation();
             renderSummaries();
             updateDialogStatus();
@@ -126,12 +140,14 @@
     };
 
     const updateDialogStatus = () => {
-        const raw = state.rawMessages.length;
+        const totalMessages = state.messages.length;
+        const summarizedMessages = state.messages.filter((message) => message.summarized).length;
+        const activeMessages = totalMessages - summarizedMessages;
         const summaries = state.summaries.length;
         if (state.mode === 'comparison') {
             elements.dialogStatus.textContent = 'Режим: контрольный прогон';
         } else {
-            elements.dialogStatus.textContent = `Сообщений: ${raw} • Summary: ${summaries}`;
+            elements.dialogStatus.textContent = `Активных: ${activeMessages} • Summary: ${summaries}`;
         }
     };
 
@@ -139,7 +155,7 @@
         const container = elements.conversationList;
         container.innerHTML = '';
 
-        if (!state.rawMessages.length) {
+        if (!state.messages.length) {
             const placeholder = document.createElement('p');
             placeholder.className = 'empty';
             placeholder.textContent = 'История пуста. Напишите первое сообщение или запустите сценарий.';
@@ -148,13 +164,25 @@
         }
 
         const contextIds = new Set((state.contextUsed?.rawMessages || []).map((message) => message.id));
+        const summaryMarkers = new Map();
+        state.summaries.forEach((summary) => {
+            const sourceIds = summary.sourceMessageIds || [];
+            const anchorId = summary.anchorMessageId || sourceIds.at(-1);
+            if (anchorId) {
+                summaryMarkers.set(anchorId, summary);
+            }
+        });
 
-        state.rawMessages
+        state.messages
             .slice()
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
             .forEach((message) => {
                 const item = document.createElement('article');
-                item.className = `message ${message.role}`;
+                const messageClasses = ['message', message.role];
+                if (message.summarized) {
+                    messageClasses.push('summarized');
+                }
+                item.className = messageClasses.join(' ');
 
                 const header = document.createElement('div');
                 header.className = 'message-header';
@@ -177,6 +205,13 @@
                     header.appendChild(badge);
                 }
 
+                if (message.summarized) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge muted';
+                    badge.textContent = 'В summary';
+                    header.appendChild(badge);
+                }
+
                 const time = document.createElement('span');
                 time.className = 'badge';
                 time.textContent = formatDate(message.createdAt);
@@ -188,6 +223,34 @@
                 item.appendChild(header);
                 item.appendChild(content);
                 container.appendChild(item);
+
+                const summary = summaryMarkers.get(message.id);
+                if (summary) {
+                    const marker = document.createElement('article');
+                    marker.className = 'summary-marker';
+
+                    const markerHeader = document.createElement('div');
+                    markerHeader.className = 'summary-marker__header';
+
+                    const markerTitle = document.createElement('strong');
+                    markerTitle.textContent = `Сформирован summary #${summary.id.slice(0, 6)}`;
+                    markerHeader.appendChild(markerTitle);
+
+                    const markerTime = document.createElement('span');
+                    markerTime.className = 'badge';
+                    markerTime.textContent = formatDate(summary.createdAt);
+                    markerHeader.appendChild(markerTime);
+
+                    marker.appendChild(markerHeader);
+
+                    const info = document.createElement('p');
+                    info.className = 'summary-marker__info';
+                    const covered = summary.sourceMessageIds?.length ?? 0;
+                    info.textContent = `Свёрнуто сообщений: ${covered}`;
+                    marker.appendChild(info);
+
+                    container.appendChild(marker);
+                }
             });
 
         requestAnimationFrame(() => {
@@ -486,7 +549,7 @@
         setLoading(true);
         try {
             await request('/reset', { method: 'POST', body: JSON.stringify({}) });
-            state.rawMessages = [];
+            state.messages = [];
             state.summaries = [];
             state.contextUsed = null;
             state.lastResponse = null;
