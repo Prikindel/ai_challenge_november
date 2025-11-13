@@ -3,21 +3,160 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>День 8. Сжатие диалога</title>
+    <title>🔥 День 8. Сжатие диалога</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <div id="app">
         <header class="hero">
-            <h1>🔥 День 8. Сжатие диалога</h1>
-            <p>Интерфейс в разработке. Фронтенд будет добавлен на следующих этапах.</p>
+            <div class="hero-text">
+                <h1>🔥 День 8. Сжатие диалога</h1>
+                <p>
+                    Исследуйте, как агент динамически сжимает историю диалога, экономит токены и при этом сохраняет
+                    контекст для точных ответов.
+                </p>
+            </div>
+            <div class="hero-actions">
+                <button id="openSummaryModal" class="ghost-button" type="button">Просмотр summary</button>
+                <button id="resetDialogButton" class="ghost-button" type="button">Сбросить диалог</button>
+            </div>
         </header>
-        <main>
-            <section class="placeholder">
-                <p>Следите за обновлениями этого модуля. Скоро здесь появится интерактивный интерфейс для работы с компрессией диалогов.</p>
+
+        <main class="main-layout">
+            <section class="card chat-card">
+                <header class="card-header">
+                    <h2>Диалог</h2>
+                    <span class="status-pill" id="dialogStatus">Готов к диалогу</span>
+                </header>
+                <div id="conversationList" class="conversation-list"></div>
+                <form id="messageForm" class="message-form">
+                    <label for="messageInput" class="sr-only">Сообщение</label>
+                    <textarea id="messageInput" placeholder="Введите сообщение для агента..." rows="3" required></textarea>
+                    <div class="form-footer">
+                        <div class="inline-settings">
+                            <label class="field">
+                                <span>Интервал summary</span>
+                                <input id="summaryIntervalInput" type="number" min="1" value="10" />
+                            </label>
+                            <label class="field">
+                                <span>Макс. summary в контексте</span>
+                                <input id="maxSummariesInput" type="number" min="0" value="3" />
+                            </label>
+                            <label class="field">
+                                <span>Режим</span>
+                                <select id="modeSelect">
+                                    <option value="normal" selected>Обычный</option>
+                                    <option value="comparison">Контрольный прогон</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button id="sendButton" type="submit" class="primary-button">
+                            Отправить
+                            <span class="loader" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                    <p class="form-hint" id="modeHint">
+                        В обычном режиме каждое сообщение отправляется в агент и фиксируются метрики сжатия.
+                    </p>
+                </form>
             </section>
+
+            <aside class="sidebar">
+                <section class="card compact" id="metricsCard">
+                    <header class="card-header">
+                        <h3>Метрики запроса</h3>
+                    </header>
+                    <div class="metrics" id="metricsContent">
+                        <p class="empty">Отправьте сообщение, чтобы увидеть расход токенов и экономию.</p>
+                    </div>
+                </section>
+
+                <section class="card compact" id="comparisonCard">
+                    <header class="card-header">
+                        <h3>Контрольный прогон</h3>
+                    </header>
+                    <div class="comparison-controls">
+                        <label class="field">
+                            <span>Сценарий</span>
+                            <select id="scenarioSelect"></select>
+                        </label>
+                        <button id="runComparisonButton" class="secondary-button" type="button">
+                            Запустить контрольный прогон
+                        </button>
+                    </div>
+                    <div id="comparisonResults" class="comparison-results empty">
+                        <p class="empty">Запустите контрольный прогон, чтобы сравнить режимы.</p>
+                    </div>
+                </section>
+
+                <section class="card compact" id="historyCard">
+                    <header class="card-header">
+                        <h3>История запусков</h3>
+                        <span id="tokensSavedCounter" class="chip">Экономия: 0 токенов</span>
+                    </header>
+                    <div id="historyList" class="history-list">
+                        <p class="empty">Пока нет запусков — начните диалог.</p>
+                    </div>
+                </section>
+            </aside>
         </main>
+
+        <section class="card theory-card">
+            <header class="card-header">
+                <h2>Теория</h2>
+            </header>
+            <div class="theory-grid">
+                <article class="theory-block">
+                    <h3>Почему важно сжимать историю</h3>
+                    <p>
+                        Каждое новое сообщение увеличивает длину промпта. Чем больше контекст, тем выше стоимость и
+                        время отклика модели. Управление историей помогает удерживать затраты под контролем и ускоряет
+                        ответы.
+                    </p>
+                </article>
+                <article class="theory-block">
+                    <h3>Подходы к компрессии</h3>
+                    <ul>
+                        <li><strong>Rolling summary:</strong> периодически создаём конспект последних сообщений.</li>
+                        <li><strong>Retrieval-based:</strong> сохраняем факты и достаём только релевантные.</li>
+                        <li><strong>Hybrid:</strong> объединяем summary и выборку фактов.</li>
+                    </ul>
+                </article>
+                <article class="theory-block">
+                    <h3>Компромиссы</h3>
+                    <p>
+                        Аggрессивное сжатие может потерять нюансы. Summary стоит обновлять, когда появляются новые
+                        договорённости. Необходим контроль за искажениями и пересказами модели.
+                    </p>
+                </article>
+                <article class="theory-block">
+                    <h3>Метрики</h3>
+                    <ul>
+                        <li>Длина запроса (prompt tokens)</li>
+                        <li>Точность и логическая связность ответов</li>
+                        <li>Субъективное восприятие пользователя</li>
+                        <li>Экономия токенов относительно «полной» истории</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
     </div>
+
+    <div id="summaryModal" class="modal" aria-hidden="true">
+        <div class="modal-overlay" data-close="summaryModal"></div>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="summaryModalTitle">
+            <header class="modal-header">
+                <h2 id="summaryModalTitle">Summary блоки</h2>
+                <button class="icon-button" type="button" data-close="summaryModal" aria-label="Закрыть">
+                    ×
+                </button>
+            </header>
+            <div id="summaryList" class="modal-body"></div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
     <script src="app.js"></script>
 </body>
 </html>
