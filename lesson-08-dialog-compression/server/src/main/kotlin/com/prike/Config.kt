@@ -18,6 +18,9 @@ object Config {
         resolveLessonRoot(File(System.getProperty("user.dir")))
     }
 
+    val lessonRootPath: File
+        get() = lessonRoot
+
     private val dotenv = run {
         val envFile = File(lessonRoot, ".env")
         try {
