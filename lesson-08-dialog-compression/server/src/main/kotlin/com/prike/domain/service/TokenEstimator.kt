@@ -4,7 +4,6 @@ import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.Encoding
 import com.knuddels.jtokkit.api.EncodingRegistry
 import com.knuddels.jtokkit.api.EncodingType
-import com.knuddels.jtokkit.api.ModelType
 import com.prike.data.dto.MessageDto
 
 class TokenEstimator(
@@ -16,15 +15,10 @@ class TokenEstimator(
     fun countTokens(messages: List<MessageDto>): Int =
         countWithEncoding(messages, defaultEncoding)
 
-    fun approximateForModel(messages: List<MessageDto>, model: String?): Int =
-        if (model == null) countTokens(messages) else {
-            val modelEncoding = runCatching { ModelType.fromName(model) }
-                .getOrNull()
-                ?.encodingType
-                ?.let { encodingRegistry.getEncoding(it) }
-                ?: defaultEncoding
-            countWithEncoding(messages, modelEncoding)
-        }
+    fun approximateForModel(messages: List<MessageDto>, model: String?): Int {
+        val encoding = model?.let { resolveEncodingForModel(it) } ?: defaultEncoding
+        return countWithEncoding(messages, encoding)
+    }
 
     private fun countWithEncoding(messages: List<MessageDto>, encoding: Encoding): Int {
         if (messages.isEmpty()) return 0
@@ -35,5 +29,30 @@ class TokenEstimator(
             message.name?.let { total += encoding.encode(it).size }
         }
         return total
+    }
+
+    private fun resolveEncodingForModel(model: String): Encoding {
+        val normalizedUpper = model.trim()
+            .replace('-', '_')
+            .replace('.', '_')
+            .uppercase()
+
+        val direct = EncodingType.values().firstOrNull { it.name == normalizedUpper }
+        if (direct != null) {
+            return encodingRegistry.getEncoding(direct)
+        }
+
+        val normalized = model.lowercase()
+        val fallbackType = when {
+            normalized.contains("gpt-4o") || normalized.contains("gpt4o") -> EncodingType.CL100K_BASE
+            normalized.contains("gpt-4") || normalized.contains("gpt4") -> EncodingType.CL100K_BASE
+            normalized.contains("gpt-3.5") || normalized.contains("gpt3.5") -> EncodingType.CL100K_BASE
+            normalized.contains("gpt-3") || normalized.contains("gpt3") || normalized.contains("davinci") -> EncodingType.R50K_BASE
+            normalized.contains("llama") -> EncodingType.CL100K_BASE
+            normalized.contains("mistral") -> EncodingType.CL100K_BASE
+            else -> EncodingType.CL100K_BASE
+        }
+
+        return encodingRegistry.getEncoding(fallbackType)
     }
 }

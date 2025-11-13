@@ -3,7 +3,6 @@ package com.prike.domain.agent
 import com.prike.config.DialogCompressionConfig
 import com.prike.data.dto.MessageDto
 import com.prike.data.repository.AIRepository
-import com.prike.domain.exception.AIServiceException
 import com.prike.domain.model.AgentResponseMetrics
 import com.prike.domain.model.ComparisonReport
 import com.prike.domain.model.ComparisonScenarioMetrics
@@ -27,7 +26,7 @@ import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 
 class DialogCompressionAgent(
-    private val aiRepository: AIRepository,
+    aiRepository: AIRepository,
     private val lessonConfig: DialogCompressionConfig,
     private val tokenEstimator: TokenEstimator,
     private val summaryParser: SummaryParser,
@@ -113,13 +112,6 @@ class DialogCompressionAgent(
         val withoutCompression = simulateScenario(scenario, enableCompression = false)
         val withCompression = simulateScenario(scenario, enableCompression = true)
 
-        val analysis = buildString {
-            appendLine("Сжатие включено: ${withCompression.totalPromptTokens ?: "?"} токенов промпта")
-            appendLine("Сжатие отключено: ${withoutCompression.totalPromptTokens ?: "?"} токенов промпта")
-            adjustedWithCompression.tokensSaved?.let { appendLine("Экономия токенов: $it") }
-            appendLine("Сводок (summary) сформировано: ${adjustedWithCompression.summariesGenerated}")
-        }
-
         val adjustedWithCompression = withCompression.copy(
             tokensSaved = if (
                 withCompression.totalPromptTokens != null &&
@@ -129,6 +121,13 @@ class DialogCompressionAgent(
                     .coerceAtLeast(0)
             } else null
         )
+
+        val analysis = buildString {
+            appendLine("Сжатие включено: ${withCompression.totalPromptTokens ?: "?"} токенов промпта")
+            appendLine("Сжатие отключено: ${withoutCompression.totalPromptTokens ?: "?"} токенов промпта")
+            adjustedWithCompression.tokensSaved?.let { appendLine("Экономия токенов: $it") }
+            appendLine("Сводок (summary) сформировано: ${adjustedWithCompression.summariesGenerated}")
+        }
 
         historyState.clear()
 

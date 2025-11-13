@@ -35,8 +35,8 @@ object AppModule {
         val client = OpenAIClient(
             apiKey = config.apiKey,
             apiUrl = config.apiUrl,
-            model = config.model ?: "gpt-3.5-turbo",
-            temperature = config.temperature ?: 0.7,
+            model = config.model,
+            temperature = config.temperature,
             maxTokens = config.maxTokens,
             requestTimeoutSeconds = config.requestTimeout,
             systemPrompt = config.systemPrompt,

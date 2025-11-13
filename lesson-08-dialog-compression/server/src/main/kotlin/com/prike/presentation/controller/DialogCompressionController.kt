@@ -7,6 +7,7 @@ import com.prike.domain.exception.DomainException
 import com.prike.domain.exception.ValidationException
 import com.prike.domain.model.AgentResponseMetrics
 import com.prike.domain.model.ComparisonReport
+import com.prike.domain.model.ComparisonScenarioMetrics
 import com.prike.domain.model.ContextRawMessage
 import com.prike.domain.model.DialogMessage
 import com.prike.domain.model.SummaryNode
@@ -178,7 +179,7 @@ class DialogCompressionController(
             analysisText = analysisText
         )
 
-    private fun ComparisonReport.ComparisonScenarioMetrics.toDto(): ScenarioMetricsDto =
+    private fun ComparisonScenarioMetrics.toDto(): ScenarioMetricsDto =
         ScenarioMetricsDto(
             totalPromptTokens = totalPromptTokens,
             totalCompletionTokens = totalCompletionTokens,
