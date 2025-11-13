@@ -70,7 +70,8 @@ class DialogCompressionController(
                 DialogOrchestrator.HandleMessageCommand(
                     userMessage = request.message,
                     summaryIntervalOverride = request.summaryInterval,
-                    maxSummariesInContext = request.maxSummariesInContext
+                    maxSummariesInContext = request.maxSummariesInContext,
+                    summaryStrategyTypeOverride = request.summaryStrategyType
                 )
             )
 

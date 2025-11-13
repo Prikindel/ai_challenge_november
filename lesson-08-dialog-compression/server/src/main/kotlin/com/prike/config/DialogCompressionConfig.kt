@@ -15,6 +15,7 @@ data class DialogCompressionConfig(
         val rawHistoryLimit: Int,
         val compressionModel: String,
         val compressionPromptTemplate: String,
+        val summaryStrategyType: String,
         val defaultScenarioId: String?
     )
 
@@ -48,6 +49,8 @@ object DialogCompressionConfigLoader {
 
         val compressionPromptTemplate = lessonSection["compressionPromptTemplate"].orEmpty()
         require(compressionPromptTemplate.isNotBlank()) { "lesson.compressionPromptTemplate не должен быть пустым" }
+
+        val summaryStrategyType = lessonSection["summaryStrategyType"]?.takeIf { it.isNotBlank() } ?: "independent"
 
         val defaultScenarioId = lessonSection["defaultScenarioId"]?.takeIf { !it.isNullOrBlank() }
 
@@ -89,6 +92,7 @@ object DialogCompressionConfigLoader {
                 rawHistoryLimit = rawHistoryLimit,
                 compressionModel = compressionModel,
                 compressionPromptTemplate = compressionPromptTemplate,
+                summaryStrategyType = summaryStrategyType,
                 defaultScenarioId = defaultScenarioId
             ),
             scenarios = scenarios

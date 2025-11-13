@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 data class SendMessageRequestDto(
     val message: String,
     val summaryInterval: Int? = null,
-    val maxSummariesInContext: Int? = null
+    val maxSummariesInContext: Int? = null,
+    val summaryStrategyType: String? = null
 )
 
 @Serializable

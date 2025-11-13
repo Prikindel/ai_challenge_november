@@ -7,6 +7,7 @@
         messageInput: document.getElementById('messageInput'),
         summaryIntervalInput: document.getElementById('summaryIntervalInput'),
         maxSummariesInput: document.getElementById('maxSummariesInput'),
+        summaryStrategySelect: document.getElementById('summaryStrategySelect'),
         sendButton: document.getElementById('sendButton'),
         modeSelect: document.getElementById('modeSelect'),
         modeHint: document.getElementById('modeHint'),
@@ -27,6 +28,7 @@
     const state = {
         summaryInterval: Number(elements.summaryIntervalInput.value) || 10,
         maxSummaries: Number(elements.maxSummariesInput.value) || 3,
+        summaryStrategyType: elements.summaryStrategySelect.value || 'independent',
         mode: elements.modeSelect.value,
         messages: [],
         summaries: [],
@@ -106,7 +108,7 @@ const setScenarioRunning = (running) => {
     elements.modeSelect.disabled = running;
     elements.resetDialogButton.disabled = running;
     setLoading(state.loading);
-};
+    };
 
     const formatDate = (isoString) => {
         if (!isoString) return '';
@@ -347,7 +349,7 @@ const setScenarioRunning = (running) => {
                 if (message.role === 'assistant') {
                     content.innerHTML = formatMarkdown(message.content);
                 } else {
-                    content.textContent = message.content;
+                content.textContent = message.content;
                 }
 
                 item.appendChild(header);
@@ -637,6 +639,7 @@ const setScenarioRunning = (running) => {
         message,
         summaryInterval,
         maxSummariesInContext,
+        summaryStrategyType,
         historyLabel,
         clearInput = false,
         focusInput = false,
@@ -648,11 +651,15 @@ const setScenarioRunning = (running) => {
         }
 
         const payload = { message };
-        if (typeof summaryInterval === 'number') {
+        
+        if (typeof summaryInterval === 'number' && !isNaN(summaryInterval) && summaryInterval > 0) {
             payload.summaryInterval = summaryInterval;
         }
-        if (typeof maxSummariesInContext === 'number') {
+        if (typeof maxSummariesInContext === 'number' && !isNaN(maxSummariesInContext) && maxSummariesInContext >= 0) {
             payload.maxSummariesInContext = maxSummariesInContext;
+        }
+        if (typeof summaryStrategyType === 'string' && summaryStrategyType) {
+            payload.summaryStrategyType = summaryStrategyType;
         }
 
         const response = await request('/message', {
@@ -695,8 +702,18 @@ const setScenarioRunning = (running) => {
             return;
         }
 
-        state.summaryInterval = Math.max(1, Number(elements.summaryIntervalInput.value) || state.summaryInterval);
-        state.maxSummaries = Math.max(0, Number(elements.maxSummariesInput.value) || state.maxSummaries);
+        const inputSummaryInterval = Number(elements.summaryIntervalInput.value);
+        const inputMaxSummaries = Number(elements.maxSummariesInput.value);
+        const inputStrategyType = elements.summaryStrategySelect.value;
+        
+        state.summaryInterval = Math.max(1, inputSummaryInterval || 10);
+        state.maxSummaries = Math.max(0, inputMaxSummaries || 3);
+        state.summaryStrategyType = inputStrategyType || 'independent';
+
+        // Обновляем значения в input для отображения
+        elements.summaryIntervalInput.value = state.summaryInterval;
+        elements.maxSummariesInput.value = state.maxSummaries;
+        elements.summaryStrategySelect.value = state.summaryStrategyType;
 
         setLoading(true);
         elements.modeHint.textContent = 'Отправка сообщения...';
@@ -705,11 +722,11 @@ const setScenarioRunning = (running) => {
                 message,
                 summaryInterval: state.summaryInterval,
                 maxSummariesInContext: state.maxSummaries,
+                summaryStrategyType: state.summaryStrategyType,
                 historyLabel: 'Ручной ввод',
                 clearInput: true,
                 focusInput: true
             });
-            elements.summaryIntervalInput.value = state.summaryInterval;
             elements.modeHint.textContent = 'Ответ получен. История обновлена.';
         } catch (error) {
             showToast(error.message);
@@ -842,7 +859,7 @@ const setScenarioRunning = (running) => {
         state.selectedScenario = elements.scenarioSelect.value;
     };
 
-    const runScenarioOnce = async ({ scenarioId, label, summaryInterval, maxSummariesInContext }) => {
+    const runScenarioOnce = async ({ scenarioId, label, summaryInterval, maxSummariesInContext, summaryStrategyType }) => {
         const scenario = await loadScenarioDetails(scenarioId);
         if (!scenario || !scenario.messages || scenario.messages.length === 0) {
             throw new Error('Сценарий пуст или не найден.');
@@ -878,8 +895,9 @@ const setScenarioRunning = (running) => {
 
             const response = await sendChatMessage({
                 message: message.content,
-                summaryInterval,
-                maxSummariesInContext,
+                summaryInterval: summaryInterval,
+                maxSummariesInContext: maxSummariesInContext,
+                summaryStrategyType: summaryStrategyType || state.summaryStrategyType,
                 historyLabel: label,
                 showPendingMessage: true
             });
@@ -952,16 +970,23 @@ const setScenarioRunning = (running) => {
             return;
         }
 
-        state.summaryInterval = Math.max(
-            1,
-            Number(elements.summaryIntervalInput.value) || state.summaryInterval
-        );
-        state.maxSummaries = Math.max(
-            0,
-            Number(elements.maxSummariesInput.value) || state.maxSummaries
-        );
-        elements.summaryIntervalInput.value = state.summaryInterval;
-        elements.maxSummariesInput.value = state.maxSummaries;
+        // Читаем актуальные значения из input перед запуском
+        const inputSummaryIntervalRaw = elements.summaryIntervalInput.value.trim();
+        const inputMaxSummariesRaw = elements.maxSummariesInput.value.trim();
+        const inputStrategyType = elements.summaryStrategySelect.value;
+        
+        const inputSummaryInterval = parseInt(inputSummaryIntervalRaw, 10);
+        const inputMaxSummaries = parseInt(inputMaxSummariesRaw, 10);
+        
+        // Используем значения напрямую из input, без сохранения в state
+        const summaryInterval = isNaN(inputSummaryInterval) || inputSummaryInterval <= 0 ? 10 : inputSummaryInterval;
+        const maxSummaries = isNaN(inputMaxSummaries) || inputMaxSummaries < 0 ? 3 : inputMaxSummaries;
+        const strategyType = inputStrategyType || 'independent';
+        
+        // Обновляем значения в input для отображения
+        elements.summaryIntervalInput.value = summaryInterval;
+        elements.maxSummariesInput.value = maxSummaries;
+        elements.summaryStrategySelect.value = strategyType;
 
         setScenarioRunning(true);
         elements.modeHint.textContent = 'Выполняю контрольный прогон...';
@@ -969,18 +994,26 @@ const setScenarioRunning = (running) => {
         try {
             const scenarioDetails = await loadScenarioDetails(state.selectedScenario);
             
+            // Сохраняем значение summaryInterval для режима "С сжатием" в отдельную переменную,
+            // чтобы гарантировать, что оно не изменится
+            const compressionSummaryInterval = summaryInterval;
+            const compressionMaxSummaries = maxSummaries;
+            const compressionStrategyType = strategyType;
+            
             const withoutCompression = await runScenarioOnce({
                 scenarioId: state.selectedScenario,
                 label: 'Демо (без сжатия)',
                 summaryInterval: 9_999,
-                maxSummariesInContext: 0
+                maxSummariesInContext: 0,
+                summaryStrategyType: strategyType
             });
 
             const withCompression = await runScenarioOnce({
                 scenarioId: state.selectedScenario,
                 label: 'Демо (со сжатием)',
-                summaryInterval: state.summaryInterval,
-                maxSummariesInContext: state.maxSummaries
+                summaryInterval: compressionSummaryInterval,
+                maxSummariesInContext: compressionMaxSummaries,
+                summaryStrategyType: compressionStrategyType
             });
 
             state.comparisonReport = buildComparisonReport(
@@ -993,7 +1026,7 @@ const setScenarioRunning = (running) => {
             showToast('Контрольный прогон завершён.');
         } catch (error) {
             if (error.message !== 'cancelled') {
-                showToast(error.message);
+            showToast(error.message);
             }
         } finally {
             setScenarioRunning(false);

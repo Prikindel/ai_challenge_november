@@ -1,24 +1,43 @@
 package com.prike.domain.agent
 
 import com.prike.config.DialogCompressionConfig
-import com.prike.data.dto.MessageDto
 import com.prike.data.dto.UsageDto
 import com.prike.data.repository.AIRepository
 import com.prike.domain.model.DialogMessage
-import com.prike.domain.model.MessageRole
 import com.prike.domain.model.SummaryContent
+import com.prike.domain.model.SummaryNode
+import com.prike.domain.service.CumulativeSummaryStrategy
+import com.prike.domain.service.IndependentSummaryStrategy
 import com.prike.domain.service.SummaryParser
+import com.prike.domain.service.SummaryStrategy
 
 class DialogSummarizationAgent(
     private val aiRepository: AIRepository,
     private val summaryParser: SummaryParser,
     private val lessonConfig: DialogCompressionConfig
 ) {
+    private fun getStrategy(strategyType: String): SummaryStrategy = when (strategyType.lowercase()) {
+        "cumulative" -> CumulativeSummaryStrategy()
+        "independent" -> IndependentSummaryStrategy()
+        else -> IndependentSummaryStrategy()
+    }
 
-    suspend fun summarizeMessages(messages: List<DialogMessage>): SummaryResult? {
+    suspend fun summarizeMessages(
+        messages: List<DialogMessage>,
+        existingSummaries: List<SummaryNode> = emptyList(),
+        strategyType: String? = null
+    ): SummaryResult? {
         if (messages.isEmpty()) return null
 
-        val summaryPrompt = buildSummaryPrompt(messages)
+        val effectiveStrategyType = strategyType ?: lessonConfig.lesson.summaryStrategyType
+        val strategy = getStrategy(effectiveStrategyType)
+
+        val summaryPrompt = strategy.buildSummaryPrompt(
+            messagesToSummarize = messages,
+            existingSummaries = existingSummaries,
+            compressionPromptTemplate = lessonConfig.lesson.compressionPromptTemplate
+        )
+        
         val completionResult = aiRepository.getMessageWithHistory(
             summaryPrompt,
             AIRepository.ChatCompletionOptions(
@@ -32,29 +51,8 @@ class DialogSummarizationAgent(
         return SummaryResult(parsed, completionResult.usage)
     }
 
-    private fun buildSummaryPrompt(messages: List<DialogMessage>): List<MessageDto> {
-        val instructions = lessonConfig.lesson.compressionPromptTemplate.trim()
-        val conversation = messages.joinToString(separator = "\n") { message ->
-            "${message.role.toApiRole()}: ${message.content}"
-        }
-
-        return listOf(
-            MessageDto(role = "system", content = instructions),
-            MessageDto(
-                role = "user",
-                content = "Ниже фрагмент диалога. Сожми его по правилам.\n$conversation"
-            )
-        )
-    }
-
     data class SummaryResult(
         val summary: SummaryContent,
         val usage: UsageDto?
     )
-
-    private fun MessageRole.toApiRole(): String = when (this) {
-        MessageRole.USER -> "user"
-        MessageRole.ASSISTANT -> "assistant"
-        MessageRole.SYSTEM -> "system"
-    }
 }

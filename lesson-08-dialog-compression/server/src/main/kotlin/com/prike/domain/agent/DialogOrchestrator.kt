@@ -46,27 +46,50 @@ class DialogOrchestrator(
             ?: lessonConfig.lesson.summaryInterval
         val maxSummaries = command.maxSummariesInContext?.takeIf { it >= 0 }
             ?: lessonConfig.lesson.maxSummariesInContext
+        val strategyType = command.summaryStrategyTypeOverride?.takeIf { it.isNotBlank() }
+            ?: lessonConfig.lesson.summaryStrategyType
+
+        logger.info("Обработка сообщения: summaryInterval=$summaryInterval (override=${command.summaryIntervalOverride}), maxSummaries=$maxSummaries, strategyType=$strategyType")
 
         val newUserMessage = historyState.addUserMessage(command.userMessage)
 
+        // Принудительная сумаризация срабатывает только если:
+        // 1. Количество сообщений превышает порог (rawHistoryLimit * 2)
+        // 2. И при этом накопилось достаточно пользовательских сообщений по summaryInterval
         val forceSummaryThreshold = lessonConfig.lesson.rawHistoryLimit * 2
-        
+
         while (true) {
             val rawMessagesCount = historyState.getRawMessages().size
-            val messagesToSummarize = if (rawMessagesCount > forceSummaryThreshold) {
-                // Принудительная сумаризация: берем первые сообщения до лимита
+            val unsummarizedUserCount = historyState.getRawMessages().count { 
+                it.role == MessageRole.USER && !it.summarized 
+            }
+            
+            logger.info("Проверка сумаризации: rawMessagesCount=$rawMessagesCount, unsummarizedUserCount=$unsummarizedUserCount, summaryInterval=$summaryInterval, forceThreshold=$forceSummaryThreshold")
+            
+            val messagesToSummarize: List<DialogMessage> = if (rawMessagesCount > forceSummaryThreshold && unsummarizedUserCount >= summaryInterval) {
+                // Принудительная сумаризация: берем первые сообщения до лимита, но только если накопилось summaryInterval пользовательских
+                logger.info("Условие принудительной сумаризации выполнено, проверяем выборку...")
                 val allRaw = historyState.getRawMessages()
                 val toSummarize = allRaw.take(allRaw.size - lessonConfig.lesson.rawHistoryLimit)
-                if (toSummarize.isNotEmpty() && toSummarize.any { it.role == MessageRole.USER }) {
-                    logger.info("Принудительная сумаризация: ${toSummarize.size} сообщений (rawMessages: $rawMessagesCount > threshold: $forceSummaryThreshold)")
+                val userCountInToSummarize = toSummarize.count { it.role == MessageRole.USER && !it.summarized }
+                
+                logger.info("Принудительная выборка: ${toSummarize.size} сообщений, пользовательских: $userCountInToSummarize, требуется: $summaryInterval")
+                
+                if (toSummarize.isNotEmpty() && userCountInToSummarize >= summaryInterval) {
+                    logger.info("Принудительная сумаризация: ${toSummarize.size} сообщений (пользовательских: $userCountInToSummarize, rawMessages: $rawMessagesCount > threshold: $forceSummaryThreshold)")
                     toSummarize
                 } else {
+                    logger.info("В принудительной выборке недостаточно пользовательских сообщений ($userCountInToSummarize < $summaryInterval), используем обычную логику")
+                    // Если в принудительной выборке недостаточно пользовательских сообщений, используем обычную логику
                     historyState.takeMessagesForSummaryBeforeMessage(
-                        targetMessageId = newUserMessage.id,
-                        summaryInterval = summaryInterval
-                    )
+                targetMessageId = newUserMessage.id,
+                summaryInterval = summaryInterval
+            )
                 }
             } else {
+                // Обычная логика: сумаризация по summaryInterval
+                logger.info("Обычная проверка сумаризации: rawUserCount=$unsummarizedUserCount, summaryInterval=$summaryInterval")
+                
                 historyState.takeMessagesForSummaryBeforeMessage(
                     targetMessageId = newUserMessage.id,
                     summaryInterval = summaryInterval
@@ -74,13 +97,15 @@ class DialogOrchestrator(
             }
 
             if (messagesToSummarize.isEmpty()) {
+                logger.info("Сумаризация не требуется: недостаточно сообщений для интервала $summaryInterval (найдено: $unsummarizedUserCount)")
                 break
             }
 
-            logger.info("Сумаризация: ${messagesToSummarize.size} сообщений (пользовательских: ${messagesToSummarize.count { it.role == MessageRole.USER }})")
+            val userCountInSummary = messagesToSummarize.count { it.role == MessageRole.USER && !it.summarized }
+            logger.info("Сумаризация будет выполнена: ${messagesToSummarize.size} сообщений (пользовательских: $userCountInSummary, требуется: $summaryInterval)")
 
             val result = runCatching {
-                performSummaryForMessages(messagesToSummarize, anchorMessageId = newUserMessage.id)
+                performSummaryForMessages(messagesToSummarize, anchorMessageId = newUserMessage.id, strategyType = strategyType)
             }
 
             if (result.isFailure) {
@@ -92,7 +117,7 @@ class DialogOrchestrator(
             }
         }
 
-        val context = buildContext(maxSummaries)
+        val context = buildContext(maxSummaries, strategyType)
         val completionResult = conversationAgent.respond(context.messages)
 
         val assistantAnswer = completionResult.message
@@ -228,8 +253,14 @@ class DialogOrchestrator(
         )
     }
 
-    private fun buildContext(maxSummaries: Int): ContextData {
-        val summaries = historyState.getSummaries().takeLast(maxSummaries)
+    private fun buildContext(maxSummaries: Int, strategyType: String): ContextData {
+        val allSummaries = historyState.getSummaries()
+        // Для кумулятивной стратегии всегда берем только последний (единственный) summary
+        val summaries = if (strategyType.lowercase() == "cumulative") {
+            allSummaries.takeLast(1)
+        } else {
+            allSummaries.takeLast(maxSummaries)
+        }
         val rawMessages = historyState.getRawMessages()
             .takeLast(lessonConfig.lesson.rawHistoryLimit)
 
@@ -280,12 +311,29 @@ class DialogOrchestrator(
 
     private suspend fun performSummaryForMessages(
         messages: List<DialogMessage>,
-        anchorMessageId: String?
+        anchorMessageId: String?,
+        strategyType: String
     ) {
         if (messages.isEmpty()) return
-        val summaryResult = summarizationAgent.summarizeMessages(messages) ?: return
+        
+        val strategyTypeLower = strategyType.lowercase()
+        val existingSummaries = if (strategyTypeLower == "cumulative") {
+            // Для кумулятивной стратегии передаем все существующие сумаризации
+            historyState.getSummaries()
+        } else {
+            // Для независимой стратегии не передаем существующие сумаризации
+            emptyList()
+        }
+        
+        val summaryResult = summarizationAgent.summarizeMessages(messages, existingSummaries, strategyType) ?: return
         val summaryNode = createSummaryNode(summaryResult.summary, messages, anchorMessageId, summaryResult.usage)
-        historyState.applySummary(summaryNode, messages)
+        
+        // Для кумулятивной стратегии заменяем все старые сумаризации на новую
+        if (strategyTypeLower == "cumulative" && existingSummaries.isNotEmpty()) {
+            historyState.replaceAllSummariesWith(summaryNode, messages)
+        } else {
+            historyState.applySummary(summaryNode, messages)
+        }
     }
 
     private fun createSummaryNode(
@@ -366,7 +414,8 @@ class DialogOrchestrator(
     data class HandleMessageCommand(
         val userMessage: String,
         val summaryIntervalOverride: Int? = null,
-        val maxSummariesInContext: Int? = null
+        val maxSummariesInContext: Int? = null,
+        val summaryStrategyTypeOverride: String? = null
     )
 
     data class RunComparisonScenarioCommand(
