@@ -37,7 +37,8 @@
         scenarios: [],
         selectedScenario: null,
         comparisonReport: null,
-        loading: false
+    loading: false,
+    isScenarioRunning: false
     };
 
     const request = async (path, options = {}) => {
@@ -70,6 +71,8 @@
         return payload;
     };
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const showToast = (message) => {
         if (!message) return;
         const toast = document.createElement('div');
@@ -88,11 +91,22 @@
 
     const setLoading = (isLoading) => {
         state.loading = isLoading;
-        const shouldDisableSend = isLoading || state.mode === 'comparison';
+    const shouldDisableSend = isLoading || state.mode === 'comparison' || state.isScenarioRunning;
         elements.sendButton.disabled = shouldDisableSend;
         elements.sendButton.classList.toggle('loading', isLoading);
         elements.messageInput.disabled = shouldDisableSend;
     };
+
+const setScenarioRunning = (running) => {
+    state.isScenarioRunning = running;
+    elements.runComparisonButton.disabled = running;
+    elements.runComparisonButton.textContent = running ? 'Выполняю...' : 'Запустить контрольный прогон';
+    elements.summaryIntervalInput.disabled = running;
+    elements.maxSummariesInput.disabled = running;
+    elements.modeSelect.disabled = running;
+    elements.resetDialogButton.disabled = running;
+    setLoading(state.loading);
+};
 
     const formatDate = (isoString) => {
         if (!isoString) return '';
@@ -104,6 +118,109 @@
         } catch (error) {
             return isoString;
         }
+    };
+
+    const formatMarkdown = (text) => {
+        if (!text) return '';
+        
+        // Экранируем HTML для безопасности
+        const escapeHtml = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+        
+        let html = escapeHtml(text);
+        
+        // Разбиваем на строки для обработки
+        const lines = html.split('\n');
+        const result = [];
+        let inList = false;
+        let listItems = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (!line) {
+                if (inList && listItems.length > 0) {
+                    result.push(`<ul>${listItems.join('')}</ul>`);
+                    listItems = [];
+                    inList = false;
+                }
+                if (i < lines.length - 1) {
+                    result.push('<br>');
+                }
+                continue;
+            }
+            
+            // Заголовки
+            if (line.startsWith('### ')) {
+                if (inList) {
+                    result.push(`<ul>${listItems.join('')}</ul>`);
+                    listItems = [];
+                    inList = false;
+                }
+                result.push(`<h3>${line.substring(4)}</h3>`);
+            } else if (line.startsWith('## ')) {
+                if (inList) {
+                    result.push(`<ul>${listItems.join('')}</ul>`);
+                    listItems = [];
+                    inList = false;
+                }
+                result.push(`<h2>${line.substring(3)}</h2>`);
+            } else if (line.startsWith('# ')) {
+                if (inList) {
+                    result.push(`<ul>${listItems.join('')}</ul>`);
+                    listItems = [];
+                    inList = false;
+                }
+                result.push(`<h1>${line.substring(2)}</h1>`);
+            }
+            // Маркированные списки
+            else if (/^[-*] (.+)$/.test(line)) {
+                const match = line.match(/^[-*] (.+)$/);
+                if (match) {
+                    inList = true;
+                    listItems.push(`<li>${match[1]}</li>`);
+                }
+            }
+            // Нумерованные списки
+            else if (/^\d+\. (.+)$/.test(line)) {
+                const match = line.match(/^\d+\. (.+)$/);
+                if (match) {
+                    if (inList && listItems.length > 0) {
+                        result.push(`<ul>${listItems.join('')}</ul>`);
+                        listItems = [];
+                    }
+                    inList = true;
+                    listItems.push(`<li>${match[1]}</li>`);
+                }
+            }
+            // Обычный текст
+            else {
+                if (inList && listItems.length > 0) {
+                    result.push(`<ul>${listItems.join('')}</ul>`);
+                    listItems = [];
+                    inList = false;
+                }
+                result.push(`<p>${line}</p>`);
+            }
+        }
+        
+        // Закрываем последний список
+        if (inList && listItems.length > 0) {
+            result.push(`<ul>${listItems.join('')}</ul>`);
+        }
+        
+        html = result.join('');
+        
+        // Жирный текст **text**
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        
+        // Курсив *text* (но не внутри **)
+        html = html.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+        
+        return html;
     };
 
     const refreshState = async () => {
@@ -212,13 +329,26 @@
                     header.appendChild(badge);
                 }
 
+                if (message.pending) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge';
+                    badge.textContent = 'Отправляется...';
+                    badge.style.opacity = '0.7';
+                    header.appendChild(badge);
+                }
+
                 const time = document.createElement('span');
                 time.className = 'badge';
                 time.textContent = formatDate(message.createdAt);
                 header.appendChild(time);
 
                 const content = document.createElement('div');
-                content.textContent = message.content;
+                content.className = 'message-content';
+                if (message.role === 'assistant') {
+                    content.innerHTML = formatMarkdown(message.content);
+                } else {
+                    content.textContent = message.content;
+                }
 
                 item.appendChild(header);
                 item.appendChild(content);
@@ -398,6 +528,13 @@
             title.textContent = `${entry.timestamp} • ${entry.promptTokens ?? '—'} → ${entry.totalTokens ?? '—'} токенов`;
             block.appendChild(title);
 
+            if (entry.source) {
+                const sourceBadge = document.createElement('span');
+                sourceBadge.className = 'chip-inline';
+                sourceBadge.textContent = entry.source;
+                block.appendChild(sourceBadge);
+            }
+
             const contextRow = document.createElement('span');
             contextRow.className = 'chip-inline';
             contextRow.textContent = `context: ${entry.contextRawCount} raw / summary: ${entry.summaryCount}`;
@@ -482,6 +619,70 @@
         });
     };
 
+    const addPendingUserMessage = (content) => {
+        const pendingMessage = {
+            id: `pending-${Date.now()}-${Math.random()}`,
+            role: 'user',
+            content: content,
+            createdAt: new Date().toISOString(),
+            summarized: false,
+            pending: true
+        };
+        state.messages.push(pendingMessage);
+        renderConversation();
+        updateDialogStatus();
+    };
+
+    const sendChatMessage = async ({
+        message,
+        summaryInterval,
+        maxSummariesInContext,
+        historyLabel,
+        clearInput = false,
+        focusInput = false,
+        showPendingMessage = false
+    }) => {
+        if (showPendingMessage) {
+            addPendingUserMessage(message);
+            await delay(300);
+        }
+
+        const payload = { message };
+        if (typeof summaryInterval === 'number') {
+            payload.summaryInterval = summaryInterval;
+        }
+        if (typeof maxSummariesInContext === 'number') {
+            payload.maxSummariesInContext = maxSummariesInContext;
+        }
+
+        const response = await request('/message', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        state.lastResponse = response;
+        state.contextUsed = response.contextUsed;
+
+        await refreshState();
+        renderMetrics();
+        renderSummaries();
+
+        if (historyLabel) {
+            addHistoryEntry({ response, message, source: historyLabel });
+            recomputeTotals();
+            renderHistory();
+        }
+
+        if (clearInput) {
+            elements.messageInput.value = '';
+        }
+        if (focusInput) {
+            elements.messageInput.focus();
+        }
+
+        return response;
+    };
+
     const handleMessageSubmit = async (event) => {
         event.preventDefault();
         if (state.mode === 'comparison') {
@@ -500,39 +701,26 @@
         setLoading(true);
         elements.modeHint.textContent = 'Отправка сообщения...';
         try {
-            const payload = {
+            await sendChatMessage({
                 message,
                 summaryInterval: state.summaryInterval,
-                maxSummariesInContext: state.maxSummaries
-            };
-            const response = await request('/message', {
-                method: 'POST',
-                body: JSON.stringify(payload)
+                maxSummariesInContext: state.maxSummaries,
+                historyLabel: 'Ручной ввод',
+                clearInput: true,
+                focusInput: true
             });
-
-            state.lastResponse = response;
-            state.contextUsed = response.contextUsed;
-            elements.summaryIntervalInput.value = response.summaryInterval;
+            elements.summaryIntervalInput.value = state.summaryInterval;
             elements.modeHint.textContent = 'Ответ получен. История обновлена.';
-
-            await refreshState();
-            renderMetrics();
-            renderSummaries();
-            addHistoryEntry({ response, message });
-            recomputeTotals();
-            renderHistory();
         } catch (error) {
             showToast(error.message);
         } finally {
             setLoading(false);
             elements.modeHint.textContent =
                 'В обычном режиме каждое сообщение отправляется в агент и фиксируются метрики сжатия.';
-            elements.messageInput.value = '';
-            elements.messageInput.focus();
         }
     };
 
-    const addHistoryEntry = ({ response, message }) => {
+    const addHistoryEntry = ({ response, message, source }) => {
         const entry = {
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
             promptTokens: response.tokenUsage.promptTokens,
@@ -541,7 +729,8 @@
             tokensSaved: response.tokenUsage.tokensSavedByCompression,
             summaryCount: response.summaries.length,
             contextRawCount: response.contextUsed.rawMessages.length,
-            preview: `${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`
+            source,
+            preview: `${source ? `[${source}] ` : ''}${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`
         };
         state.history.unshift(entry);
         if (state.history.length > 25) {
@@ -550,6 +739,11 @@
     };
 
     const handleModeChange = () => {
+        if (state.isScenarioRunning) {
+            showToast('Дождитесь завершения контрольного прогона.');
+            elements.modeSelect.value = state.mode;
+            return;
+        }
         state.mode = elements.modeSelect.value;
         const hint =
             state.mode === 'comparison'
@@ -572,6 +766,10 @@
     };
 
     const handleResetDialog = async () => {
+        if (state.isScenarioRunning) {
+            showToast('Нельзя сбрасывать историю во время контрольного прогона.');
+            return;
+        }
         setLoading(true);
         try {
             await request('/reset', { method: 'POST', body: JSON.stringify({}) });
@@ -631,8 +829,111 @@
         }
     };
 
+    const loadScenarioDetails = async (scenarioId) => {
+        try {
+            const data = await request(`/scenario/${scenarioId}`, { method: 'GET' });
+            return data;
+        } catch (error) {
+            throw new Error(`Не удалось загрузить сценарий: ${error.message}`);
+        }
+    };
+
     const handleScenarioChange = () => {
         state.selectedScenario = elements.scenarioSelect.value;
+    };
+
+    const runScenarioOnce = async ({ scenarioId, label, summaryInterval, maxSummariesInContext }) => {
+        const scenario = await loadScenarioDetails(scenarioId);
+        if (!scenario || !scenario.messages || scenario.messages.length === 0) {
+            throw new Error('Сценарий пуст или не найден.');
+        }
+
+        const userMessages = scenario.messages.filter(
+            (msg) => (msg.role || '').toLowerCase() === 'user'
+        );
+        if (userMessages.length === 0) {
+            throw new Error('В сценарии нет пользовательских сообщений для запуска.');
+        }
+
+        const startedAt = performance.now();
+        await request('/reset', { method: 'POST', body: JSON.stringify({}) });
+        await refreshState();
+
+        const totals = {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            messagesProcessed: 0
+        };
+
+        for (const message of scenario.messages) {
+            if (!state.isScenarioRunning) {
+                throw new Error('cancelled');
+            }
+            
+            const role = (message.role || '').toLowerCase();
+            if (role !== 'user') {
+                continue;
+            }
+
+            const response = await sendChatMessage({
+                message: message.content,
+                summaryInterval,
+                maxSummariesInContext,
+                historyLabel: label,
+                showPendingMessage: true
+            });
+
+            totals.promptTokens += response.tokenUsage.promptTokens ?? 0;
+            totals.completionTokens += response.tokenUsage.completionTokens ?? 0;
+            totals.totalTokens += response.tokenUsage.totalTokens ?? 0;
+            totals.messagesProcessed += 1;
+
+            await delay(600);
+        }
+
+        await refreshState();
+
+        totals.durationMs = performance.now() - startedAt;
+        totals.summariesGenerated = state.summaries.length;
+        totals.tokensSaved = state.summaries.reduce(
+            (acc, summary) => acc + (summary.tokensSaved || 0),
+            0
+        );
+
+        return totals;
+    };
+
+    const buildComparisonReport = (scenarioId, scenarioDescription, baselineMetrics, compressedMetrics) => {
+        const toDto = (metrics, note) => ({
+            totalPromptTokens: metrics.promptTokens || null,
+            totalCompletionTokens: metrics.completionTokens || null,
+            totalTokens: metrics.totalTokens || null,
+            durationMs: Math.round(metrics.durationMs ?? 0),
+            messagesProcessed: metrics.messagesProcessed ?? 0,
+            summariesGenerated: metrics.summariesGenerated ?? 0,
+            tokensSaved: metrics.tokensSaved ?? null,
+            qualityNotes: note
+        });
+
+        const promptDiff =
+            (baselineMetrics.promptTokens ?? 0) - (compressedMetrics.promptTokens ?? 0);
+
+        const analysisLines = [
+            `Промпт без сжатия: ${baselineMetrics.promptTokens ?? '—'}`,
+            `Промпт со сжатием: ${compressedMetrics.promptTokens ?? '—'}`,
+            `Экономия токенов: ${promptDiff > 0 ? promptDiff : 0}`,
+            `Summary узлов: ${compressedMetrics.summariesGenerated ?? 0}`,
+            `Суммарное сокращение (summary): ${compressedMetrics.tokensSaved ?? 0}`
+        ];
+
+        return {
+            scenarioId: scenarioId,
+            description: scenarioDescription,
+            withoutCompressionMetrics: toDto(baselineMetrics, 'Без сжатия'),
+            withCompressionMetrics: toDto(compressedMetrics, 'Со сжатием'),
+            analysisText: analysisLines.join('\n')
+        };
     };
 
     const runComparison = async () => {
@@ -640,22 +941,68 @@
             showToast('Выберите сценарий для сравнения.');
             return;
         }
-        elements.runComparisonButton.disabled = true;
-        elements.runComparisonButton.textContent = 'Выполняю...';
+        if (state.isScenarioRunning) {
+            showToast('Контрольный прогон уже выполняется.');
+            return;
+        }
+
+        const scenarioInfo = state.scenarios.find((item) => item.id === state.selectedScenario);
+        if (!scenarioInfo) {
+            showToast('Сценарий не найден.');
+            return;
+        }
+
+        state.summaryInterval = Math.max(
+            1,
+            Number(elements.summaryIntervalInput.value) || state.summaryInterval
+        );
+        state.maxSummaries = Math.max(
+            0,
+            Number(elements.maxSummariesInput.value) || state.maxSummaries
+        );
+        elements.summaryIntervalInput.value = state.summaryInterval;
+        elements.maxSummariesInput.value = state.maxSummaries;
+
+        setScenarioRunning(true);
+        elements.modeHint.textContent = 'Выполняю контрольный прогон...';
+
         try {
-            const report = await request('/comparison', {
-                method: 'POST',
-                body: JSON.stringify({ scenarioId: state.selectedScenario })
+            const scenarioDetails = await loadScenarioDetails(state.selectedScenario);
+            
+            const withoutCompression = await runScenarioOnce({
+                scenarioId: state.selectedScenario,
+                label: 'Демо (без сжатия)',
+                summaryInterval: 9_999,
+                maxSummariesInContext: 0
             });
-            state.comparisonReport = report;
+
+            const withCompression = await runScenarioOnce({
+                scenarioId: state.selectedScenario,
+                label: 'Демо (со сжатием)',
+                summaryInterval: state.summaryInterval,
+                maxSummariesInContext: state.maxSummaries
+            });
+
+            state.comparisonReport = buildComparisonReport(
+                state.selectedScenario,
+                scenarioDetails.description,
+                withoutCompression,
+                withCompression
+            );
             renderComparison();
             showToast('Контрольный прогон завершён.');
-            await refreshState();
         } catch (error) {
-            showToast(error.message);
+            if (error.message !== 'cancelled') {
+                showToast(error.message);
+            }
         } finally {
-            elements.runComparisonButton.disabled = false;
-            elements.runComparisonButton.textContent = 'Запустить контрольный прогон';
+            setScenarioRunning(false);
+            const hint =
+                state.mode === 'comparison'
+                    ? 'В режиме сравнения сообщениями управляет сценарий. Выберите сценарий и запустите контрольный прогон.'
+                    : 'В обычном режиме каждое сообщение отправляется в агент и фиксируются метрики сжатия.';
+            elements.modeHint.textContent = hint;
+            await refreshState();
         }
     };
 

@@ -18,6 +18,8 @@ import com.prike.presentation.dto.ContextRawMessageDto
 import com.prike.presentation.dto.ContextUsageDto
 import com.prike.presentation.dto.DialogStateResponseDto
 import com.prike.presentation.dto.ScenarioInfoDto
+import com.prike.presentation.dto.ScenarioDetailsDto
+import com.prike.presentation.dto.ScenarioMessageDto
 import com.prike.presentation.dto.SendMessageRequestDto
 import com.prike.presentation.dto.SendMessageResponseDto
 import com.prike.presentation.dto.ScenarioMetricsDto
@@ -53,7 +55,7 @@ class DialogCompressionController(
             }
             get("/state") { call.handleState() }
             get("/scenarios") { call.handleScenarios() }
-            post("/comparison") { call.handleComparison() }
+            get("/scenario/{id}") { call.handleScenarioDetails() }
         }
     }
 
@@ -113,15 +115,29 @@ class DialogCompressionController(
         )
     }
 
-    private suspend fun ApplicationCall.handleComparison() {
+    private suspend fun ApplicationCall.handleScenarioDetails() {
         try {
-            val request = receive<ComparisonRequestDto>()
-            val report = orchestrator.runComparisonScenario(
-                DialogOrchestrator.RunComparisonScenarioCommand(request.scenarioId)
+            val scenarioId = parameters["id"] ?: throw ValidationException("ID сценария не указан")
+            val scenario = config.scenarios.firstOrNull { it.id == scenarioId }
+                ?: throw ValidationException("Сценарий $scenarioId не найден")
+            
+            respond(
+                HttpStatusCode.OK,
+                ScenarioDetailsDto(
+                    id = scenario.id,
+                    description = scenario.description,
+                    messages = scenario.seedMessages.map { message ->
+                        ScenarioMessageDto(
+                            role = message.role,
+                            content = message.content
+                        )
+                    }
+                )
             )
-            respond(HttpStatusCode.OK, report.toDto())
+        } catch (exception: ValidationException) {
+            respond(HttpStatusCode.BadRequest, mapOf("error" to exception.message))
         } catch (exception: Exception) {
-            logger.error("Comparison run failed", exception)
+            logger.error("Failed to get scenario details", exception)
             respond(HttpStatusCode.InternalServerError, mapOf("error" to exception.message))
         }
     }

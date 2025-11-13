@@ -1,7 +1,7 @@
 lesson:
   summaryInterval: 10
   maxSummariesInContext: 3
-  rawHistoryLimit: 20
+  rawHistoryLimit: 10
   compressionModel: "meta-llama/llama-3.1-8b-instruct"
   compressionPromptTemplate: |
     Ты — ассистент, который аккуратно сжимает диалоги. Сохрани факты, цифры, сроки, имена и договорённости без искажений. Не добавляй информации, которой не было.

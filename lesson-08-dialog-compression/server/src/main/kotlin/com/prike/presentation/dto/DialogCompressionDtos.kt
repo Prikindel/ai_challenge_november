@@ -108,3 +108,16 @@ data class ScenarioInfoDto(
     val description: String,
     val messagesCount: Int
 )
+
+@Serializable
+data class ScenarioMessageDto(
+    val role: String,
+    val content: String
+)
+
+@Serializable
+data class ScenarioDetailsDto(
+    val id: String,
+    val description: String,
+    val messages: List<ScenarioMessageDto>
+)

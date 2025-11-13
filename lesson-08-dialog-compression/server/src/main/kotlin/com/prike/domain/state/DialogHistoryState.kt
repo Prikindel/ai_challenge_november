@@ -73,11 +73,24 @@ class DialogHistoryState {
 
     fun takeMessagesForSummaryBeforeMessage(targetMessageId: String, summaryInterval: Int): List<DialogMessage> {
         val targetIndex = rawMessages.indexOfFirst { it.id == targetMessageId }
-        if (targetIndex <= 0) return emptyList()
-
-        val candidates = rawMessages.subList(0, targetIndex)
+        if (targetIndex < 0) return emptyList()
+        
+        // Берем сообщения до нового сообщения (не включая его)
+        val candidates = if (targetIndex > 0) {
+            rawMessages.subList(0, targetIndex)
+        } else {
+            emptyList()
+        }
+        
         if (candidates.isEmpty()) return emptyList()
 
+        // Считаем пользовательские сообщения в candidates
+        val userCountInCandidates = candidates.count { it.role == MessageRole.USER }
+        
+        // Если пользовательских сообщений меньше интервала, сумаризировать нечего
+        if (userCountInCandidates < summaryInterval) return emptyList()
+
+        // Берем последние summaryInterval пользовательских сообщений и все сообщения между ними
         val chunk = mutableListOf<DialogMessage>()
         var userCount = 0
 
