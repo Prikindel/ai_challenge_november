@@ -1,0 +1,29 @@
+lesson:
+  summaryInterval: 10
+  maxSummariesInContext: 3
+  rawHistoryLimit: 20
+  compressionModel: "gpt-4o-mini"
+  compressionPromptTemplate: |
+    Ты — помощник, который умеет бережно сжимать диалог. Сформируй емкий конспект.
+    Включи ключевые факты, открытые вопросы, договоренности. Не теряй детали с датами и именами.
+    Формат ответа:
+      summary: краткое описание
+      facts: маркированный список
+      openQuestions: маркированный список (если нет, напиши "- none")
+  defaultScenarioId: "demo"
+
+scenarios:
+  - id: "demo"
+    description: "Базовый сценарий для ручного диалога"
+    seedMessages:
+      - role: "user"
+        content: "Привет! Помоги запланировать запуск новой функции в нашем приложении."
+      - role: "assistant"
+        content: "Привет! Расскажи, какие есть сроки и ограничения?"
+  - id: "support"
+    description: "Имитация поддержки клиента"
+    seedMessages:
+      - role: "user"
+        content: "Пользователь не может найти настройки уведомлений."
+      - role: "assistant"
+        content: "Уточни, какое устройство и версию приложения он использует?"
