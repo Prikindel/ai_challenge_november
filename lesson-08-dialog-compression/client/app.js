@@ -246,7 +246,16 @@
                     const info = document.createElement('p');
                     info.className = 'summary-marker__info';
                     const covered = summary.sourceMessageIds?.length ?? 0;
-                    info.textContent = `Свёрнуто сообщений: ${covered}`;
+                    const infoParts = [`Свёрнуто сообщений: ${covered}`];
+                    if (typeof summary.tokensSaved === 'number') {
+                        infoParts.push(`Экономия: ${summary.tokensSaved} ток.`);
+                    } else if (
+                        typeof summary.rawTokens === 'number' &&
+                        typeof summary.summaryTokens === 'number'
+                    ) {
+                        infoParts.push(`raw ${summary.rawTokens} → summary ${summary.summaryTokens}`);
+                    }
+                    info.textContent = infoParts.join(' • ');
                     marker.appendChild(info);
 
                     container.appendChild(marker);
@@ -278,6 +287,23 @@
                 const title = document.createElement('h4');
                 title.textContent = `Summary #${summary.id.slice(0, 6)} • ${formatDate(summary.createdAt)}`;
                 block.appendChild(title);
+
+                const metaParts = [];
+                if (typeof summary.rawTokens === 'number') {
+                    metaParts.push(`raw: ${summary.rawTokens}`);
+                }
+                if (typeof summary.summaryTokens === 'number') {
+                    metaParts.push(`summary: ${summary.summaryTokens}`);
+                }
+                if (typeof summary.tokensSaved === 'number') {
+                    metaParts.push(`экономия: ${summary.tokensSaved}`);
+                }
+                if (metaParts.length) {
+                    const meta = document.createElement('p');
+                    meta.className = 'summary-meta';
+                    meta.textContent = `Токены (${metaParts.join(' • ')})`;
+                    block.appendChild(meta);
+                }
 
                 const summaryText = document.createElement('p');
                 summaryText.textContent = summary.summary;

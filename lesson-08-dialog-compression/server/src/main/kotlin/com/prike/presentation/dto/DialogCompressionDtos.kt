@@ -50,7 +50,10 @@ data class SummaryDto(
     val facts: List<String>,
     val openQuestions: List<String>,
     val sourceMessageIds: List<String>,
-    val anchorMessageId: String?
+    val anchorMessageId: String?,
+    val rawTokens: Int?,
+    val summaryTokens: Int?,
+    val tokensSaved: Int?
 )
 
 @Serializable

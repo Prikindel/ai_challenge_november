@@ -2,7 +2,7 @@ package com.prike.domain.agent
 
 import com.prike.config.DialogCompressionConfig
 import com.prike.data.dto.MessageDto
-import com.prike.data.repository.AIRepository
+import com.prike.data.dto.UsageDto
 import com.prike.domain.model.AgentResponseMetrics
 import com.prike.domain.model.ComparisonReport
 import com.prike.domain.model.ComparisonScenarioMetrics
@@ -14,7 +14,6 @@ import com.prike.domain.model.MessageRole
 import com.prike.domain.model.SummaryContent
 import com.prike.domain.model.SummaryNode
 import com.prike.domain.model.TokenUsageMetrics
-import com.prike.domain.service.SummaryParser
 import com.prike.domain.service.TokenEstimator
 import com.prike.domain.state.DialogHistoryState
 import java.time.Instant
@@ -25,15 +24,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 
-class DialogCompressionAgent(
-    aiRepository: AIRepository,
+class DialogOrchestrator(
+    private val conversationAgent: DialogConversationAgent,
+    private val summarizationAgent: DialogSummarizationAgent,
     private val lessonConfig: DialogCompressionConfig,
     private val tokenEstimator: TokenEstimator,
-    private val summaryParser: SummaryParser,
     private val baseModel: String?
-) : BaseAgent(aiRepository) {
+) {
 
-    private val logger = LoggerFactory.getLogger(DialogCompressionAgent::class.java)
+    private val logger = LoggerFactory.getLogger(DialogOrchestrator::class.java)
     private val mutex = Mutex()
     private val historyState = DialogHistoryState()
     private val formatter = DateTimeFormatter.ISO_INSTANT
@@ -74,10 +73,7 @@ class DialogCompressionAgent(
         }
 
         val context = buildContext(maxSummaries)
-        val completionResult = aiRepository.getMessageWithHistory(
-            messages = context.messages,
-            options = AIRepository.ChatCompletionOptions()
-        )
+        val completionResult = conversationAgent.respond(context.messages)
 
         val assistantAnswer = completionResult.message
         historyState.addAssistantMessage(assistantAnswer)
@@ -262,60 +258,68 @@ class DialogCompressionAgent(
         }
     }.trim()
 
-    private suspend fun performSummary(summaryInterval: Int) {
-        val messages = historyState.takeMessagesForSummary(summaryInterval)
-        performSummaryForMessages(messages, anchorMessageId = null)
-    }
-
     private suspend fun performSummaryForMessages(
         messages: List<DialogMessage>,
         anchorMessageId: String?
     ) {
         if (messages.isEmpty()) return
-        val summaryPrompt = buildSummaryPrompt(messages)
-        val completionResult = aiRepository.getMessageWithHistory(
-            messages = summaryPrompt,
-            options = AIRepository.ChatCompletionOptions(
-                model = lessonConfig.lesson.compressionModel,
-                temperature = 0.2,
-                useJsonResponseFormat = true
-            )
-        )
-
-        val parsed = summaryParser.parse(completionResult.message)
-        val summaryNode = createSummaryNode(parsed, messages, anchorMessageId)
+        val summaryResult = summarizationAgent.summarizeMessages(messages) ?: return
+        val summaryNode = createSummaryNode(summaryResult.summary, messages, anchorMessageId, summaryResult.usage)
         historyState.applySummary(summaryNode, messages)
-    }
-
-    private fun buildSummaryPrompt(messages: List<DialogMessage>): List<MessageDto> {
-        val instructions = lessonConfig.lesson.compressionPromptTemplate.trim()
-        val conversation = messages.joinToString(separator = "\n") { message ->
-            "${message.role.name.lowercase(Locale.getDefault())}: ${message.content}"
-        }
-
-        return listOf(
-            MessageDto(role = "system", content = instructions),
-            MessageDto(
-                role = "user",
-                content = "Ниже фрагмент диалога. Сожми его по правилам.\n$conversation"
-            )
-        )
     }
 
     private fun createSummaryNode(
         summary: SummaryContent,
         messages: List<DialogMessage>,
-        anchorMessageId: String?
-    ): SummaryNode =
-        SummaryNode(
+        anchorMessageId: String?,
+        usage: UsageDto?
+    ): SummaryNode {
+        val rawTokens = calculateRawTokens(messages)
+        val summaryTokens = calculateSummaryTokens(summary, usage)
+        val tokensSaved = if (rawTokens != null && summaryTokens != null) {
+            (rawTokens - summaryTokens).coerceAtLeast(0)
+        } else null
+
+        return SummaryNode(
             id = UUID.randomUUID().toString(),
             createdAt = Instant.now(),
             summary = summary.summary,
             facts = summary.facts,
             openQuestions = summary.openQuestions,
             sourceMessageIds = messages.map { it.id },
-            anchorMessageId = anchorMessageId
+            anchorMessageId = anchorMessageId,
+            rawTokens = rawTokens,
+            summaryTokens = summaryTokens,
+            tokensSaved = tokensSaved
         )
+    }
+
+    private fun calculateRawTokens(messages: List<DialogMessage>): Int? {
+        if (messages.isEmpty()) return null
+        val dtos = messages.map { MessageDto(role = it.role.toApiRole(), content = it.content) }
+        return tokenEstimator.approximateForModel(dtos, baseModel)
+    }
+
+    private fun calculateSummaryTokens(summary: SummaryContent, usage: UsageDto?): Int? {
+        usage?.completionTokens?.let { return it }
+        val text = buildSummaryBody(summary)
+        return tokenEstimator.approximateForModel(
+            listOf(MessageDto(role = "assistant", content = text)),
+            baseModel
+        )
+    }
+
+    private fun buildSummaryBody(summary: SummaryContent): String = buildString {
+        appendLine(summary.summary)
+        if (summary.facts.isNotEmpty()) {
+            appendLine("Facts:")
+            summary.facts.forEach { appendLine("- $it") }
+        }
+        if (summary.openQuestions.isNotEmpty()) {
+            appendLine("Open questions:")
+            summary.openQuestions.forEach { appendLine("- $it") }
+        }
+    }.trim()
 
     private fun buildHypotheticalFullHistory(): List<MessageDto> {
         return historyState.getTimelineMessages().map { message ->

@@ -19,7 +19,10 @@ data class SummaryNode(
     val facts: List<String>,
     val openQuestions: List<String>,
     val sourceMessageIds: List<String>,
-    val anchorMessageId: String? = null
+    val anchorMessageId: String? = null,
+    val rawTokens: Int? = null,
+    val summaryTokens: Int? = null,
+    val tokensSaved: Int? = null
 )
 
 data class SummaryContent(

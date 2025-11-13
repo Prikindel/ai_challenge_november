@@ -3,7 +3,9 @@ package com.prike.di
 import com.prike.Config
 import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
-import com.prike.domain.agent.DialogCompressionAgent
+import com.prike.domain.agent.DialogOrchestrator
+import com.prike.domain.agent.DialogConversationAgent
+import com.prike.domain.agent.DialogSummarizationAgent
 import com.prike.domain.service.SummaryParser
 import com.prike.domain.service.TokenEstimator
 import com.prike.presentation.controller.DialogCompressionController
@@ -16,7 +18,9 @@ import java.io.File
 object AppModule {
     private var openAIClient: OpenAIClient? = null
     private var aiRepository: AIRepository? = null
-    private var dialogCompressionAgent: DialogCompressionAgent? = null
+    private var dialogOrchestrator: DialogOrchestrator? = null
+    private var dialogConversationAgent: DialogConversationAgent? = null
+    private var dialogSummarizationAgent: DialogSummarizationAgent? = null
     
     /**
      * Получить директорию с клиентом
@@ -54,23 +58,40 @@ object AppModule {
         return repository
     }
 
-    fun createDialogCompressionAgent(): DialogCompressionAgent? {
-        if (dialogCompressionAgent != null) return dialogCompressionAgent
-        val repository = createAIRepository() ?: return null
-        val agent = DialogCompressionAgent(
-            aiRepository = repository,
+    fun createDialogOrchestrator(): DialogOrchestrator? {
+        if (dialogOrchestrator != null) return dialogOrchestrator
+        val conversationAgent = createDialogConversationAgent() ?: return null
+        val summarizationAgent = createDialogSummarizationAgent() ?: return null
+        val orchestrator = DialogOrchestrator(
+            conversationAgent = conversationAgent,
+            summarizationAgent = summarizationAgent,
             lessonConfig = Config.dialogCompressionConfig,
             tokenEstimator = TokenEstimator(),
-            summaryParser = SummaryParser(),
             baseModel = Config.aiConfig.model
         )
-        dialogCompressionAgent = agent
+        dialogOrchestrator = orchestrator
+        return orchestrator
+    }
+
+    private fun createDialogConversationAgent(): DialogConversationAgent? {
+        if (dialogConversationAgent != null) return dialogConversationAgent
+        val repository = createAIRepository() ?: return null
+        val agent = DialogConversationAgent(repository)
+        dialogConversationAgent = agent
+        return agent
+    }
+
+    private fun createDialogSummarizationAgent(): DialogSummarizationAgent? {
+        if (dialogSummarizationAgent != null) return dialogSummarizationAgent
+        val repository = createAIRepository() ?: return null
+        val agent = DialogSummarizationAgent(repository, SummaryParser(), Config.dialogCompressionConfig)
+        dialogSummarizationAgent = agent
         return agent
     }
 
     fun createDialogCompressionController(): DialogCompressionController? {
-        val agent = createDialogCompressionAgent() ?: return null
-        return DialogCompressionController(agent, Config.dialogCompressionConfig)
+        val orchestrator = createDialogOrchestrator() ?: return null
+        return DialogCompressionController(orchestrator, Config.dialogCompressionConfig)
     }
     
     /**
@@ -96,7 +117,9 @@ object AppModule {
         openAIClient?.close()
         openAIClient = null
         aiRepository = null
-        dialogCompressionAgent = null
+        dialogOrchestrator = null
+        dialogConversationAgent = null
+        dialogSummarizationAgent = null
     }
 }
 

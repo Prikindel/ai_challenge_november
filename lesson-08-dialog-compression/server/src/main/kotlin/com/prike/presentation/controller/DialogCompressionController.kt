@@ -1,7 +1,7 @@
 package com.prike.presentation.controller
 
 import com.prike.config.DialogCompressionConfig
-import com.prike.domain.agent.DialogCompressionAgent
+import com.prike.domain.agent.DialogOrchestrator
 import com.prike.domain.exception.AIServiceException
 import com.prike.domain.exception.DomainException
 import com.prike.domain.exception.ValidationException
@@ -37,7 +37,7 @@ import java.time.format.DateTimeFormatter
 import org.slf4j.LoggerFactory
 
 class DialogCompressionController(
-    private val agent: DialogCompressionAgent,
+    private val orchestrator: DialogOrchestrator,
     private val config: DialogCompressionConfig
 ) {
 
@@ -48,7 +48,7 @@ class DialogCompressionController(
         routing.route("/api/dialog-compression") {
             post("/message") { call.handleMessage() }
             post("/reset") {
-                agent.reset()
+                orchestrator.reset()
                 call.respond(HttpStatusCode.OK, mapOf("status" to "reset"))
             }
             get("/state") { call.handleState() }
@@ -64,8 +64,8 @@ class DialogCompressionController(
                 throw ValidationException("Сообщение не должно быть пустым")
             }
 
-            val result = agent.handleMessage(
-                DialogCompressionAgent.HandleMessageCommand(
+            val result = orchestrator.handleMessage(
+                DialogOrchestrator.HandleMessageCommand(
                     userMessage = request.message,
                     summaryIntervalOverride = request.summaryInterval,
                     maxSummariesInContext = request.maxSummariesInContext
@@ -88,7 +88,7 @@ class DialogCompressionController(
     }
 
     private suspend fun ApplicationCall.handleState() {
-        val state = agent.getState()
+        val state = orchestrator.getState()
         respond(
             HttpStatusCode.OK,
             DialogStateResponseDto(
@@ -116,8 +116,8 @@ class DialogCompressionController(
     private suspend fun ApplicationCall.handleComparison() {
         try {
             val request = receive<ComparisonRequestDto>()
-            val report = agent.runComparisonScenario(
-                DialogCompressionAgent.RunComparisonScenarioCommand(request.scenarioId)
+            val report = orchestrator.runComparisonScenario(
+                DialogOrchestrator.RunComparisonScenarioCommand(request.scenarioId)
             )
             respond(HttpStatusCode.OK, report.toDto())
         } catch (exception: Exception) {
@@ -161,7 +161,10 @@ class DialogCompressionController(
             facts = facts,
             openQuestions = openQuestions,
             sourceMessageIds = sourceMessageIds,
-            anchorMessageId = anchorMessageId
+            anchorMessageId = anchorMessageId,
+            rawTokens = rawTokens,
+            summaryTokens = summaryTokens,
+            tokensSaved = tokensSaved
         )
 
     private fun DialogMessage.toDto(): StateMessageDto =
