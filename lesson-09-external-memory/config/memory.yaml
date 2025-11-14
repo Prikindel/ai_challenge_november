@@ -1,0 +1,25 @@
+memory:
+  # Тип хранилища: "sqlite" или "json"
+  storageType: "sqlite"
+  
+  # Настройки для SQLite
+  sqlite:
+    # Путь к файлу базы данных (относительно корня проекта)
+    databasePath: "data/memory.db"
+  
+  # Настройки для JSON
+  json:
+    # Путь к JSON файлу (относительно корня проекта)
+    filePath: "data/memory.json"
+    # Форматирование JSON (true = читаемый формат с отступами)
+    prettyPrint: true
+  
+  # Ограничения (null = без ограничений)
+  limits:
+    # Максимальное количество записей в памяти
+    maxEntries: null
+    # Максимальный возраст записей в днях (старые записи будут удаляться)
+    maxHistoryDays: null
+    # Автоматическая очистка при превышении лимитов (true/false)
+    autoCleanup: false
+

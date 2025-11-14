@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🔥 День 9. Внешняя память</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="app">
+        <header class="hero">
+            <div class="hero-text">
+                <h1>🔥 День 9. Внешняя память</h1>
+                <p>
+                    Исследуйте, как агент сохраняет историю диалога во внешнюю память (SQLite/JSON)
+                    и загружает её при перезапуске приложения.
+                </p>
+            </div>
+            <div class="hero-actions">
+                <button id="resetMemoryButton" class="ghost-button" type="button">Сбросить память</button>
+            </div>
+        </header>
+
+        <main class="main-layout">
+            <section class="card chat-card">
+                <header class="card-header">
+                    <h2>Диалог</h2>
+                    <span class="status-pill" id="dialogStatus">Загрузка истории...</span>
+                </header>
+                <div id="conversationList" class="conversation-list"></div>
+                <form id="messageForm" class="message-form">
+                    <label for="messageInput" class="sr-only">Сообщение</label>
+                    <textarea id="messageInput" placeholder="Введите сообщение для агента..." rows="3" required></textarea>
+                    <div class="form-footer">
+                        <button id="sendButton" type="submit" class="primary-button">
+                            Отправить
+                            <span class="loader" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <aside class="sidebar">
+                <section class="card compact" id="statsCard">
+                    <header class="card-header">
+                        <h3>Статистика памяти</h3>
+                    </header>
+                    <div class="stats" id="statsContent">
+                        <p class="empty">Загрузка статистики...</p>
+                    </div>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

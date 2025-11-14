@@ -1,0 +1,10 @@
+ai:
+  apiUrl: "https://openrouter.ai/api/v1/chat/completions"
+  model: "meta-llama/llama-3.1-8b-instruct"
+  temperature: 0.3
+  maxTokens: 600
+  requestTimeout: 90
+  systemPrompt: |
+    Ты — полезный ассистент с долговременной памятью. Помни контекст предыдущих сообщений и используй его для более точных ответов.
+  useJsonFormat: false
+

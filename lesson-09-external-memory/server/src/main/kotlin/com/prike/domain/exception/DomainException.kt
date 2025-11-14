@@ -1,0 +1,22 @@
+package com.prike.domain.exception
+
+/**
+ * Базовое исключение доменного слоя
+ */
+sealed class DomainException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+/**
+ * Исключение для ошибок AI сервиса
+ */
+class AIServiceException(message: String, cause: Throwable? = null) : DomainException(message, cause)
+
+/**
+ * Исключение валидации входящих данных
+ */
+class ValidationException(message: String) : DomainException(message)
+
+/**
+ * Исключение для ошибок работы с памятью
+ */
+class MemoryException(message: String, cause: Throwable? = null) : DomainException(message, cause)
+
