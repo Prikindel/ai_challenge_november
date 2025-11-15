@@ -1,7 +1,7 @@
 package com.prike.domain.agent
 
 import com.prike.domain.service.MemoryService
-import com.prike.domain.exception.DomainException
+import com.prike.domain.exception.MemoryException
 import org.slf4j.LoggerFactory
 
 /**
@@ -88,10 +88,10 @@ class MemoryOrchestrator(
             )
             
             response
-        } catch (e: DomainException) {
+        } catch (e: MemoryException) {
             throw e
         } catch (e: Exception) {
-            throw DomainException("Ошибка при обработке сообщения: ${e.message}", e)
+            throw MemoryException("Ошибка при обработке сообщения: ${e.message}", e)
         }
     }
     

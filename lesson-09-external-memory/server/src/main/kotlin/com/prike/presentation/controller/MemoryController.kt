@@ -1,7 +1,7 @@
 package com.prike.presentation.controller
 
 import com.prike.domain.agent.MemoryOrchestrator
-import com.prike.presentation.dto.MemoryDtos
+import com.prike.presentation.dto.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -28,12 +28,12 @@ class MemoryController(
             // Отправка сообщения
             post("/message") {
                 try {
-                    val request = call.receive<MemoryDtos.SendMessageRequest>()
+                    val request = call.receive<SendMessageRequest>()
                     
                     if (request.message.isBlank()) {
                         call.respond(
                             HttpStatusCode.BadRequest,
-                            MemoryDtos.ErrorResponse("Сообщение не может быть пустым")
+                            ErrorResponse("Сообщение не может быть пустым")
                         )
                         return@post
                     }
@@ -42,10 +42,10 @@ class MemoryController(
                     
                     call.respond(
                         HttpStatusCode.OK,
-                        MemoryDtos.SendMessageResponse(
+                        SendMessageResponse(
                             message = response.message,
                             usage = response.usage?.let {
-                                MemoryDtos.UsageDto(
+                                UsageDto(
                                     promptTokens = it.promptTokens,
                                     completionTokens = it.completionTokens,
                                     totalTokens = it.totalTokens
@@ -57,7 +57,7 @@ class MemoryController(
                     logger.error("Ошибка при обработке сообщения", e)
                     call.respond(
                         HttpStatusCode.InternalServerError,
-                        MemoryDtos.ErrorResponse("Ошибка при обработке сообщения: ${e.message}")
+                        ErrorResponse("Ошибка при обработке сообщения: ${e.message}")
                     )
                 }
             }
@@ -67,13 +67,13 @@ class MemoryController(
                 try {
                     val history = orchestrator.getHistory()
                     val historyDtos = history.map { entry ->
-                        MemoryDtos.HistoryEntryDto(
+                        HistoryEntryDto(
                             id = entry.id,
                             role = entry.role.name.lowercase(),
                             content = entry.content,
                             timestamp = entry.timestamp,
                             metadata = entry.metadata?.let {
-                                MemoryDtos.MemoryMetadataDto(
+                                MemoryMetadataDto(
                                     model = it.model,
                                     promptTokens = it.promptTokens,
                                     completionTokens = it.completionTokens,
@@ -85,13 +85,13 @@ class MemoryController(
                     
                     call.respond(
                         HttpStatusCode.OK,
-                        MemoryDtos.HistoryResponse(history = historyDtos)
+                        HistoryResponse(history = historyDtos)
                     )
                 } catch (e: Exception) {
                     logger.error("Ошибка при получении истории", e)
                     call.respond(
                         HttpStatusCode.InternalServerError,
-                        MemoryDtos.ErrorResponse("Ошибка при получении истории: ${e.message}")
+                        ErrorResponse("Ошибка при получении истории: ${e.message}")
                     )
                 }
             }
@@ -102,13 +102,13 @@ class MemoryController(
                     orchestrator.reset()
                     call.respond(
                         HttpStatusCode.OK,
-                        MemoryDtos.SuccessResponse(message = "Память успешно сброшена")
+                        SuccessResponse(message = "Память успешно сброшена")
                     )
                 } catch (e: Exception) {
                     logger.error("Ошибка при сбросе памяти", e)
                     call.respond(
                         HttpStatusCode.InternalServerError,
-                        MemoryDtos.ErrorResponse("Ошибка при сбросе памяти: ${e.message}")
+                        ErrorResponse("Ошибка при сбросе памяти: ${e.message}")
                     )
                 }
             }
@@ -121,7 +121,7 @@ class MemoryController(
                         onSuccess = { stats ->
                             call.respond(
                                 HttpStatusCode.OK,
-                                MemoryDtos.StatsResponse(
+                                StatsResponse(
                                     totalEntries = stats.totalEntries,
                                     userMessages = stats.userMessages,
                                     assistantMessages = stats.assistantMessages,
@@ -133,7 +133,7 @@ class MemoryController(
                         onFailure = { error ->
                             call.respond(
                                 HttpStatusCode.InternalServerError,
-                                MemoryDtos.ErrorResponse("Ошибка при получении статистики: ${error.message}")
+                                ErrorResponse("Ошибка при получении статистики: ${error.message}")
                             )
                         }
                     )
@@ -141,7 +141,7 @@ class MemoryController(
                     logger.error("Ошибка при получении статистики", e)
                     call.respond(
                         HttpStatusCode.InternalServerError,
-                        MemoryDtos.ErrorResponse("Ошибка при получении статистики: ${e.message}")
+                        ErrorResponse("Ошибка при получении статистики: ${e.message}")
                     )
                 }
             }

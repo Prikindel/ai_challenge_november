@@ -1,5 +1,6 @@
 package com.prike
 
+import com.prike.di.AppModule
 import com.prike.presentation.controller.ClientController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -11,6 +12,7 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.runBlocking
 import org.slf4j.event.Level
 
 /**
@@ -54,7 +56,7 @@ fun Application.module() {
     
     // Инициализация оркестратора (загрузка истории из памяти)
     memoryController?.let {
-        kotlinx.coroutines.runBlocking {
+        runBlocking {
             AppModule.createMemoryOrchestrator()?.initialize()
         }
     }

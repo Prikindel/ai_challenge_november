@@ -2,6 +2,7 @@ package com.prike.domain.service
 
 import com.prike.data.model.MemoryEntry
 import com.prike.data.model.MemoryMetadata
+import com.prike.data.model.MemoryStats
 import com.prike.data.model.MessageRole
 import com.prike.data.dto.UsageDto
 import com.prike.domain.exception.MemoryException
@@ -168,7 +169,7 @@ class MemoryService(
      * Получить статистику памяти
      * @return Result со статистикой
      */
-    suspend fun getStats(): Result<com.prike.data.model.MemoryStats> {
+    suspend fun getStats(): Result<MemoryStats> {
         return repository.getStats()
     }
 }

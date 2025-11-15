@@ -6,6 +6,7 @@ import java.time.Instant
 /**
  * Роль сообщения в диалоге
  */
+@Serializable
 enum class MessageRole {
     USER,      // Сообщение от пользователя
     ASSISTANT  // Ответ ассистента

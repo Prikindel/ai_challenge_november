@@ -3,8 +3,10 @@ package com.prike.di
 import com.prike.Config
 import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
+import com.prike.data.repository.MemoryRepositoryFactory
 import com.prike.domain.agent.ConversationAgent
 import com.prike.domain.agent.MemoryOrchestrator
+import com.prike.domain.repository.MemoryRepository
 import com.prike.domain.service.MemoryService
 import com.prike.presentation.controller.MemoryController
 import java.io.File
@@ -12,9 +14,6 @@ import java.io.File
 /**
  * Dependency Injection модуль
  * Создает и связывает все зависимости приложения
- * 
- * TODO: На этапе 2 будет добавлена фабрика для создания репозитория памяти
- * по конфигурации (SQLite или JSON)
  */
 object AppModule {
     private var openAIClient: OpenAIClient? = null
@@ -22,6 +21,7 @@ object AppModule {
     private var memoryOrchestrator: MemoryOrchestrator? = null
     private var conversationAgent: ConversationAgent? = null
     private var memoryService: MemoryService? = null
+    private var memoryRepository: MemoryRepository? = null
     
     /**
      * Получить директорию с клиентом
@@ -71,20 +71,35 @@ object AppModule {
     }
     
     /**
+     * Создать MemoryRepository на основе конфигурации
+     */
+    private fun createMemoryRepository(): MemoryRepository? {
+        if (memoryRepository != null) return memoryRepository
+        
+        return try {
+            val repository = MemoryRepositoryFactory.create(
+                config = Config.memoryConfig,
+                lessonRoot = Config.lessonRootPath
+            )
+            memoryRepository = repository
+            repository
+        } catch (e: Exception) {
+            // Логируем ошибку, но не прерываем работу приложения
+            // Репозиторий может быть null, если конфигурация неверна
+            null
+        }
+    }
+    
+    /**
      * Создать MemoryService
-     * TODO: На этапе 2 будет добавлена фабрика для создания репозитория памяти
      */
     private fun createMemoryService(): MemoryService? {
         if (memoryService != null) return memoryService
         
-        // TODO: Создать репозиторий памяти по конфигурации
-        // val memoryRepository = MemoryRepositoryFactory.create(Config.memoryConfig)
-        // val service = MemoryService(memoryRepository)
-        // memoryService = service
-        // return service
-        
-        // Временная заглушка - будет реализовано на этапе 2
-        return null
+        val repository = createMemoryRepository() ?: return null
+        val service = MemoryService(repository)
+        memoryService = service
+        return service
     }
     
     /**
@@ -121,6 +136,7 @@ object AppModule {
         memoryOrchestrator = null
         conversationAgent = null
         memoryService = null
+        memoryRepository = null
     }
 }
 
