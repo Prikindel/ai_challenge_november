@@ -143,12 +143,26 @@ object Config {
                 autoCleanup = it["autoCleanup"] as? Boolean ?: false
             )
         }
-        
+
+        // Суммаризация
+        val summarizationSection = memorySection["summarization"] as? Map<String, Any?>
+        val summarization = summarizationSection?.let {
+            MemoryConfig.SummarizationConfig(
+                enabled = it["enabled"] as? Boolean ?: true,
+                userMessagesPerSummary = (it["userMessagesPerSummary"] as? Number)?.toInt() ?: 10,
+                userMessagesPerSegment = (it["userMessagesPerSegment"] as? Number)?.toInt() ?: 100,
+                model = (it["model"] as? String)?.takeIf { s -> s.isNotBlank() },
+                temperature = (it["temperature"] as? Number)?.toDouble() ?: 0.2,
+                maxTokens = (it["maxTokens"] as? Number)?.toInt() ?: 900
+            )
+        }
+
         return MemoryConfig(
             storageType = storageType,
             sqlite = sqliteConfig,
             json = jsonConfig,
-            limits = limits
+            limits = limits,
+            summarization = summarization
         )
     }
 

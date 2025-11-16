@@ -3,6 +3,9 @@ package com.prike.presentation.controller
 import com.prike.Config
 import com.prike.domain.agent.MemoryOrchestrator
 import com.prike.presentation.dto.*
+import com.prike.domain.orchestrator.SummarizationCoordinator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -20,7 +23,8 @@ import org.slf4j.LoggerFactory
  * - GET /api/memory/stats - статистика памяти
  */
 class MemoryController(
-    private val orchestrator: MemoryOrchestrator
+    private val orchestrator: MemoryOrchestrator,
+    private val summarizationCoordinator: SummarizationCoordinator?
 ) {
     private val logger = LoggerFactory.getLogger(MemoryController::class.java)
     
@@ -54,6 +58,8 @@ class MemoryController(
                             }
                         )
                     )
+                    // Триггерим суммаризацию в фоне (если сконфигурирована)
+                    summarizationCoordinator?.triggerIfNeeded()
                 } catch (e: Exception) {
                     logger.error("Ошибка при обработке сообщения", e)
                     call.respond(

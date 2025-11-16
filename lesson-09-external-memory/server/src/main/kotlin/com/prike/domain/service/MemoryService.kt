@@ -10,6 +10,7 @@ import com.prike.domain.repository.MemoryRepository
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.UUID
+import com.prike.config.MemoryConfig
 
 /**
  * Сервис для управления памятью диалога
@@ -24,7 +25,8 @@ import java.util.UUID
  * НЕ содержит логику работы с LLM (это в ConversationAgent)
  */
 class MemoryService(
-    private val repository: MemoryRepository
+    private val repository: MemoryRepository,
+    private val summarizationConfig: MemoryConfig.SummarizationConfig? = null
 ) {
     private val logger = LoggerFactory.getLogger(MemoryService::class.java)
     
@@ -57,6 +59,40 @@ class MemoryService(
      */
     fun getHistory(): List<MemoryEntry> {
         return cachedHistory.toList()
+    }
+    
+    /**
+     * Получить "активную" историю для LLM с учетом суммаризации:
+     * - Берем только текущий сегмент (по пользовательским сообщениям)
+     * - Если есть SUMMARY в сегменте — используем последнюю SUMMARY и все сообщения после нее
+     * - Если SUMMARY нет — используем весь сегмент
+     */
+    fun getActiveHistoryForLLM(): List<MemoryEntry> {
+        val history = cachedHistory
+        if (history.isEmpty()) return emptyList()
+        
+        // Индексы пользовательских сообщений
+        val userIndices = history.withIndex()
+            .filter { it.value.role == MessageRole.USER }
+            .map { it.index }
+        if (userIndices.isEmpty()) return emptyList()
+        
+        val perSegment = (summarizationConfig?.userMessagesPerSegment ?: 100).coerceAtLeast(1)
+        val totalUserCount = userIndices.size
+        val segmentNumber = (totalUserCount - 1) / perSegment
+        val segmentStartUserOrdinal = segmentNumber * perSegment
+        val firstUserIndexInSegment = userIndices[segmentStartUserOrdinal]
+        
+        val segmentHistory = history.drop(firstUserIndexInSegment)
+        if (segmentHistory.isEmpty()) return emptyList()
+        
+        // Найти последнюю SUMMARY в сегменте
+        val lastSummaryIdx = segmentHistory.indexOfLast { it.role == MessageRole.SUMMARY }
+        return if (lastSummaryIdx >= 0) {
+            segmentHistory.drop(lastSummaryIdx)
+        } else {
+            segmentHistory
+        }
     }
     
     /**
@@ -131,6 +167,7 @@ class MemoryService(
         val role = when (entry.role) {
             MessageRole.USER -> "user"
             MessageRole.ASSISTANT -> "assistant"
+            MessageRole.SUMMARY -> "system"
         }
         return com.prike.data.dto.MessageDto(
             role = role,

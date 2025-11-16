@@ -23,3 +23,15 @@ memory:
     # Автоматическая очистка при превышении лимитов (true/false)
     autoCleanup: false
 
+  # Суммаризация диалога
+  summarization:
+    enabled: true
+    # Каждые N пользовательских сообщений делать сводку
+    userMessagesPerSummary: 3
+    # Размер сегмента в пользовательских сообщениях
+    userMessagesPerSegment: 100
+    # Переопределение параметров модели (опционально)
+    model: null
+    temperature: 0.2
+    maxTokens: 900
+

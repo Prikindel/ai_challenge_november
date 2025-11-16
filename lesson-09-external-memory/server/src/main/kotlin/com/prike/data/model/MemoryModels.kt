@@ -9,7 +9,8 @@ import java.time.Instant
 @Serializable
 enum class MessageRole {
     USER,      // Сообщение от пользователя
-    ASSISTANT  // Ответ ассистента
+    ASSISTANT, // Ответ ассистента
+    SUMMARY    // Суммаризация диалога
 }
 
 /**

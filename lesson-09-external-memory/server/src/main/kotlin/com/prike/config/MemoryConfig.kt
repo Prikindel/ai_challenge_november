@@ -7,7 +7,8 @@ data class MemoryConfig(
     val storageType: StorageType,
     val sqlite: SqliteConfig? = null,
     val json: JsonConfig? = null,
-    val limits: MemoryLimits? = null
+    val limits: MemoryLimits? = null,
+    val summarization: SummarizationConfig? = null
 ) {
     enum class StorageType {
         SQLITE,
@@ -27,6 +28,18 @@ data class MemoryConfig(
         val maxEntries: Int? = null,
         val maxHistoryDays: Int? = null,
         val autoCleanup: Boolean = false
+    )
+
+    /**
+     * Конфигурация суммаризации
+     */
+    data class SummarizationConfig(
+        val enabled: Boolean = true,
+        val userMessagesPerSummary: Int = 10,  // каждые N пользовательских сообщений
+        val userMessagesPerSegment: Int = 100, // размер сегмента
+        val model: String? = null,
+        val temperature: Double? = 0.2,
+        val maxTokens: Int? = 900
     )
 }
 

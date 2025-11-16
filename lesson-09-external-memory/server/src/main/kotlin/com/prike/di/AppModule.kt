@@ -5,11 +5,15 @@ import com.prike.data.client.OpenAIClient
 import com.prike.data.repository.AIRepository
 import com.prike.data.repository.MemoryRepositoryFactory
 import com.prike.domain.agent.ConversationAgent
+import com.prike.domain.agent.SummarizationAgent
 import com.prike.domain.agent.MemoryOrchestrator
+import com.prike.domain.orchestrator.SummarizationCoordinator
 import com.prike.domain.repository.MemoryRepository
 import com.prike.domain.service.MemoryService
 import com.prike.presentation.controller.MemoryController
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Dependency Injection модуль
@@ -20,8 +24,11 @@ object AppModule {
     private var aiRepository: AIRepository? = null
     private var memoryOrchestrator: MemoryOrchestrator? = null
     private var conversationAgent: ConversationAgent? = null
+    private var summarizationAgent: SummarizationAgent? = null
+    private var summarizationCoordinator: SummarizationCoordinator? = null
     private var memoryService: MemoryService? = null
     private var memoryRepository: MemoryRepository? = null
+    private val backgroundScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
     
     /**
      * Получить директорию с клиентом
@@ -69,6 +76,17 @@ object AppModule {
         conversationAgent = agent
         return agent
     }
+
+    /**
+     * Создать SummarizationAgent
+     */
+    private fun createSummarizationAgent(): SummarizationAgent? {
+        if (summarizationAgent != null) return summarizationAgent
+        val repository = createAIRepository() ?: return null
+        val agent = SummarizationAgent(repository, Config.memoryConfig.summarization)
+        summarizationAgent = agent
+        return agent
+    }
     
     /**
      * Создать MemoryRepository на основе конфигурации
@@ -97,7 +115,10 @@ object AppModule {
         if (memoryService != null) return memoryService
         
         val repository = createMemoryRepository() ?: return null
-        val service = MemoryService(repository)
+        val service = MemoryService(
+            repository = repository,
+            summarizationConfig = Config.memoryConfig.summarization
+        )
         memoryService = service
         return service
     }
@@ -117,13 +138,31 @@ object AppModule {
         memoryOrchestrator = orchestrator
         return orchestrator
     }
+
+    /**
+     * Создать SummarizationCoordinator
+     */
+    private fun createSummarizationCoordinator(): SummarizationCoordinator? {
+        if (summarizationCoordinator != null) return summarizationCoordinator
+        val memoryService = createMemoryService() ?: return null
+        val summarizationAgent = createSummarizationAgent() ?: return null
+        val coordinator = SummarizationCoordinator(
+            memoryService = memoryService,
+            summarizationAgent = summarizationAgent,
+            config = Config.memoryConfig.summarization,
+            backgroundScope = backgroundScope
+        )
+        summarizationCoordinator = coordinator
+        return coordinator
+    }
     
     /**
      * Создать MemoryController
      */
     fun createMemoryController(): MemoryController? {
         val orchestrator = createMemoryOrchestrator() ?: return null
-        return MemoryController(orchestrator)
+        val summarizationCoordinator = createSummarizationCoordinator()
+        return MemoryController(orchestrator, summarizationCoordinator)
     }
     
     /**
@@ -135,6 +174,8 @@ object AppModule {
         aiRepository = null
         memoryOrchestrator = null
         conversationAgent = null
+        summarizationAgent = null
+        summarizationCoordinator = null
         memoryService = null
         memoryRepository = null
     }

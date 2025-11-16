@@ -57,8 +57,8 @@ class MemoryOrchestrator(
      */
     suspend fun handleMessage(userMessage: String): ConversationAgent.AgentResponse {
         return try {
-            // 1. Загрузить историю из памяти
-            val history = memoryService.getHistory()
+            // 1. Загрузить активную историю из памяти (с учетом суммаризаций)
+            val history = memoryService.getActiveHistoryForLLM()
             
             // 2. Создать запись для сообщения пользователя
             val userEntry = memoryService.createUserEntry(userMessage)
