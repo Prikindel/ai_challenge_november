@@ -1,5 +1,4 @@
-// Базовый JavaScript для работы с API внешней памяти
-// TODO: Реализовать на этапе 4 (API и UI)
+// JavaScript для работы с API внешней памяти
 
 const API_BASE = '/api/memory';
 
@@ -173,7 +172,8 @@ function addMessage(role, content, timestamp = null) {
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.textContent = content;
+    // Форматируем сообщение (простая поддержка markdown)
+    contentDiv.innerHTML = formatMessage(content);
     
     messageDiv.appendChild(header);
     messageDiv.appendChild(contentDiv);
@@ -189,7 +189,25 @@ function renderStats(stats) {
         return;
     }
     
+    const formatDate = (timestamp) => {
+        if (!timestamp) return '—';
+        const date = new Date(timestamp);
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+    
     const html = `
+        ${stats.storageType ? `
+        <div class="stat-row">
+            <span>Тип хранилища:</span>
+            <strong>${stats.storageType.toUpperCase()}</strong>
+        </div>
+        ` : ''}
         <div class="stat-row">
             <span>Всего записей:</span>
             <strong>${stats.totalEntries}</strong>
@@ -202,6 +220,18 @@ function renderStats(stats) {
             <span>Ответов ассистента:</span>
             <strong>${stats.assistantMessages}</strong>
         </div>
+        ${stats.oldestEntry ? `
+        <div class="stat-row">
+            <span>Самая старая запись:</span>
+            <strong>${formatDate(stats.oldestEntry)}</strong>
+        </div>
+        ` : ''}
+        ${stats.newestEntry ? `
+        <div class="stat-row">
+            <span>Самая новая запись:</span>
+            <strong>${formatDate(stats.newestEntry)}</strong>
+        </div>
+        ` : ''}
     `;
     
     statsContent.innerHTML = html;
@@ -215,6 +245,70 @@ function updateDialogStatus(text) {
 // Прокрутка вниз
 function scrollToBottom() {
     conversationList.scrollTop = conversationList.scrollHeight;
+}
+
+// Форматирование сообщения (простая поддержка markdown)
+function formatMessage(text) {
+    if (!text) return '';
+    
+    // Экранируем HTML для безопасности
+    let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    
+    // Разбиваем на строки для обработки
+    const lines = html.split('\n');
+    const result = [];
+    
+    for (const line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+            // Жирный текст **text**
+            result.push(`<p><strong>${trimmed.slice(2, -2)}</strong></p>`);
+        } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+            // Маркированный список
+            result.push(`<li>${trimmed.slice(2)}</li>`);
+        } else if (trimmed === '') {
+            // Пустая строка
+            result.push('<br>');
+        } else {
+            // Обычный текст с поддержкой markdown
+            let formatted = line
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`(.+?)`/g, '<code>$1</code>');
+            result.push(`<p>${formatted}</p>`);
+        }
+    }
+    
+    // Объединяем список в ul, если есть элементы списка
+    const final = [];
+    let inList = false;
+    let listItems = [];
+    
+    for (let item of result) {
+        if (item.startsWith('<li>')) {
+            if (!inList) {
+                inList = true;
+            }
+            listItems.push(item);
+        } else {
+            if (inList && listItems.length > 0) {
+                final.push(`<ul>${listItems.join('')}</ul>`);
+                listItems = [];
+                inList = false;
+            }
+            final.push(item);
+        }
+    }
+    
+    if (inList && listItems.length > 0) {
+        final.push(`<ul>${listItems.join('')}</ul>`);
+    }
+    
+    return final.join('');
 }
 
 // Показ уведомления

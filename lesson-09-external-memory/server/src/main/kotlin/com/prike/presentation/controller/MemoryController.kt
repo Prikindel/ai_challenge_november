@@ -1,5 +1,6 @@
 package com.prike.presentation.controller
 
+import com.prike.Config
 import com.prike.domain.agent.MemoryOrchestrator
 import com.prike.presentation.dto.*
 import io.ktor.http.*
@@ -119,6 +120,7 @@ class MemoryController(
                     val statsResult = orchestrator.getStats()
                     statsResult.fold(
                         onSuccess = { stats ->
+                            val storageType = Config.memoryConfig.storageType.name.lowercase()
                             call.respond(
                                 HttpStatusCode.OK,
                                 StatsResponse(
@@ -126,7 +128,8 @@ class MemoryController(
                                     userMessages = stats.userMessages,
                                     assistantMessages = stats.assistantMessages,
                                     oldestEntry = stats.oldestEntry?.toEpochMilli(),
-                                    newestEntry = stats.newestEntry?.toEpochMilli()
+                                    newestEntry = stats.newestEntry?.toEpochMilli(),
+                                    storageType = storageType
                                 )
                             )
                         },

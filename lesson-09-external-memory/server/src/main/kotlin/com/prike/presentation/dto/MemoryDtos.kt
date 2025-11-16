@@ -54,7 +54,8 @@ data class StatsResponse(
     val userMessages: Int,
     val assistantMessages: Int,
     val oldestEntry: Long?,
-    val newestEntry: Long?
+    val newestEntry: Long?,
+    val storageType: String? = null
 )
 
 @Serializable
