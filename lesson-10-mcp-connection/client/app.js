@@ -133,15 +133,152 @@ function displayTools(tools) {
     if (tools.length === 0) {
         list.innerHTML = '<p class="empty-message">Инструменты не найдены</p>';
     } else {
-        list.innerHTML = tools.map(tool => `
-            <div class="tool-card">
+        list.innerHTML = tools.map((tool, index) => `
+            <div class="tool-card" id="tool-${index}">
                 <h3>${escapeHtml(tool.name)}</h3>
                 <p>${escapeHtml(tool.description || 'Нет описания')}</p>
+                <div class="tool-form" id="tool-form-${index}">
+                    ${getToolForm(tool.name, tool.description)}
+                </div>
+                <button class="call-tool-btn" onclick="callTool('${escapeHtml(tool.name)}', ${index}, event)">
+                    Вызвать инструмент
+                </button>
+                <div class="tool-result" id="tool-result-${index}" style="display: none;"></div>
             </div>
         `).join('');
     }
     
     section.style.display = 'block';
+}
+
+// Получить форму для инструмента на основе его имени
+function getToolForm(toolName, description) {
+    if (toolName === 'get_alerts') {
+        return `
+            <div class="form-group">
+                <label for="state-${toolName}">Код штата США (2 буквы, например CA, NY):</label>
+                <input type="text" id="state-${toolName}" placeholder="CA" maxlength="2" style="text-transform: uppercase;">
+                <small class="form-hint">⚠️ Работает только для штатов США. Для других стран используйте инструмент "get_forecast" с координатами.</small>
+            </div>
+        `;
+    } else if (toolName === 'get_forecast') {
+        return `
+            <div class="form-group">
+                <label for="latitude-${toolName}">Широта (latitude):</label>
+                <input type="number" id="latitude-${toolName}" placeholder="55.7558" step="any">
+                <small class="form-hint">Примеры: Москва (55.7558), Санкт-Петербург (59.9343), США (37.7749)</small>
+            </div>
+            <div class="form-group">
+                <label for="longitude-${toolName}">Долгота (longitude):</label>
+                <input type="number" id="longitude-${toolName}" placeholder="37.6173" step="any">
+                <small class="form-hint">Примеры: Москва (37.6173), Санкт-Петербург (30.3351), США (-122.4194)</small>
+            </div>
+            <div class="quick-coords">
+                <p class="quick-coords-title">Быстрый выбор:</p>
+                <button type="button" class="quick-btn" onclick="setCoordinates(55.7558, 37.6173, '${toolName}')">Москва, Россия</button>
+                <button type="button" class="quick-btn" onclick="setCoordinates(59.9343, 30.3351, '${toolName}')">Санкт-Петербург, Россия</button>
+                <button type="button" class="quick-btn" onclick="setCoordinates(37.7749, -122.4194, '${toolName}')">San Francisco, USA</button>
+                <button type="button" class="quick-btn" onclick="setCoordinates(40.7128, -74.0060, '${toolName}')">New York, USA</button>
+            </div>
+        `;
+    }
+    return '<p class="info-text">Этот инструмент не требует параметров</p>';
+}
+
+// Установить координаты для быстрого выбора
+function setCoordinates(lat, lon, toolName) {
+    document.getElementById(`latitude-${toolName}`).value = lat;
+    document.getElementById(`longitude-${toolName}`).value = lon;
+}
+
+// Вызов инструмента
+async function callTool(toolName, toolIndex, event) {
+    if (!isConnected) {
+        showStatus('Сначала подключитесь к серверу', 'error');
+        return;
+    }
+    
+    try {
+        const resultEl = document.getElementById(`tool-result-${toolIndex}`);
+        const btn = event ? event.target : document.querySelector(`#tool-${toolIndex} .call-tool-btn`);
+        const originalText = btn.textContent;
+        
+        btn.disabled = true;
+        btn.textContent = 'Выполняется...';
+        resultEl.style.display = 'none';
+        
+        // Собираем аргументы из формы
+        const arguments = {};
+        
+        if (toolName === 'get_alerts') {
+            const state = document.getElementById(`state-${toolName}`).value.trim().toUpperCase();
+            if (!state || state.length !== 2) {
+                throw new Error('Введите двухбуквенный код штата (например, CA, NY)');
+            }
+            arguments.state = state;
+        } else if (toolName === 'get_forecast') {
+            const latitude = document.getElementById(`latitude-${toolName}`).value;
+            const longitude = document.getElementById(`longitude-${toolName}`).value;
+            
+            if (!latitude || !longitude) {
+                throw new Error('Введите широту и долготу');
+            }
+            
+            const lat = parseFloat(latitude);
+            const lon = parseFloat(longitude);
+            
+            if (isNaN(lat) || isNaN(lon)) {
+                throw new Error('Широта и долгота должны быть числами');
+            }
+            
+            arguments.latitude = lat;
+            arguments.longitude = lon;
+        }
+        
+        const response = await fetch('/api/mcp/call-tool', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                toolName: toolName,
+                arguments: Object.keys(arguments).length > 0 ? arguments : null
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            resultEl.innerHTML = `
+                <div class="result-success">
+                    <h4>Результат:</h4>
+                    <pre>${escapeHtml(data.result)}</pre>
+                </div>
+            `;
+            resultEl.style.display = 'block';
+            showStatus(`Инструмент "${toolName}" выполнен успешно`, 'success');
+        } else {
+            throw new Error(data.error || 'Неизвестная ошибка');
+        }
+    } catch (error) {
+        console.error('Tool call error:', error);
+        const resultEl = document.getElementById(`tool-result-${toolIndex}`);
+        resultEl.innerHTML = `
+            <div class="result-error">
+                <h4>Ошибка:</h4>
+                <p>${escapeHtml(error.message)}</p>
+            </div>
+        `;
+        resultEl.style.display = 'block';
+        showStatus('Ошибка вызова инструмента: ' + error.message, 'error');
+    } finally {
+        const btn = event.target;
+        btn.disabled = false;
+        btn.textContent = 'Вызвать инструмент';
+    }
 }
 
 // Скрытие инструментов

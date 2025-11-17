@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.io.InputStream
 import java.io.OutputStream
@@ -102,6 +103,47 @@ class MCPClient {
         }
         isConnected = false
         transport = null
+    }
+    
+    suspend fun callTool(toolName: String, arguments: Map<String, Any>?): String {
+        if (!isConnected) {
+            throw IllegalStateException("MCP client not connected")
+        }
+        
+        // Логируем аргументы для отладки
+        logger.debug("MCPClient.callTool: toolName=$toolName, arguments=$arguments")
+        
+        val response = client.callTool(
+            name = toolName,
+            arguments = arguments ?: emptyMap()
+        ) ?: throw IllegalStateException("Tool call returned null response")
+        
+        // Преобразуем результат в читаемую строку
+        // response.content - это список Content элементов
+        return response.content.joinToString("\n\n") { content ->
+            // Извлекаем текст из TextContent, убирая префикс "TextContent(text=" и суффикс ", annotations=null)"
+            val contentStr = content.toString()
+            if (contentStr.startsWith("TextContent(text=") && contentStr.endsWith(", annotations=null)")) {
+                // Извлекаем текст между кавычками
+                val startIndex = contentStr.indexOf("text=") + 5
+                val endIndex = contentStr.lastIndexOf(", annotations")
+                if (startIndex < endIndex) {
+                    val text = contentStr.substring(startIndex, endIndex).trim()
+                    // Убираем кавычки, если есть
+                    if (text.startsWith("\"") && text.endsWith("\"")) {
+                        text.substring(1, text.length - 1)
+                            .replace("\\n", "\n")
+                            .replace("\\\"", "\"")
+                    } else {
+                        text
+                    }
+                } else {
+                    contentStr
+                }
+            } else {
+                contentStr
+            }
+        }
     }
     
     fun isConnected(): Boolean = isConnected

@@ -8,7 +8,43 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+
+// Расширение для преобразования JsonObject в Map<String, Any>
+private fun JsonObject.toMap(): Map<String, Any> {
+    val result = mutableMapOf<String, Any>()
+    entries.forEach { (key, value) ->
+        result[key] = when (value) {
+            is JsonPrimitive -> {
+                when {
+                    value.isString -> value.content
+                    value.booleanOrNull != null -> value.boolean
+                    value.longOrNull != null -> value.long
+                    value.doubleOrNull != null -> value.double
+                    else -> value.content
+                }
+            }
+            is JsonObject -> value.toMap()
+            is JsonArray -> value.map { element ->
+                when (element) {
+                    is JsonPrimitive -> {
+                        when {
+                            element.doubleOrNull != null -> element.double
+                            element.longOrNull != null -> element.long
+                            element.booleanOrNull != null -> element.boolean
+                            else -> element.content
+                        }
+                    }
+                    is JsonObject -> element.toMap()
+                    else -> element.toString()
+                }
+            }
+            else -> value.toString()
+        }
+    }
+    return result
+}
 
 class MCPController(
     private val mcpConnectionAgent: MCPConnectionAgent,
@@ -32,6 +68,11 @@ class MCPController(
             // POST /api/mcp/disconnect - отключиться от сервера
             post("/disconnect") {
                 this@MCPController.handleDisconnect(call)
+            }
+            
+            // POST /api/mcp/call-tool - вызвать инструмент
+            post("/call-tool") {
+                this@MCPController.handleCallTool(call)
             }
         }
     }
@@ -118,6 +159,88 @@ class MCPController(
         } catch (e: Exception) {
             logger.error("Failed to disconnect", e)
             call.respond(HttpStatusCode.InternalServerError, ErrorDto(message = e.message ?: "Unknown error"))
+        }
+    }
+    
+    private suspend fun handleCallTool(call: ApplicationCall) {
+        try {
+            val request = call.receive<CallToolRequestDto>()
+            
+            logger.info("Received tool call request: toolName=${request.toolName}, arguments=${request.arguments}")
+            
+            // Преобразуем Map<String, String> в Map<String, Any>
+            var arguments: Map<String, Any> = request.arguments?.mapValues { (key, value) ->
+                // Для числовых полей пытаемся преобразовать строку в число
+                if (key == "latitude" || key == "longitude") {
+                    value.toDoubleOrNull() ?: throw IllegalArgumentException("$key must be a number, got: $value")
+                } else {
+                    value.toDoubleOrNull() ?: value.toIntOrNull() ?: value
+                }
+            } ?: emptyMap()
+            
+            logger.info("Converted arguments: $arguments")
+            
+            // Специальная обработка для get_forecast
+            // Weather-server ожидает GeoJSON Point формат с полем "properties"
+            if (request.toolName == "get_forecast") {
+                if (!arguments.containsKey("latitude") || !arguments.containsKey("longitude")) {
+                    throw IllegalArgumentException("Both 'latitude' and 'longitude' parameters are required for get_forecast")
+                }
+                
+                val latitude = arguments["latitude"] as? Number ?: throw IllegalArgumentException("latitude must be a number")
+                val longitude = arguments["longitude"] as? Number ?: throw IllegalArgumentException("longitude must be a number")
+                
+                // Weather-server ожидает GeoJSON Point формат с полем "properties"
+                // Но также нужны latitude и longitude на верхнем уровне
+                val latDouble = latitude.toDouble()
+                val lonDouble = longitude.toDouble()
+                
+                // Создаем структуру: latitude/longitude на верхнем уровне + GeoJSON Point
+                val coordinatesArray = buildJsonArray {
+                    add(lonDouble) // GeoJSON: [longitude, latitude]
+                    add(latDouble)
+                }
+                
+                val propertiesObject = buildJsonObject {
+                    put("latitude", latDouble)
+                    put("longitude", lonDouble)
+                }
+                
+                val geoJsonObject = buildJsonObject {
+                    // Добавляем latitude и longitude на верхнем уровне
+                    put("latitude", latDouble)
+                    put("longitude", lonDouble)
+                    // И GeoJSON структуру
+                    put("type", "Point")
+                    put("coordinates", coordinatesArray)
+                    put("properties", propertiesObject)
+                }
+                
+                // Преобразуем JsonObject в Map для передачи в MCP SDK
+                arguments = geoJsonObject.toMap()
+                
+                logger.info("Formatted arguments for get_forecast (GeoJSON with top-level lat/lon): $arguments")
+                logger.debug("Arguments type: ${arguments.javaClass}, keys: ${arguments.keys}")
+                // Логируем структуру properties
+                val props = arguments["properties"]
+                logger.debug("Properties type: ${props?.javaClass}, value: $props")
+            }
+            
+            logger.info("Calling tool: ${request.toolName} with final arguments: $arguments")
+            
+            val result = mcpConnectionAgent.callTool(request.toolName, arguments)
+            
+            call.respond(HttpStatusCode.OK, CallToolResponseDto(
+                success = true,
+                result = result
+            ))
+        } catch (e: Exception) {
+            logger.error("Failed to call tool", e)
+            call.respond(HttpStatusCode.InternalServerError, CallToolResponseDto(
+                success = false,
+                result = "",
+                error = e.message ?: "Unknown error"
+            ))
         }
     }
 }

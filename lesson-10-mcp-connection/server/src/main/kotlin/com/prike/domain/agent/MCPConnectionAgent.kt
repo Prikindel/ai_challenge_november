@@ -124,6 +124,10 @@ class MCPConnectionAgent(
         return process
     }
     
+    suspend fun callTool(toolName: String, arguments: Map<String, Any>?): String {
+        return mcpRepository.callTool(toolName, arguments)
+    }
+    
     suspend fun disconnect() {
         try {
             mcpRepository.disconnect()

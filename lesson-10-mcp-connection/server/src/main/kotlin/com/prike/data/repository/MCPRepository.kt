@@ -44,6 +44,14 @@ class MCPRepository(
         }
     }
     
+    suspend fun callTool(toolName: String, arguments: Map<String, Any>?): String {
+        return try {
+            mcpClient.callTool(toolName, arguments)
+        } catch (e: Exception) {
+            throw MCPException("Failed to call tool '$toolName': ${e.message}", e)
+        }
+    }
+    
     suspend fun disconnect() {
         mcpClient.disconnect()
     }

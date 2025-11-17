@@ -49,3 +49,16 @@ data class ErrorDto(
     val message: String
 )
 
+@Serializable
+data class CallToolRequestDto(
+    val toolName: String,
+    val arguments: Map<String, String>? = null
+)
+
+@Serializable
+data class CallToolResponseDto(
+    val success: Boolean,
+    val result: String,
+    val error: String? = null
+)
+
