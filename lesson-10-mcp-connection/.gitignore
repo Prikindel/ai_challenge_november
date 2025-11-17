@@ -1,0 +1,18 @@
+# MCP Servers и SDK
+kotlin-sdk/
+mcp-servers/
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build
+server/build/
+server/.gradle/
+.gradle/
+
+# Logs
+*.log
+

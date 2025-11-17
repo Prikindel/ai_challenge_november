@@ -1,0 +1,263 @@
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --border-radius: 12px;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --info-color: #3b82f6;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: var(--primary-gradient);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    color: white;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2.5em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.subtitle {
+    margin-top: 10px;
+    font-size: 1.1em;
+    opacity: 0.9;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+section {
+    background: white;
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+}
+
+.connection-panel {
+    background: white;
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 16px;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.form-group select:hover {
+    border-color: #667eea;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.server-description {
+    display: block;
+    margin-top: 8px;
+    color: #6b7280;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-2px);
+}
+
+.status {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    display: none;
+}
+
+.status.show {
+    display: block;
+}
+
+.status.success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid var(--success-color);
+}
+
+.status.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid var(--error-color);
+}
+
+.status.info {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid var(--info-color);
+}
+
+.server-info {
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+}
+
+.server-info-card {
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.server-info-card h4 {
+    margin: 0 0 15px 0;
+    color: #1f2937;
+    font-size: 1.5em;
+}
+
+.server-info-card p {
+    margin: 10px 0;
+    color: #4b5563;
+}
+
+.server-info-card strong {
+    color: #1f2937;
+}
+
+.tools-list, .resources-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.tool-card, .resource-card {
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    border: 1px solid #e5e7eb;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tool-card:hover, .resource-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tool-card h3, .resource-card h3 {
+    margin: 0 0 10px 0;
+    color: #1f2937;
+    font-size: 1.2em;
+}
+
+.tool-card p, .resource-card p {
+    margin: 0;
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+.tools-section h2, .resources-section h2 {
+    margin-top: 0;
+    color: #1f2937;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 10px;
+}
+
+.empty-message {
+    text-align: center;
+    color: #6b7280;
+    font-style: italic;
+    padding: 40px;
+}
+
+@media (max-width: 768px) {
+    .tools-list, .resources-list {
+        grid-template-columns: 1fr;
+    }
+    
+    header h1 {
+        font-size: 2em;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}

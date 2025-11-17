@@ -104,3 +104,4 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-07-token-usage](./lesson-07-token-usage/) — анализ использования токенов: сценарии, лимиты, история запусков
 - [lesson-08-dialog-compression](./lesson-08-dialog-compression/) — управление историей диалога: summary, retrieval и экономия токенов
  - [lesson-09-external-memory](./lesson-09-external-memory/) — внешняя память (SQLite/JSON), персистентность истории, суммаризация и компактация диалога. Демо: https://disk.yandex.ru/i/wUQPiP2Asfna9Q
+- [lesson-10-mcp-connection](./lesson-10-mcp-connection/) — подключение к MCP серверу и получение списка инструментов

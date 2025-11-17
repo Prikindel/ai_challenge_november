@@ -1,0 +1,40 @@
+mcp:
+  # Список доступных MCP серверов
+  servers:
+    # Пример 1: Простой тестовый сервер (если создаёшь свой)
+    - name: "test-server"
+      type: "stdio"
+      enabled: false
+      command: "java"
+      args: ["-jar", "mcp-servers/test-mcp-server.jar"]
+      description: "Тестовый MCP сервер для демонстрации"
+    
+    # Пример 2: Weather MCP Server (официальный пример из kotlin-sdk)
+    # Требует предварительной сборки (см. инструкции в README.md)
+    - name: "weather-server"
+      type: "stdio"
+      enabled: true  # Включен для использования
+      command: "java"
+      args: ["-jar", "mcp-servers/weather-stdio-server.jar"]
+      description: "MCP сервер для получения прогноза погоды (официальный пример)"
+    
+    # Пример 3: Filesystem MCP Server (требует Node.js)
+    # - name: "filesystem"
+    #   type: "stdio"
+    #   enabled: false
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"]
+    #   description: "MCP сервер для работы с файловой системой"
+    
+    # Пример 4: HTTP сервер (если используешь SSE/WebSocket)
+    # - name: "remote-server"
+    #   type: "sse"  # или "websocket"
+    #   enabled: false
+    #   url: "http://localhost:3000/mcp"
+    #   description: "Удалённый MCP сервер через SSE"
+  
+  # Настройки по умолчанию
+  default:
+    timeout: 30  # таймаут подключения в секундах
+    retryAttempts: 3  # количество попыток переподключения
+
