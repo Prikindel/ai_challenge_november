@@ -7,6 +7,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 
 class ToolController(
@@ -51,8 +54,12 @@ class ToolController(
         try {
             val request = receive<CallToolRequestDto>()
             
-            // Преобразуем Map<String, String> в Map<String, Any>
-            val arguments = request.arguments.mapValues { it.value as Any }
+            // Преобразуем Map<String, String> в JsonObject
+            val arguments = buildJsonObject {
+                request.arguments.forEach { (key, value) ->
+                    put(key, value)
+                }
+            }
             
             val result = mcpToolAgent.callTool(request.toolName, arguments)
             

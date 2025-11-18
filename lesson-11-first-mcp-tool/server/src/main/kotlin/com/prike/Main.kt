@@ -9,6 +9,7 @@ import com.prike.data.repository.AIRepository
 import com.prike.domain.agent.LLMWithMCPAgent
 import com.prike.domain.agent.MCPToolAgent
 import com.prike.presentation.controller.ChatController
+import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.MCPConnectionController
 import com.prike.presentation.controller.ToolController
 import io.ktor.http.HttpHeaders
@@ -21,7 +22,7 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.routing.*
-import io.ktor.server.http.content.*
+import java.io.File
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import kotlinx.coroutines.runBlocking
@@ -122,13 +123,15 @@ fun Application.module() {
     )
     
     // Создание контроллеров
+    val clientDir = File(lessonRoot, "client")
+    val clientController = ClientController(clientDir)
     val mcpConnectionController = MCPConnectionController(mcpClient, lessonRoot)
     val toolController = ToolController(mcpToolAgent)
     val chatController = ChatController(llmWithMCPAgent)
 
     routing {
         // Статические файлы клиента
-        staticResources("/", "client")
+        clientController.configureRoutes(this)
         
         // API маршруты
         mcpConnectionController.configureRoutes(this)

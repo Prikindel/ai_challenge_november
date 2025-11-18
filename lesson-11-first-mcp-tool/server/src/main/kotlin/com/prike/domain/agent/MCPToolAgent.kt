@@ -11,10 +11,9 @@ class MCPToolAgent(
     
     suspend fun callTool(
         toolName: String,
-        arguments: Map<String, Any>
+        arguments: JsonObject
     ): ToolResult {
         return try {
-            logger.info("Calling tool: $toolName with arguments: $arguments")
             val result = mcpClient.callTool(toolName, arguments)
             ToolResult.Success(result)
         } catch (e: Exception) {

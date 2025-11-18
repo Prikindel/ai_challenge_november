@@ -110,15 +110,6 @@ class OpenAIClient(
             jsonSerializer.encodeToString(request)
         }.getOrElse { "{}" }
         
-        // Логируем JSON запрос
-        runCatching {
-            logger.info("--> POST $apiUrl")
-            logger.info("Content-Type: application/json")
-            logger.info("")
-            logger.info(requestJson)
-            logger.info("--> END POST")
-        }
-        
         return runCatching {
             val response = client.post(apiUrl) {
                 header(HttpHeaders.Authorization, "Bearer $apiKey")
@@ -141,14 +132,7 @@ class OpenAIClient(
                     if (errorBody != null) jsonSerializer.encodeToString(errorBody) else ""
                 }.getOrElse { "" }
                 
-                // Логируем ошибку
-                runCatching {
-                    logger.info("<-- $statusCode $apiUrl")
-                    if (errorJson.isNotEmpty()) {
-                        logger.info(errorJson)
-                    }
-                    logger.info("<-- END HTTP")
-                }
+                logger.error("API error: $statusCode - ${errorBody?.error?.message ?: "Unknown error"}")
                 
                 throw AIServiceException(
                     "Ошибка API: ${errorBody?.error?.message ?: "HTTP $statusCode"}",
@@ -158,18 +142,10 @@ class OpenAIClient(
             
             val responseBody = response.body<OpenAIResponse>()
             
-            // Сериализуем ответ в JSON для логирования
+            // Сериализуем ответ в JSON для возврата
             val responseJson = runCatching {
                 jsonSerializer.encodeToString(responseBody)
             }.getOrElse { "{}" }
-            
-            // Логируем JSON ответ
-            runCatching {
-                logger.info("<-- $statusCode $apiUrl")
-                logger.info("")
-                logger.info(responseJson)
-                logger.info("<-- END HTTP")
-            }
             
             CompletionResult(responseBody, requestJson, responseJson)
         }.getOrElse { throwable ->

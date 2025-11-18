@@ -3,6 +3,8 @@ package com.prike.domain.agent
 import com.prike.data.dto.MessageDto
 import com.prike.data.dto.ToolDto
 import com.prike.data.dto.FunctionDto
+import com.prike.data.dto.ToolCallDto
+import com.prike.data.dto.FunctionCallDto
 import com.prike.data.repository.AIRepository
 import com.prike.domain.agent.MCPToolAgent
 import kotlinx.serialization.json.Json
@@ -70,6 +72,42 @@ class LLMWithMCPAgent(
             var assistantMessage = completionResult.response.choices.firstOrNull()?.message
                 ?: throw IllegalStateException("Empty response from LLM")
             
+            // Проверяем, не вернул ли LLM JSON строку в content вместо tool_calls
+            // Это может произойти, если LLM не понимает формат function calling
+            if (assistantMessage.toolCalls == null || assistantMessage.toolCalls!!.isEmpty()) {
+                val content = assistantMessage.content?.trim()
+                if (content != null && content.startsWith("{") && content.endsWith("}")) {
+                    logger.warn("LLM returned JSON in content instead of using tool_calls: $content")
+                    // Пытаемся извлечь информацию из JSON и вызвать инструмент вручную
+                    try {
+                        val jsonElement = json.parseToJsonElement(content)
+                        if (jsonElement is JsonObject) {
+                            val toolName = jsonElement["name"]?.toString()?.trim('"')
+                            val parameters = jsonElement["parameters"] as? JsonObject ?: buildJsonObject { }
+                            
+                            if (toolName != null) {
+                                // Создаем фиктивный tool_call для обработки
+                                assistantMessage = assistantMessage.copy(
+                                    toolCalls = listOf(
+                                        ToolCallDto(
+                                            id = "extracted-${System.currentTimeMillis()}",
+                                            type = "function",
+                                            function = FunctionCallDto(
+                                                name = toolName,
+                                                arguments = parameters.toString()
+                                            )
+                                        )
+                                    ),
+                                    content = null // Очищаем content, так как это tool_call
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Failed to parse JSON from LLM response: ${e.message}", e)
+                    }
+                }
+            }
+            
             // 5. Обрабатываем tool_calls (может быть несколько итераций)
             var toolUsed: String? = null
             var toolResult: String? = null
@@ -78,7 +116,6 @@ class LLMWithMCPAgent(
             
             while (assistantMessage.toolCalls != null && assistantMessage.toolCalls!!.isNotEmpty() && iterationCount < maxIterations) {
                 iterationCount++
-                logger.info("Processing ${assistantMessage.toolCalls!!.size} tool call(s), iteration $iterationCount")
                 
                 // Добавляем ответ ассистента с tool_calls в историю
                 val updatedMessages = messages.toMutableList()
@@ -87,11 +124,15 @@ class LLMWithMCPAgent(
                 // Вызываем каждый инструмент
                 for (toolCall in assistantMessage.toolCalls!!) {
                     toolUsed = toolCall.function.name
-                    logger.info("Calling tool: ${toolCall.function.name} with arguments: ${toolCall.function.arguments}")
                     
                     try {
-                        // Парсим аргументы из JSON строки
-                        val arguments = json.decodeFromString<Map<String, Any>>(toolCall.function.arguments)
+                        // Парсим аргументы из JSON строки в JsonObject
+                        val argumentsJson = json.parseToJsonElement(toolCall.function.arguments)
+                        val arguments = if (argumentsJson is JsonObject) {
+                            argumentsJson
+                        } else {
+                            buildJsonObject { } // Пустой объект, если не объект
+                        }
                         
                         // Вызываем инструмент через MCP
                         val result = mcpToolAgent.callTool(toolCall.function.name, arguments)
@@ -99,7 +140,6 @@ class LLMWithMCPAgent(
                         when (result) {
                             is MCPToolAgent.ToolResult.Success -> {
                                 toolResult = result.result
-                                logger.info("Tool call successful: $toolUsed")
                                 
                                 // Добавляем результат инструмента в историю
                                 updatedMessages.add(
@@ -139,14 +179,68 @@ class LLMWithMCPAgent(
                 }
                 
                 // 6. Отправляем результаты обратно в LLM
-                completionResult = aiRepository.getMessageWithTools(updatedMessages, openAITools)
-                assistantMessage = completionResult.response.choices.firstOrNull()?.message
+                // Добавляем явную инструкцию для LLM после результата инструмента
+                val messagesWithInstruction = updatedMessages.toMutableList()
+                messagesWithInstruction.add(
+                    MessageDto(
+                        role = "user",
+                        content = """Обработай результат инструмента выше и верни дружелюбный, естественный ответ на русском языке. 
+                        Используй данные из результата, но формулируй ответ простыми словами, как будто общаешься с другом.
+                        Используй Markdown для форматирования (жирный текст, эмодзи).
+                        НЕ возвращай JSON, технические детали или повторяй вызов инструмента - только понятный, дружелюбный текст."""
+                    )
+                )
+                
+                // НЕ отправляем tools во второй запрос, чтобы LLM точно знал, что нужно просто ответить текстом
+                completionResult = aiRepository.getMessageWithTools(messagesWithInstruction, tools = null)
+                val choice = completionResult.response.choices.firstOrNull()
                     ?: throw IllegalStateException("Empty response from LLM after tool call")
+                
+                assistantMessage = choice.message
+                
+                // Проверяем finish_reason - если "stop" и нет tool_calls, значит LLM закончил работу
+                val finishReason = choice.finishReason
+                if (finishReason == "stop" && (assistantMessage.toolCalls == null || assistantMessage.toolCalls!!.isEmpty())) {
+                    break // Выходим из цикла, так как LLM закончил работу
+                }
             }
             
             // 7. Формируем финальный ответ
-            val finalMessage = assistantMessage.content
-                ?: throw IllegalStateException("Empty final message from LLM")
+            var finalMessage = assistantMessage.content?.trim()
+            
+            // Если LLM вернул пустой ответ или JSON строку после вызова инструмента,
+            // используем результат инструмента напрямую
+            if (finalMessage.isNullOrBlank() || 
+                (finalMessage.startsWith("{") && finalMessage.endsWith("}"))) {
+                logger.warn("LLM returned empty or JSON response after tool call. Using tool result directly.")
+                
+                if (toolResult != null && toolResult.isNotBlank()) {
+                    // Проверяем, не является ли результат ошибкой
+                    if (toolResult.startsWith("Ошибка") || toolResult.contains("error", ignoreCase = true) || toolResult.contains("required", ignoreCase = true)) {
+                        // Если это ошибка, возвращаем её как есть
+                        finalMessage = toolResult
+                    } else {
+                        // Формируем понятный ответ на основе результата инструмента
+                        finalMessage = when (toolUsed) {
+                            "get_bot_info" -> {
+                                "Вот информация о боте:\n\n$toolResult"
+                            }
+                            "send_message" -> {
+                                "Сообщение успешно отправлено!\n\n$toolResult"
+                            }
+                            else -> {
+                                "Результат выполнения:\n\n$toolResult"
+                            }
+                        }
+                    }
+                } else {
+                    finalMessage = "Инструмент был вызван, но результат не получен."
+                }
+            }
+            
+            if (finalMessage.isBlank()) {
+                throw IllegalStateException("Empty final message from LLM")
+            }
             
             AgentResponse.Success(
                 message = finalMessage,

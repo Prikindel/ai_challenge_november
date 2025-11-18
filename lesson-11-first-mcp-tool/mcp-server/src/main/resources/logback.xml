@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 
+        ВАЖНО: Все логи должны идти в stderr, а не в stdout!
+        MCP протокол использует stdout для обмена JSON-RPC сообщениями,
+        поэтому любые логи в stdout нарушат протокол.
+    -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDERR" />
+    </root>
+</configuration>
+

@@ -54,10 +54,13 @@ object ConfigLoader {
         }.getOrElse { emptyMap() }
         
         // Получаем API ключ из переменных окружения
-        val apiKey = dotenv["OPENAI_API_KEY"]
+        // Поддерживаем оба варианта: OPENROUTER_API_KEY и OPENAI_API_KEY
+        val apiKey = dotenv["OPENROUTER_API_KEY"]
+            ?: System.getenv("OPENROUTER_API_KEY")
+            ?: dotenv["OPENAI_API_KEY"]
             ?: System.getenv("OPENAI_API_KEY")
             ?: throw IllegalStateException(
-                "OPENAI_API_KEY not found. " +
+                "OPENROUTER_API_KEY or OPENAI_API_KEY not found. " +
                 "Set it in .env file in the project root or as a system environment variable."
             )
         
@@ -82,7 +85,7 @@ object ConfigLoader {
      * Ищет директорию, содержащую папки lesson-XX-*
      */
     private fun findProjectRoot(): String {
-        var dir = File(System.getProperty("user.dir"))
+        var dir: File? = File(System.getProperty("user.dir"))
         
         while (dir != null) {
             // Проверяем, есть ли в текущей директории папки lesson-XX-*

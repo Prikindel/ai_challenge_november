@@ -37,13 +37,10 @@ class ChatController(
                 return
             }
             
-            logger.info("Processing chat message: ${request.message.take(100)}...")
-            
             val response = llmWithMCPAgent.processUserMessage(request.message)
             
             when (response) {
                 is LLMWithMCPAgent.AgentResponse.Success -> {
-                    logger.info("Chat message processed successfully, tool used: ${response.toolUsed}")
                     respond(HttpStatusCode.OK, ChatMessageResponseDto(
                         message = response.message,
                         toolUsed = response.toolUsed,

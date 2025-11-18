@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
+import kotlinx.serialization.json.JsonObject
 import org.slf4j.LoggerFactory
 import java.io.InputStream
 import java.io.OutputStream
@@ -73,22 +74,23 @@ class MCPClient {
             }
             
             logger.info("Starting MCP server from class (development mode)")
-            logger.info("MCP server directory: ${mcpServerDir.absolutePath}")
-            logger.info("Working directory: ${workingDir.absolutePath}")
             
             // Запуск через Gradle (проще всего для разработки)
             // Используем gradlew из mcp-server директории
+            // ВАЖНО: Перенаправляем stderr в отдельный поток, чтобы вывод Gradle не мешал MCP протоколу
             val gradlew = File(mcpServerDir, "gradlew")
             if (gradlew.exists()) {
-                process = ProcessBuilder(gradlew.absolutePath, "run", "--no-daemon")
+                process = ProcessBuilder(gradlew.absolutePath, "run", "--no-daemon", "--quiet")
                     .directory(mcpServerDir)
+                    .redirectError(ProcessBuilder.Redirect.to(File.createTempFile("mcp-server-gradle", ".log")))
                     .start()
             } else {
                 // Fallback: пытаемся найти gradlew в корне проекта
                 val rootGradlew = File(workingDir, "gradlew")
                 if (rootGradlew.exists()) {
-                    process = ProcessBuilder(rootGradlew.absolutePath, ":mcp-server:run", "--no-daemon")
+                    process = ProcessBuilder(rootGradlew.absolutePath, ":mcp-server:run", "--no-daemon", "--quiet")
                         .directory(workingDir)
+                        .redirectError(ProcessBuilder.Redirect.to(File.createTempFile("mcp-server-gradle", ".log")))
                         .start()
                 } else {
                     throw IllegalStateException(
@@ -97,8 +99,6 @@ class MCPClient {
                 }
             }
         }
-        
-        logger.info("MCP server working directory: ${workingDir.absolutePath}")
         
         mcpServerProcess = process
         
@@ -145,25 +145,29 @@ class MCPClient {
         logger.info("Disconnected from MCP server")
     }
     
-    suspend fun callTool(toolName: String, arguments: Map<String, Any>?): String {
+    suspend fun callTool(toolName: String, arguments: JsonObject): String {
         if (!isConnected) {
             throw IllegalStateException("MCP client not connected")
         }
         
-        logger.debug("MCPClient.callTool: toolName=$toolName, arguments=$arguments")
-        
         val response = client.callTool(
             name = toolName,
-            arguments = arguments ?: emptyMap()
+            arguments = arguments
         ) ?: throw IllegalStateException("Tool call returned null response")
         
         // Преобразуем результат в читаемую строку используя TextContent из SDK
-        return response.content.joinToString("\n\n") { content ->
+        val result = response.content.joinToString("\n\n") { content ->
             when (content) {
                 is TextContent -> content.text ?: ""
                 else -> content.toString()
             }
         }
+        
+        if (result.isBlank()) {
+            logger.warn("MCPClient.callTool returned empty result for tool: $toolName")
+        }
+        
+        return result
     }
     
     fun isConnected(): Boolean = isConnected
