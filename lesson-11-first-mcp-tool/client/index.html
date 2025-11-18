@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 День 11. Первый инструмент MCP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 Первый инструмент MCP</h1>
+            <p class="subtitle">Создание собственного MCP сервера и вызов инструментов через LLM</p>
+        </header>
+        
+        <div class="main-content">
+            <!-- Статус подключения к MCP серверу -->
+            <section class="connection-status">
+                <h2>Статус подключения</h2>
+                <div id="mcpStatus" class="status-indicator">Не подключено</div>
+                <div class="button-group">
+                    <button id="connectBtn" class="btn btn-primary">Подключиться к MCP серверу</button>
+                    <button id="disconnectBtn" class="btn btn-secondary" style="display: none;">Отключиться</button>
+                </div>
+            </section>
+            
+            <!-- Чат с LLM агентом -->
+            <section class="chat-section" id="chatSection" style="display: none;">
+                <h2>Чат с ассистентом</h2>
+                <p class="chat-description">
+                    Ассистент знает о доступных инструментах MCP и сам решает, когда их вызывать.
+                    Попробуйте: "Отправь мне сообщение 'Привет!'" или "Расскажи о боте"
+                </p>
+                <div id="chatMessages" class="chat-messages"></div>
+                <div class="chat-input-container">
+                    <input type="text" id="userMessageInput" placeholder="Введите сообщение..." />
+                    <button id="sendMessageBtn" class="btn btn-primary">Отправить</button>
+                </div>
+            </section>
+            
+            <!-- Информация об использованных инструментах -->
+            <section class="tools-info" id="toolsInfo" style="display: none;">
+                <h3>Использованные инструменты</h3>
+                <div id="toolsUsedList" class="tools-used-list"></div>
+            </section>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
