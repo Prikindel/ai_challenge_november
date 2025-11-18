@@ -105,3 +105,4 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-08-dialog-compression](./lesson-08-dialog-compression/) — управление историей диалога: summary, retrieval и экономия токенов
  - [lesson-09-external-memory](./lesson-09-external-memory/) — внешняя память (SQLite/JSON), персистентность истории, суммаризация и компактация диалога. Демо: https://disk.yandex.ru/i/wUQPiP2Asfna9Q
 - [lesson-10-mcp-connection](./lesson-10-mcp-connection/) — подключение к MCP серверу и получение списка инструментов
+- [lesson-11-first-mcp-tool](./lesson-11-first-mcp-tool/) — создание собственного MCP сервера с инструментами для работы с внешним API
