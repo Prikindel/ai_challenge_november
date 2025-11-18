@@ -1,0 +1,20 @@
+mcpServer:
+  # Информация о сервере
+  info:
+    name: "telegram-bot-mcp-server"
+    version: "1.0.0"
+    description: "MCP сервер для работы с Telegram Bot API"
+  
+  # Настройки Telegram Bot API
+  api:
+    baseUrl: "https://api.telegram.org"
+    token: "${TELEGRAM_BOT_TOKEN}"  # из .env
+  
+  # Настройки транспорта
+  transport:
+    type: "stdio"  # stdio, sse, websocket
+  
+  # Примечание: Инструменты регистрируются напрямую в коде (ToolRegistry.kt)
+  # Секция tools здесь не используется, но может быть добавлена в будущем
+  # для динамической конфигурации инструментов
+
