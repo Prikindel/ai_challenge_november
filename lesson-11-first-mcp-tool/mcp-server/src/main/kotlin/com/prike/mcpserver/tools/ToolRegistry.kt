@@ -9,7 +9,8 @@ import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 
 class ToolRegistry(
-    private val apiClient: TelegramApiClient
+    private val apiClient: TelegramApiClient,
+    private val defaultChatId: String? = null  // ID чата по умолчанию (захардкоженный)
 ) {
     private val logger = LoggerFactory.getLogger(ToolRegistry::class.java)
     
@@ -26,21 +27,22 @@ class ToolRegistry(
             )
         ) { request ->
             try {
-                logger.info("Calling get_bot_info tool")
                 val botInfo = apiClient.getMe()
                 
-                val botInfoJson = buildJsonObject {
-                    put("id", botInfo.id)
-                    put("is_bot", botInfo.isBot)
-                    put("first_name", botInfo.firstName)
-                    botInfo.username?.let { put("username", it) }
-                    botInfo.languageCode?.let { put("language_code", it) }
-                }
+                // Формируем читаемый текст вместо JSON
+                val botInfoText = buildString {
+                    append("Информация о Telegram боте:\n")
+                    append("- ID: ${botInfo.id}\n")
+                    append("- Имя: ${botInfo.firstName}\n")
+                    append("- Это бот: ${if (botInfo.isBot) "Да" else "Нет"}\n")
+                    botInfo.username?.let { append("- Username: @$it\n") }
+                    botInfo.languageCode?.let { append("- Язык: $it\n") }
+                }.trim()
 
                 CallToolResult(
                     content = listOf(
                         TextContent(
-                            text = "Информация о боте:\n${botInfoJson.toString()}"
+                            text = botInfoText.trim()
                         )
                     )
                 )
@@ -59,43 +61,49 @@ class ToolRegistry(
         // Регистрация инструмента send_message
         server.addTool(
             name = "send_message",
-            description = "Отправить сообщение в Telegram чат",
+            description = "Отправить сообщение в Telegram чат. Используется захардкоженный ID чата из конфигурации.",
             inputSchema = Tool.Input(
                 properties = buildJsonObject {
-                    putJsonObject("chatId") {
-                        put("type", "string")
-                        put("description", "ID чата в Telegram (может быть числом или строкой)")
-                    }
                     putJsonObject("text") {
                         put("type", "string")
                         put("description", "Текст сообщения для отправки")
                     }
                 },
-                required = listOf("chatId", "text")
+                required = listOf("text")
             )
         ) { request ->
             try {
-                logger.info("Calling send_message tool with arguments: ${request.arguments}")
+                // Используем захардкоженный chatId из конфигурации
+                val chatId = defaultChatId
+                    ?: throw IllegalArgumentException("TELEGRAM_CHAT_ID not set in .env file. Please set it in the project root .env file")
                 
-                val chatId = request.arguments.get("chatId") as? String
-                    ?: throw IllegalArgumentException("chatId is required")
-                
-                val text = request.arguments.get("text") as? String
-                    ?: throw IllegalArgumentException("text is required")
+                // Извлекаем text из аргументов
+                val textJson = request.arguments["text"]
+                val text = when {
+                    textJson != null -> {
+                        when {
+                            textJson is JsonPrimitive -> textJson.contentOrNull ?: textJson.toString().trim('"')
+                            else -> textJson.toString().trim('"')
+                        }
+                    }
+                    else -> null
+                } ?: throw IllegalArgumentException("text is required")
                 
                 val message = apiClient.sendMessage(chatId, text)
                 
-                val messageJson = buildJsonObject {
-                    put("message_id", message.messageId)
-                    put("chat_id", message.chat.id)
-                    put("chat_type", message.chat.type)
-                    message.text?.let { put("text", it) }
+                // Формируем читаемый текст вместо JSON
+                val messageText = buildString {
+                    append("Сообщение успешно отправлено в Telegram!\n")
+                    append("- ID сообщения: ${message.messageId}\n")
+                    append("- ID чата: ${message.chat.id}\n")
+                    append("- Тип чата: ${message.chat.type}\n")
+                    append("- Текст сообщения: \"${message.text ?: text}\"")
                 }
                 
                 CallToolResult(
                     content = listOf(
                         TextContent(
-                            text = "Сообщение отправлено:\n${messageJson.toString()}"
+                            text = messageText.trim()
                         )
                     )
                 )

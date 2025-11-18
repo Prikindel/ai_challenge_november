@@ -1,13 +1,17 @@
 package com.prike.mcpserver.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class TelegramUser(
     val id: Long,
+    @SerialName("is_bot")
     val isBot: Boolean,
+    @SerialName("first_name")
     val firstName: String,
     val username: String? = null,
+    @SerialName("language_code")
     val languageCode: String? = null
 )
 
@@ -23,6 +27,7 @@ data class TelegramChat(
 
 @Serializable
 data class TelegramMessage(
+    @SerialName("message_id")
     val messageId: Long,
     val from: TelegramUser? = null,
     val chat: TelegramChat,

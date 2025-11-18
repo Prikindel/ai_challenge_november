@@ -18,7 +18,8 @@ data class ServerInfo(
 
 data class ApiConfig(
     val baseUrl: String,
-    val token: String
+    val token: String,
+    val defaultChatId: String? = null  // ID чата по умолчанию (опционально)
 )
 
 data class TransportConfig(
@@ -61,6 +62,7 @@ object Config {
         // Заменяем переменные окружения в значениях
         val token = resolveEnvVar(api["token"] as String)
         val baseUrl = resolveEnvVar(api["baseUrl"] as String)
+        val defaultChatId = (api["defaultChatId"] as? String)?.let { resolveEnvVar(it) }
         
         return MCPServerConfig(
             serverInfo = ServerInfo(
@@ -70,7 +72,8 @@ object Config {
             ),
             api = ApiConfig(
                 baseUrl = baseUrl,
-                token = token
+                token = token,
+                defaultChatId = defaultChatId
             ),
             transport = TransportConfig(
                 type = transport["type"] as String

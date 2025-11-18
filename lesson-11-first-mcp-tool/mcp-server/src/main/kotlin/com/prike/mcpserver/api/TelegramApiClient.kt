@@ -4,6 +4,7 @@ import com.prike.mcpserver.dto.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.serialization.json.Json
 
@@ -22,7 +23,10 @@ class TelegramApiClient(
             contentType(ContentType.Application.Json)
         }
         
-        val result = response.body<GetMeResponse>()
+        // Используем явную десериализацию для правильной обработки snake_case полей
+        val responseText = response.bodyAsText()
+        val result = json.decodeFromString<GetMeResponse>(responseText)
+        
         if (!result.ok) {
             throw IllegalStateException("Telegram API error: ${result.result}")
         }
@@ -41,7 +45,10 @@ class TelegramApiClient(
             setBody(requestBody)
         }
         
-        val result = response.body<SendMessageResponse>()
+        // Используем явную десериализацию для правильной обработки snake_case полей
+        val responseText = response.bodyAsText()
+        val result = json.decodeFromString<SendMessageResponse>(responseText)
+        
         if (!result.ok) {
             throw IllegalStateException("Telegram API error: failed to send message")
         }

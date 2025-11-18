@@ -37,7 +37,10 @@ fun main() {
         )
         
         // Создание реестра инструментов
-        val toolRegistry = ToolRegistry(apiClient)
+        val toolRegistry = ToolRegistry(
+            apiClient = apiClient,
+            defaultChatId = config.api.defaultChatId
+        )
         
         // Создание и запуск MCP сервера
         val server = MCPServer(
