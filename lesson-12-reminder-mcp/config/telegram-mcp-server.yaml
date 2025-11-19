@@ -1,0 +1,12 @@
+mcpServer:
+  info:
+    name: "telegram-mcp-server"
+    version: "1.0.0"
+    description: "MCP сервер для получения сообщений из Telegram и отправки summary"
+  
+  telegram:
+    botToken: "${TELEGRAM_BOT_TOKEN}"
+    groupId: "${TELEGRAM_GROUP_ID}"  # ID группы для получения сообщений
+    accountId: "${TELEGRAM_CHAT_ID}"  # ID пользователя для отправки summary (используется TELEGRAM_CHAT_ID из .env)
+    databasePath: "data/summary.db"
+
