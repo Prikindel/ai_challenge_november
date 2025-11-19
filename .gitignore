@@ -41,3 +41,15 @@ lesson-*/config/.env
 *.war
 *.ear
 
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+
