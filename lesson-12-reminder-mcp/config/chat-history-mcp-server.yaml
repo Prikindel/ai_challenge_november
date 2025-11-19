@@ -1,12 +1,11 @@
 mcpServer:
   info:
-    name: "summary-mcp-server"
+    name: "chat-history-mcp-server"
     version: "1.0.0"
-    description: "MCP сервер для получения истории веб-чата и Telegram сообщений"
+    description: "MCP сервер для получения истории веб-чата"
   
   webChat:
     # Путь к базе данных memory.db из lesson-09
     # Можно использовать относительный путь от корня проекта
-    # Или абсолютный путь
     memoryDbPath: "../lesson-09-external-memory/data/memory.db"
 

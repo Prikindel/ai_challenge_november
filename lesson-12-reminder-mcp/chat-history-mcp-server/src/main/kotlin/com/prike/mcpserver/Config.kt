@@ -36,7 +36,7 @@ object Config {
     }
     
     fun load(): MCPServerConfig {
-        val configFile = File(findConfigDirectory(), "mcp-server.yaml")
+        val configFile = File(findConfigDirectory(), "chat-history-mcp-server.yaml")
         if (!configFile.exists()) {
             throw IllegalStateException("Config file not found: ${configFile.absolutePath}")
         }
@@ -103,13 +103,13 @@ object Config {
     private fun findConfigDirectory(): String {
         var currentDir = File(System.getProperty("user.dir"))
         
-        if (currentDir.name == "mcp-server") {
+        if (currentDir.name == "chat-history-mcp-server") {
             currentDir = currentDir.parentFile
         }
         
         // Проверяем config в текущей директории
         var configDir = File(currentDir, "config")
-        if (configDir.exists() && File(configDir, "mcp-server.yaml").exists()) {
+        if (configDir.exists() && File(configDir, "chat-history-mcp-server.yaml").exists()) {
             return configDir.absolutePath
         }
         
@@ -118,7 +118,7 @@ object Config {
         while (searchDir != null && searchDir.parentFile != null) {
             if (searchDir.name == "lesson-12-reminder-mcp") {
                 configDir = File(searchDir, "config")
-                if (configDir.exists() && File(configDir, "mcp-server.yaml").exists()) {
+                if (configDir.exists() && File(configDir, "chat-history-mcp-server.yaml").exists()) {
                     return configDir.absolutePath
                 }
             }
@@ -126,7 +126,7 @@ object Config {
             val lessonDir = File(searchDir, "lesson-12-reminder-mcp")
             if (lessonDir.exists()) {
                 configDir = File(lessonDir, "config")
-                if (configDir.exists() && File(configDir, "mcp-server.yaml").exists()) {
+                if (configDir.exists() && File(configDir, "chat-history-mcp-server.yaml").exists()) {
                     return configDir.absolutePath
                 }
             }
@@ -145,7 +145,7 @@ object Config {
                         var lessonDir = jarDir.parentFile?.parentFile
                         if (lessonDir != null && lessonDir.name == "lesson-12-reminder-mcp") {
                             configDir = File(lessonDir, "config")
-                            if (configDir.exists() && File(configDir, "mcp-server.yaml").exists()) {
+                            if (configDir.exists() && File(configDir, "chat-history-mcp-server.yaml").exists()) {
                                 return configDir.absolutePath
                             }
                         }
@@ -159,7 +159,7 @@ object Config {
         throw IllegalStateException(
             "Config file not found. Searched in:\n" +
             "- ${File(currentDir, "config").absolutePath}\n" +
-            "Please ensure config/mcp-server.yaml exists in lesson-12-reminder-mcp directory."
+            "Please ensure config/chat-history-mcp-server.yaml exists in lesson-12-reminder-mcp directory."
         )
     }
 }

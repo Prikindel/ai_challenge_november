@@ -21,7 +21,9 @@ dependencies {
     // Ktor Server (требуется для MCP SDK)
     implementation("io.ktor:ktor-server-core:3.2.3")
     implementation("io.ktor:ktor-server-sse:3.2.3")
-    implementation("io.ktor:ktor-client-cio:3.2.3")
+    
+    // Ktor Client Core (требуется для MCP SDK)
+    implementation("io.ktor:ktor-client-core:3.2.3")
     
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.14")
@@ -58,7 +60,7 @@ tasks.named<JavaExec>("run") {
 
 // Задача для создания JAR файла
 tasks.jar {
-    archiveBaseName.set("summary-mcp-server")
+    archiveBaseName.set("chat-history-mcp-server")
     manifest {
         attributes["Main-Class"] = "com.prike.mcpserver.MainKt"
     }

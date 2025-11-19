@@ -9,14 +9,14 @@ import org.slf4j.LoggerFactory
 import java.io.File
 
 fun main() {
-    val logger = LoggerFactory.getLogger("MCPServerMain")
+    val logger = LoggerFactory.getLogger("ChatHistoryMCPServerMain")
     
     try {
         // Загрузка конфигурации
         val config = Config.load()
         logger.info("Configuration loaded: ${config.serverInfo.name}")
         
-        // Проверка существования БД
+        // Проверка существования БД для веб-чата
         val dbFile = File(config.webChat.memoryDbPath)
         if (!dbFile.exists()) {
             logger.warn("База данных не найдена: ${dbFile.absolutePath}")
@@ -28,10 +28,10 @@ fun main() {
             databasePath = config.webChat.memoryDbPath
         )
         
-        // Создание обработчика инструмента
+        // Создание обработчика инструмента для веб-чата
         val getChatHistoryHandler = GetChatHistoryHandler(chatHistoryRepository)
         
-        // Создание инструмента
+        // Создание инструмента для веб-чата
         val chatHistoryTool = ChatHistoryTool(getChatHistoryHandler)
         
         // Создание и запуск MCP сервера
