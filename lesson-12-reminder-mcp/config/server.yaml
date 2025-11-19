@@ -1,0 +1,32 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+# Конфигурация источников данных (MCP серверы)
+dataSources:
+  # Веб-чат источник
+  webChat:
+    name: "Web Chat"
+    description: "История переписки из веб-чата"
+    enabled: true
+    mcpServer:
+      jarPath: "chat-history-mcp-server/build/libs/chat-history-mcp-server-1.0.0.jar"
+      # Или для режима разработки:
+      # jarPath: "class"  # Запуск через Gradle
+  
+  # Telegram источник
+  telegram:
+    name: "Telegram"
+    description: "Сообщения из Telegram группы"
+    enabled: true
+    mcpServer:
+      jarPath: "telegram-mcp-server/build/libs/telegram-mcp-server-1.0.0.jar"
+      # Или для режима разработки:
+      # jarPath: "class"  # Запуск через Gradle
+
+# LLM конфигурация (для следующих коммитов)
+ai:
+  provider: "openrouter"
+  apiKey: "${OPENAI_API_KEY}"
+  model: "meta-llama/llama-3.1-8b-instruct"
+
