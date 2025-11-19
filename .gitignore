@@ -48,9 +48,11 @@ lesson-*/config/.env
 *.db-wal
 *.sqlite
 *.sqlite3
-data/*.db
-data/*.db-journal
-data/*.db-shm
-data/*.db-wal
+**/data/*.db
+**/data/*.db-journal
+**/data/*.db-shm
+**/data/*.db-wal
 lesson-*/data/
+**/telegram-mcp-server/data/
+**/chat-history-mcp-server/data/
 

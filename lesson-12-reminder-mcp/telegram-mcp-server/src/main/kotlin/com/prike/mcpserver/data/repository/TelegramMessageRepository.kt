@@ -25,7 +25,7 @@ class TelegramMessageRepository(
      * Создает таблицу, если её нет
      */
     private fun initializeDatabase() {
-        val dbFile = File(databasePath)
+        val dbFile = resolveDatabasePath()
         val dbDir = dbFile.parentFile
         if (dbDir != null && !dbDir.exists()) {
             dbDir.mkdirs()
@@ -63,10 +63,56 @@ class TelegramMessageRepository(
     }
     
     /**
+     * Разрешить путь к базе данных относительно конфигурационного файла или рабочей директории
+     */
+    private fun resolveDatabasePath(): File {
+        val dbPath = databasePath
+        val dbFile = File(dbPath)
+        
+        // Если путь абсолютный, используем его
+        if (dbFile.isAbsolute) {
+            return dbFile
+        }
+        
+        // Если путь относительный, пытаемся найти относительно конфигурационного файла
+        // или относительно корня урока
+        var currentDir = File(System.getProperty("user.dir"))
+        
+        // Если запущены из telegram-mcp-server директории
+        if (currentDir.name == "telegram-mcp-server") {
+            return File(currentDir, dbPath)
+        }
+        
+        // Если запущены из корня урока
+        if (currentDir.name == "lesson-12-reminder-mcp") {
+            return File(currentDir, dbPath)
+        }
+        
+        // Ищем lesson-12-reminder-mcp вверх по дереву
+        var searchDir = currentDir
+        while (searchDir != null && searchDir.parentFile != null) {
+            if (searchDir.name == "lesson-12-reminder-mcp") {
+                return File(searchDir, dbPath)
+            }
+            
+            val lessonDir = File(searchDir, "lesson-12-reminder-mcp")
+            if (lessonDir.exists()) {
+                return File(lessonDir, dbPath)
+            }
+            
+            searchDir = searchDir.parentFile
+        }
+        
+        // Fallback: используем относительно текущей директории
+        return dbFile
+    }
+    
+    /**
      * Получить соединение с базой данных
      */
     private fun <T> withConnection(block: (Connection) -> T): T {
-        val connection = DriverManager.getConnection("jdbc:sqlite:$databasePath")
+        val dbFile = resolveDatabasePath()
+        val connection = DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}")
         return try {
             connection.autoCommit = false
             val result = block(connection)
@@ -85,7 +131,10 @@ class TelegramMessageRepository(
      */
     fun save(message: TelegramMessage): Result<Unit> {
         return try {
-            withConnection { connection ->
+            val dbFile = resolveDatabasePath()
+            logger.debug("Сохранение сообщения в БД: ${dbFile.absolutePath}, messageId=${message.messageId}")
+            
+            val rowsAffected = withConnection { connection ->
                 connection.prepareStatement("""
                     INSERT OR REPLACE INTO telegram_messages 
                     (id, message_id, group_id, content, author, timestamp, created_at)
@@ -102,6 +151,8 @@ class TelegramMessageRepository(
                     statement.executeUpdate()
                 }
             }
+            
+            logger.debug("Сообщение сохранено, затронуто строк: $rowsAffected")
             Result.success(Unit)
         } catch (e: Exception) {
             logger.error("Ошибка сохранения сообщения Telegram в SQLite: ${e.message}", e)

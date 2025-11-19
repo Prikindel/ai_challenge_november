@@ -49,8 +49,9 @@ class TelegramBotClient(
             while (isActive) {
                 try {
                     val updates = getUpdates()
-                    
+
                     updates.forEach { update ->
+                        logger.debug("Получено обновление: $update")
                         val message = update.get("message") as? JsonObject
                         if (message != null) {
                             processMessage(message)
@@ -82,6 +83,7 @@ class TelegramBotClient(
             contentType(ContentType.Application.Json)
             parameter("offset", lastUpdateId + 1)
             parameter("timeout", 10)
+            parameter("allowed_updates", """["message"]""")
         }
         
         val responseText = response.bodyAsText()
@@ -160,12 +162,13 @@ class TelegramBotClient(
             )
             
             // Сохраняем в БД
-            telegramMessageRepository.save(telegramMessage).fold(
+            val saveResult = telegramMessageRepository.save(telegramMessage)
+            saveResult.fold(
                 onSuccess = {
-                    logger.debug("Сообщение сохранено: $messageId от $author")
+                    logger.info("Сообщение успешно сохранено в БД: messageId=$messageId, author=$author, content=${text.take(50)}...")
                 },
                 onFailure = { error ->
-                    logger.error("Ошибка сохранения сообщения: ${error.message}", error)
+                    logger.error("Ошибка сохранения сообщения в БД: messageId=$messageId, error=${error.message}", error)
                 }
             )
         } catch (e: Exception) {
