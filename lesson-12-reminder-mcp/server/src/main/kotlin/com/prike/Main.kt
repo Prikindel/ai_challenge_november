@@ -2,6 +2,7 @@ package com.prike
 
 import com.prike.config.Config
 import com.prike.data.client.MCPClientManager
+import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.ConnectionController
 import com.prike.presentation.controller.ToolController
 import io.ktor.http.HttpHeaders
@@ -83,12 +84,17 @@ fun Application.module(config: com.prike.config.AppConfig) {
     }
     
     // Регистрация контроллеров
+    val clientDir = File(lessonRoot, "client")
+    val clientController = ClientController(clientDir)
     val toolController = ToolController(mcpClientManager)
     val connectionController = ConnectionController(mcpClientManager)
     
     routing {
-        // Health check
-        get("/") {
+        // Статические файлы для UI
+        clientController.registerRoutes(this)
+        
+        // Health check API
+        get("/api/health") {
             call.respond(mapOf(
                 "status" to "ok",
                 "service" to "lesson-12-reminder-mcp-server"

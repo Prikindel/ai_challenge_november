@@ -8,7 +8,7 @@ dataSources:
   webChat:
     name: "Web Chat"
     description: "История переписки из веб-чата"
-    enabled: true
+    enabled: false
     mcpServer:
       jarPath: "chat-history-mcp-server/build/libs/chat-history-mcp-server-1.0.0.jar"
       # Или для режима разработки:

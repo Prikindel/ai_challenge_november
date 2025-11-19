@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 День 12. Планировщик + MCP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 Планировщик + MCP</h1>
+            <p class="subtitle">Система автоматической суммаризации данных из разных источников</p>
+        </header>
+        
+        <div class="main-content">
+            <!-- Статус подключений к MCP серверам -->
+            <section class="connection-status">
+                <h2>Статус подключений</h2>
+                <div id="connectionsStatus" class="status-container">
+                    <div class="loading">Загрузка...</div>
+                </div>
+                <button id="refreshConnectionsBtn" class="btn btn-primary">Обновить</button>
+            </section>
+            
+            <!-- Список доступных инструментов -->
+            <section class="tools-section">
+                <h2>Доступные инструменты</h2>
+                <div id="toolsList" class="tools-container">
+                    <div class="loading">Загрузка...</div>
+                </div>
+                <button id="refreshToolsBtn" class="btn btn-primary">Обновить</button>
+            </section>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
+
