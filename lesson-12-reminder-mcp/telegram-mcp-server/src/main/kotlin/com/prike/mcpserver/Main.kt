@@ -63,9 +63,16 @@ fun main() {
             token = config.telegram.botToken
         )
         
-        // Запуск polling для получения сообщений
-        telegramBotClient.startPolling()
-        logger.info("Telegram polling запущен")
+        // Запуск polling для получения сообщений (если включено в конфигурации)
+        var pollingStarted = false
+        if (config.telegram.enablePolling) {
+            telegramBotClient.startPolling()
+            pollingStarted = true
+            logger.info("Telegram polling запущен")
+        } else {
+            logger.info("Telegram polling отключен в конфигурации (enablePolling: false)")
+            logger.info("Убедитесь, что polling запущен в другом экземпляре или используется webhook")
+        }
         
         // Создание и запуск MCP сервера
         val server = MCPServer(
@@ -82,7 +89,9 @@ fun main() {
         // Добавляем shutdown hook для корректного завершения
         Runtime.getRuntime().addShutdownHook(Thread {
             logger.info("Остановка MCP сервера...")
-            telegramBotClient.stopPolling()
+            if (pollingStarted) {
+                telegramBotClient.stopPolling()
+            }
         })
         
         server.start()

@@ -6,3 +6,12 @@ build/
 *.jar
 !gradle-wrapper.jar
 
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+data/
+

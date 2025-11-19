@@ -9,4 +9,5 @@ mcpServer:
     groupId: "${TELEGRAM_GROUP_ID}"  # ID группы для получения сообщений
     accountId: "${TELEGRAM_CHAT_ID}"  # ID пользователя для отправки summary (используется TELEGRAM_CHAT_ID из .env)
     databasePath: "data/summary.db"
+    enablePolling: true  # Включить polling для получения сообщений. Установите false, если polling уже запущен в другом месте
 

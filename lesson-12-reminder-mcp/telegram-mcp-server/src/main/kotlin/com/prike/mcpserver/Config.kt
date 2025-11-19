@@ -19,7 +19,8 @@ data class TelegramConfig(
     val botToken: String,
     val groupId: String,  // ID группы для получения сообщений
     val accountId: String,  // ID пользователя для отправки summary
-    val databasePath: String  // Путь к summary.db
+    val databasePath: String,  // Путь к summary.db
+    val enablePolling: Boolean = true  // Включить polling для получения сообщений (по умолчанию true)
 )
 
 object Config {
@@ -56,6 +57,7 @@ object Config {
         val groupId = resolveEnvVar(telegram["groupId"] as String)
         val accountId = resolveEnvVar(telegram["accountId"] as String)
         val databasePath = resolveEnvVar(telegram["databasePath"] as String)
+        val enablePolling = (telegram["enablePolling"] as? Boolean) ?: true  // По умолчанию true
         
         return MCPServerConfig(
             serverInfo = ServerInfo(
@@ -67,7 +69,8 @@ object Config {
                 botToken = botToken,
                 groupId = groupId,
                 accountId = accountId,
-                databasePath = databasePath
+                databasePath = databasePath,
+                enablePolling = enablePolling
             )
         )
     }

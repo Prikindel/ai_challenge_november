@@ -89,7 +89,19 @@ class TelegramBotClient(
         
         val ok = result["ok"]?.jsonPrimitive?.booleanOrNull ?: false
         if (!ok) {
-            logger.error("Ошибка получения обновлений: $responseText")
+            val errorCode = result["error_code"]?.jsonPrimitive?.intOrNull
+            val description = result["description"]?.jsonPrimitive?.contentOrNull ?: "Unknown error"
+            
+            // Ошибка 409 означает, что другой экземпляр уже использует polling
+            if (errorCode == 409) {
+                logger.warn("Polling конфликт (409): $description")
+                logger.warn("Другой экземпляр бота уже использует getUpdates. Остановка polling...")
+                // Останавливаем polling при конфликте
+                stopPolling()
+                return emptyList()
+            }
+            
+            logger.error("Ошибка получения обновлений (код $errorCode): $description")
             return emptyList()
         }
         
