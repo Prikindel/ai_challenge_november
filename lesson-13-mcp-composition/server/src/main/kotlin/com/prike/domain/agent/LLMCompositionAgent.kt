@@ -69,15 +69,21 @@ class LLMCompositionAgent(
             var maxIterations = 10  // защита от бесконечного цикла
             var currentResponse: String? = null
             val toolCallsHistory = mutableListOf<ToolCallInfo>()
+            var iterationNumber = 0
             
             while (maxIterations > 0) {
                 maxIterations--
+                iterationNumber++
+                
+                logger.info("=== Итерация $iterationNumber (осталось итераций: $maxIterations) ===")
                 
                 // 5. Формируем сообщения для LLM (системный промпт + история диалога)
                 val messages = buildList {
                     add(MessageDto(role = "system", content = systemPrompt))
                     addAll(conversationHistory)
                 }
+                
+                logger.debug("Отправка запроса в LLM с ${messages.size} сообщениями и ${availableTools.size} инструментами")
                 
                 // 6. Отправляем запрос в LLM с инструментами
                 val llmResponse = aiRepository.getMessageWithTools(
@@ -98,7 +104,7 @@ class LLMCompositionAgent(
                     // 9. Вызываем каждый инструмент
                     for (toolCall in assistantMessage.toolCalls!!) {
                         val toolName = toolCall.function.name
-                        logger.info("LLM requested tool: $toolName")
+                        logger.debug("LLM requested tool: $toolName with arguments: ${toolCall.function.arguments}")
                         
                         val toolResult = try {
                             // Парсим аргументы из JSON строки в JsonObject
@@ -110,7 +116,9 @@ class LLMCompositionAgent(
                             }
                             
                             // Вызываем MCP инструмент
+                            logger.info("Вызов инструмента: $toolName")
                             val result = mcpToolAgent.callTool(toolName, arguments)
+                            logger.info("Результат инструмента $toolName: ${result.take(200)}${if (result.length > 200) "..." else ""}")
                             
                             // Сохраняем информацию о вызове инструмента
                             toolCallsHistory.add(ToolCallInfo(
@@ -150,13 +158,18 @@ class LLMCompositionAgent(
                     // 12. Нет вызова инструмента — финальный ответ
                     currentResponse = assistantMessage.content?.trim()
                     conversationHistory.add(assistantMessage)
+                    logger.info("=== Итерация $iterationNumber: получен финальный ответ от LLM ===")
+                    logger.debug("Финальный ответ: ${currentResponse?.take(200)}${if (currentResponse != null && currentResponse.length > 200) "..." else ""}")
                     break
                 }
             }
             
             if (currentResponse == null) {
+                logger.error("Превышено максимальное количество итераций (10)")
                 throw Exception("Превышено максимальное количество итераций (10)")
             }
+            
+            logger.info("=== Обработка завершена. Всего итераций: $iterationNumber, вызвано инструментов: ${toolCallsHistory.size} ===")
             
             return AgentResponse.Success(
                 message = currentResponse,

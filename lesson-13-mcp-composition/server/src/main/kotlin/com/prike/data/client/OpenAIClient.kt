@@ -91,6 +91,15 @@ class OpenAIClient(
             jsonSerializer.encodeToString(request)
         }.getOrElse { "{}" }
         
+        // Логируем JSON запрос в формате OkHttp
+        runCatching {
+            logger.info("--> POST $apiUrl")
+            logger.info("Content-Type: application/json")
+            logger.info("")
+            logger.info(requestJson)
+            logger.info("--> END POST")
+        }
+        
         return runCatching {
             val response = client.post(apiUrl) {
                 header(HttpHeaders.Authorization, "Bearer $apiKey")
@@ -109,6 +118,19 @@ class OpenAIClient(
                     Json.decodeFromString<OpenAIErrorResponse>(response.bodyAsText())
                 }.getOrNull()
                 
+                val errorJson = runCatching {
+                    if (errorBody != null) jsonSerializer.encodeToString(errorBody) else ""
+                }.getOrElse { "" }
+                
+                // Логируем ошибку в формате OkHttp
+                runCatching {
+                    logger.info("<-- $statusCode $apiUrl")
+                    if (errorJson.isNotEmpty()) {
+                        logger.info(errorJson)
+                    }
+                    logger.info("<-- END HTTP")
+                }
+                
                 logger.error("API error: $statusCode - ${errorBody?.error?.message ?: "Unknown error"}")
                 
                 throw AIServiceException(
@@ -119,10 +141,19 @@ class OpenAIClient(
             
             val responseBody = response.body<OpenAIResponse>()
             
-            // Сериализуем ответ в JSON для возврата
+            // Сериализуем ответ в JSON для логирования
             val responseJson = runCatching {
                 jsonSerializer.encodeToString(responseBody)
             }.getOrElse { "{}" }
+            
+            // Логируем ответ в формате OkHttp
+            runCatching {
+                logger.info("<-- 200 $apiUrl")
+                logger.info("Content-Type: application/json")
+                logger.info("")
+                logger.info(responseJson)
+                logger.info("<-- END HTTP")
+            }
             
             CompletionResult(responseBody, requestJson, responseJson)
         }.getOrElse { throwable ->
