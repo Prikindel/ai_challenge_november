@@ -107,3 +107,4 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-10-mcp-connection](./lesson-10-mcp-connection/) — подключение к MCP серверу и получение списка инструментов
 - [lesson-11-first-mcp-tool](./lesson-11-first-mcp-tool/) — создание собственного MCP сервера с инструментами для работы с внешним API
 - [lesson-12-reminder-mcp](./lesson-12-reminder-mcp/) — планировщик с автоматической суммаризацией данных из разных источников через MCP
+- [lesson-13-mcp-composition](./lesson-13-mcp-composition/) — композиция MCP-инструментов: LLM сама решает последовательность вызовов инструментов
