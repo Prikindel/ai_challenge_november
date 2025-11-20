@@ -1,0 +1,10 @@
+mcpServer:
+  info:
+    name: "Telegram Sender MCP Server"
+    version: "1.0.0"
+    description: "MCP Server for sending messages to Telegram users"
+
+telegram:
+  botToken: "${TELEGRAM_BOT_TOKEN}"
+  defaultUserId: "${TELEGRAM_USER_ID}"
+
