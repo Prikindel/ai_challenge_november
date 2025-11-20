@@ -1,0 +1,11 @@
+mcpServer:
+  info:
+    name: "chat-history-mcp-server"
+    version: "1.0.0"
+    description: "MCP сервер для получения истории веб-чата"
+  
+  webChat:
+    # Путь к базе данных memory.db в lesson-13
+    # Путь относительно корня lesson-13-mcp-composition
+    memoryDbPath: "data/memory.db"
+

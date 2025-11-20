@@ -1,6 +1,7 @@
 package com.prike.config
 
 import io.github.cdimascio.dotenv.dotenv
+import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
@@ -40,15 +41,25 @@ data class AIConfig(
 )
 
 /**
+ * Конфигурация Telegram
+ */
+data class TelegramConfig(
+    val defaultUserId: String?
+)
+
+/**
  * Главная конфигурация приложения
  */
 data class AppConfig(
     val server: ServerConfig,
     val mcp: MCPConfig,
-    val ai: AIConfig
+    val ai: AIConfig,
+    val telegram: TelegramConfig? = null
 )
 
 object Config {
+    private val logger = LoggerFactory.getLogger(Config::class.java)
+    
     private val dotenv = run {
         val projectRoot = findProjectRoot()
         try {
@@ -111,10 +122,41 @@ object Config {
         
         val mcp = MCPConfig(servers = mcpServers)
         
+        // Загружаем конфигурацию Telegram (опционально)
+        // Сначала пытаемся загрузить из server.yaml
+        val telegramMap = serverConfigMap["telegram"] as? Map<String, Any>
+        var defaultUserId = telegramMap?.get("defaultUserId")?.let {
+            resolveEnvVarOptional(it as String)
+        }
+        
+        // Если не найдено в server.yaml, пытаемся загрузить из telegram-sender-mcp-server.yaml
+        if (defaultUserId == null) {
+            try {
+                val telegramConfigFile = File(findConfigDirectory(), "telegram-sender-mcp-server.yaml")
+                if (telegramConfigFile.exists()) {
+                    val telegramConfigMap = yaml.load<Map<String, Any>>(telegramConfigFile.readText())
+                    val telegramConfigMap_internal = telegramConfigMap["telegram"] as? Map<String, Any> ?: emptyMap()
+                    defaultUserId = telegramConfigMap_internal["defaultUserId"]?.let { 
+                        resolveEnvVarOptional(it as String)
+                    }
+                }
+            } catch (e: Exception) {
+                // Если не удалось загрузить, игнорируем
+                logger.debug("Не удалось загрузить telegram config: ${e.message}")
+            }
+        }
+        
+        val telegramConfig = if (defaultUserId != null) {
+            TelegramConfig(defaultUserId = defaultUserId)
+        } else {
+            null
+        }
+        
         return AppConfig(
             server = server,
             mcp = mcp,
-            ai = ai
+            ai = ai,
+            telegram = telegramConfig
         )
     }
     
@@ -126,6 +168,17 @@ object Config {
                 ?: throw IllegalStateException("Environment variable $envVarName not found in .env file or system environment")
         }
         return value
+    }
+    
+    /**
+     * Безопасное разрешение переменной окружения (возвращает null, если не найдена)
+     */
+    private fun resolveEnvVarOptional(value: String): String? {
+        if (value.startsWith("\${") && value.endsWith("}")) {
+            val envVarName = value.substring(2, value.length - 1)
+            return dotenv[envVarName] ?: System.getenv(envVarName)
+        }
+        return if (value.isBlank()) null else value
     }
     
     /**

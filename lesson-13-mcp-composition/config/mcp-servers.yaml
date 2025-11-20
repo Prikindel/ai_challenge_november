@@ -2,8 +2,8 @@ mcp:
   servers:
     - id: "chat-history"
       name: "Chat History MCP Server"
-      jarPath: "../lesson-12-reminder-mcp/chat-history-mcp-server/build/libs/chat-history-mcp-server-1.0.0.jar"
-      configPath: "../lesson-12-reminder-mcp/config/chat-history-mcp-server.yaml"
+      jarPath: "mcp-servers/chat-history-mcp-server-1.0.0.jar"
+      configPath: "config/chat-history-mcp-server.yaml"
       tools:
         - get_chat_history
     

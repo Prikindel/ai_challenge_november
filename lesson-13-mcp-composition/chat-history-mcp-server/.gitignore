@@ -1,0 +1,16 @@
+.gradle/
+build/
+.idea/
+*.iml
+*.log
+*.jar
+!gradle-wrapper.jar
+
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+

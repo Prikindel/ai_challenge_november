@@ -81,9 +81,11 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val mcpToolAgent = MCPToolAgent(mcpClientManager)
     
     // Создание LLM Composition Agent
+    val defaultTelegramUserId = config.telegram?.defaultUserId
     val llmCompositionAgent = LLMCompositionAgent(
         aiRepository = aiRepository,
-        mcpToolAgent = mcpToolAgent
+        mcpToolAgent = mcpToolAgent,
+        defaultTelegramUserId = defaultTelegramUserId
     )
     
     // Автоматическое подключение к MCP серверам при старте

@@ -8,3 +8,7 @@ ai:
   apiKey: "${OPENAI_API_KEY}"
   model: "meta-llama/llama-3.1-8b-instruct"
 
+# Telegram конфигурация
+telegram:
+  defaultUserId: "${TELEGRAM_CHAT_ID}"
+

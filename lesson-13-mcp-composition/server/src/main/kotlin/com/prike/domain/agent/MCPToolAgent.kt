@@ -8,7 +8,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
 
 /**
@@ -22,6 +21,7 @@ class MCPToolAgent(
     
     /**
      * Преобразует MCP инструменты в формат LLM tools (для function calling)
+     * Использует описания инструментов напрямую из MCP серверов без изменений
      */
     suspend fun getLLMTools(): List<ToolDto> {
         val mcpTools = mcpClientManager.listAllTools()
@@ -37,6 +37,8 @@ class MCPToolAgent(
                 }
             }
             
+            // Используем описание инструмента напрямую из MCP сервера
+            // Не изменяем и не дополняем описания - они должны быть в самих MCP серверах
             ToolDto(
                 type = "function",
                 function = FunctionDto(
