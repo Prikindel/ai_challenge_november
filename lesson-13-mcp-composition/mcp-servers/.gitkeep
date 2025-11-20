@@ -1,0 +1,4 @@
+# Директория для JAR файлов MCP серверов
+# После сборки telegram-sender-mcp-server, скопируйте JAR сюда:
+# cp telegram-sender-mcp-server/build/libs/telegram-sender-mcp-server-1.0.0.jar mcp-servers/
+
