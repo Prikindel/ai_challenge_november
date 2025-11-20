@@ -150,3 +150,41 @@ const resp = await client.responses.create({
 - **Планировщик**: запускайте только после подключения MCP серверов; первая задача — через интервал.
 - **Тесты**: пишите интеграционные тесты для инструментов и клиентов.
 
+## 4. Важно: Логирование в MCP серверах
+
+### ⚠️ Критическая проблема: Логи должны идти в stderr, а не в stdout!
+
+**Проблема:**
+При использовании stdio транспорта MCP протокол использует `stdout` для JSON-RPC сообщений. Если логи идут в `stdout`, клиент пытается парсить их как JSON-RPC и получает ошибки:
+
+```
+java.lang.IllegalArgumentException: Element class kotlinx.serialization.json.JsonLiteral is not a JsonObject
+```
+
+**Решение:**
+Настройте `logback.xml` так, чтобы все логи шли в `stderr`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Логи в stderr, чтобы не мешать MCP протоколу в stdout -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <root level="INFO">
+        <appender-ref ref="STDERR" />
+    </root>
+</configuration>
+```
+
+**Правило:**
+- ✅ `stdout` — только для JSON-RPC сообщений MCP протокола
+- ✅ `stderr` — для всех логов, ошибок, отладочной информации
+
+**Проверка:**
+Если видите ошибки десериализации при подключении к MCP серверу, проверьте `logback.xml` — логи должны идти в `stderr`.
+

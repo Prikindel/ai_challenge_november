@@ -9,7 +9,7 @@ mcp:
     
     - id: "telegram-sender"
       name: "Telegram Sender MCP Server"
-      jarPath: "mcp-servers/telegram-sender-mcp-server.jar"
+      jarPath: "mcp-servers/telegram-sender-mcp-server-1.0.0.jar"
       configPath: "config/telegram-sender-mcp-server.yaml"
       tools:
         - send_telegram_message
