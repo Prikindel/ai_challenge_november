@@ -7,6 +7,7 @@ import com.prike.data.repository.AIRepository
 import com.prike.domain.agent.LLMCompositionAgent
 import com.prike.domain.agent.MCPToolAgent
 import com.prike.presentation.controller.ChatController
+import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.ConnectionController
 import com.prike.presentation.controller.ToolController
 import io.ktor.http.HttpHeaders
@@ -108,11 +109,16 @@ fun Application.module(config: com.prike.config.AppConfig) {
     }
     
     // Регистрация контроллеров
+    val clientDir = File(lessonRoot, "client")
+    val clientController = ClientController(clientDir)
     val toolController = ToolController(mcpClientManager, config.mcp)
     val connectionController = ConnectionController(mcpClientManager)
     val chatController = ChatController(llmCompositionAgent)
     
     routing {
+        // Статические файлы для UI
+        clientController.registerRoutes(this)
+        
         // Health check API
         get("/api/health") {
             call.respond(mapOf(
