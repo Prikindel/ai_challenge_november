@@ -14,6 +14,15 @@
         </header>
         
         <div class="main-content">
+            <!-- Статус планировщика -->
+            <section class="scheduler-status">
+                <h2>Статус планировщика</h2>
+                <div id="schedulerStatus" class="status-container">
+                    <div class="loading">Загрузка...</div>
+                </div>
+                <button id="refreshSchedulerBtn" class="btn btn-primary">Обновить</button>
+            </section>
+            
             <!-- Статус подключений к MCP серверам -->
             <section class="connection-status">
                 <h2>Статус подключений</h2>
@@ -30,6 +39,15 @@
                     <div class="loading">Загрузка...</div>
                 </div>
                 <button id="refreshToolsBtn" class="btn btn-primary">Обновить</button>
+            </section>
+            
+            <!-- История summary -->
+            <section class="summaries-section">
+                <h2>История Summary</h2>
+                <div id="summariesList" class="summaries-container">
+                    <div class="loading">Загрузка...</div>
+                </div>
+                <button id="refreshSummariesBtn" class="btn btn-primary">Обновить</button>
             </section>
         </div>
     </div>

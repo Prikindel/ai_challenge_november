@@ -8,7 +8,7 @@ dataSources:
   webChat:
     name: "Web Chat"
     description: "История переписки из веб-чата"
-    enabled: false
+    enabled: true
     mcpServer:
       jarPath: "chat-history-mcp-server/build/libs/chat-history-mcp-server-1.0.0.jar"
       # Или для режима разработки:
@@ -18,15 +18,28 @@ dataSources:
   telegram:
     name: "Telegram"
     description: "Сообщения из Telegram группы"
-    enabled: true
+    enabled: true  # Должно быть true, если activeSource = "telegram"
     mcpServer:
       jarPath: "telegram-mcp-server/build/libs/telegram-mcp-server-1.0.0.jar"
       # Или для режима разработки:
       # jarPath: "class"  # Запуск через Gradle
 
-# LLM конфигурация (для следующих коммитов)
+# LLM конфигурация
 ai:
   provider: "openrouter"
   apiKey: "${OPENAI_API_KEY}"
   model: "meta-llama/llama-3.1-8b-instruct"
+
+# Конфигурация планировщика
+scheduler:
+  enabled: true
+  intervalMinutes: 1440  # как часто генерировать summary
+  periodHours: 24      # за какой период анализировать (последние N часов)
+  activeSource: "telegram"  # "web_chat", "telegram", "both"
+  
+  # Доставка summary
+  delivery:
+    telegram:
+      enabled: true
+      userId: "${TELEGRAM_CHAT_ID}"  # ID пользователя для отправки (из .env, опционально)
 

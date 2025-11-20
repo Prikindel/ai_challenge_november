@@ -52,6 +52,9 @@ dependencies {
     
     // MCP Kotlin SDK
     implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
+    
+    // SQLite JDBC
+    implementation("org.xerial:sqlite-jdbc:3.44.1.0")
 }
 
 tasks.withType<KotlinCompile> {

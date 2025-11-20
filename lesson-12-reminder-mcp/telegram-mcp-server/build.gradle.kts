@@ -64,6 +64,15 @@ tasks.named<JavaExec>("run") {
     workingDir = file(".")
 }
 
+// Задача для импорта примеров сообщений
+tasks.register<JavaExec>("importExamples") {
+    group = "application"
+    description = "Import example messages from telegram_messages_example.txt to database"
+    mainClass.set("com.prike.mcpserver.utils.ImportExampleMessagesKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = file(".")
+}
+
 // Задача для создания JAR файла
 tasks.jar {
     archiveBaseName.set("telegram-mcp-server")

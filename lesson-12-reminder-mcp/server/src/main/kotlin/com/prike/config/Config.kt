@@ -39,12 +39,39 @@ data class AIConfig(
 )
 
 /**
+ * Конфигурация доставки summary
+ */
+data class DeliveryConfig(
+    val telegram: TelegramDeliveryConfig
+)
+
+/**
+ * Конфигурация доставки в Telegram
+ */
+data class TelegramDeliveryConfig(
+    val enabled: Boolean,
+    val userId: String?
+)
+
+/**
+ * Конфигурация планировщика
+ */
+data class SchedulerConfig(
+    val enabled: Boolean,
+    val intervalMinutes: Int,
+    val periodHours: Int,
+    val activeSource: String,
+    val delivery: DeliveryConfig
+)
+
+/**
  * Главная конфигурация приложения
  */
 data class AppConfig(
     val server: ServerConfig,
     val dataSources: Map<String, DataSourceConfig>,
-    val ai: AIConfig
+    val ai: AIConfig,
+    val scheduler: SchedulerConfig
 )
 
 object Config {
@@ -103,10 +130,29 @@ object Config {
             model = aiMap["model"] as? String ?: "openai/gpt-4o-mini"
         )
         
+        // Конфигурация планировщика
+        val schedulerMap = configMap["scheduler"] as? Map<String, Any> ?: emptyMap()
+        val deliveryMap = schedulerMap["delivery"] as? Map<String, Any> ?: emptyMap()
+        val telegramDeliveryMap = deliveryMap["telegram"] as? Map<String, Any> ?: emptyMap()
+        
+        val scheduler = SchedulerConfig(
+            enabled = schedulerMap["enabled"] as? Boolean ?: true,
+            intervalMinutes = (schedulerMap["intervalMinutes"] as? Number)?.toInt() ?: 15,
+            periodHours = (schedulerMap["periodHours"] as? Number)?.toInt() ?: 24,
+            activeSource = schedulerMap["activeSource"] as? String ?: "telegram",
+            delivery = DeliveryConfig(
+                telegram = TelegramDeliveryConfig(
+                    enabled = telegramDeliveryMap["enabled"] as? Boolean ?: false,
+                    userId = telegramDeliveryMap["userId"]?.let { resolveEnvVarOptional(it as String) }
+                )
+            )
+        )
+        
         return AppConfig(
             server = server,
             dataSources = dataSources,
-            ai = ai
+            ai = ai,
+            scheduler = scheduler
         )
     }
     
@@ -118,6 +164,18 @@ object Config {
                 ?: throw IllegalStateException("Environment variable $envVarName not found in .env file or system environment")
         }
         return value
+    }
+    
+    /**
+     * Безопасное разрешение переменной окружения (возвращает null, если не найдена)
+     * Используется для опциональных параметров
+     */
+    private fun resolveEnvVarOptional(value: String): String? {
+        if (value.startsWith("\${") && value.endsWith("}")) {
+            val envVarName = value.substring(2, value.length - 1)
+            return dotenv[envVarName] ?: System.getenv(envVarName)
+        }
+        return if (value.isBlank()) null else value
     }
     
     /**

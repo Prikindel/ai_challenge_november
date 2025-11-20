@@ -4,8 +4,10 @@ import com.prike.mcpserver.data.repository.TelegramMessageRepository
 import com.prike.mcpserver.server.MCPServer
 import com.prike.mcpserver.telegram.TelegramBotClient
 import com.prike.mcpserver.telegram.TelegramBotService
+import com.prike.mcpserver.tools.SendTelegramMessageTool
 import com.prike.mcpserver.tools.TelegramMessagesTool
 import com.prike.mcpserver.tools.handlers.GetTelegramMessagesHandler
+import com.prike.mcpserver.tools.handlers.SendTelegramMessageHandler
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -44,8 +46,21 @@ fun main() {
             groupId = config.telegram.groupId
         )
         
-        // Создание инструмента для Telegram
+        // Создание Telegram Bot Service для отправки summary (нужно создать до использования)
+        val telegramBotService = TelegramBotService(
+            httpClient = httpClient,
+            baseUrl = "https://api.telegram.org",
+            token = config.telegram.botToken
+        )
+        
+        // Создание инструмента для получения сообщений Telegram
         val telegramMessagesTool = TelegramMessagesTool(getTelegramMessagesHandler)
+        
+        // Создание обработчика для отправки сообщений Telegram
+        val sendTelegramMessageHandler = SendTelegramMessageHandler(telegramBotService)
+        
+        // Создание инструмента для отправки сообщений Telegram
+        val sendTelegramMessageTool = SendTelegramMessageTool(sendTelegramMessageHandler)
         
         // Создание Telegram Bot Client для получения сообщений
         val telegramBotClient = TelegramBotClient(
@@ -54,13 +69,6 @@ fun main() {
             token = config.telegram.botToken,
             groupId = config.telegram.groupId,
             telegramMessageRepository = telegramMessageRepository
-        )
-        
-        // Создание Telegram Bot Service для отправки summary
-        val telegramBotService = TelegramBotService(
-            httpClient = httpClient,
-            baseUrl = "https://api.telegram.org",
-            token = config.telegram.botToken
         )
         
         // Запуск polling для получения сообщений (если включено в конфигурации)
@@ -84,6 +92,9 @@ fun main() {
             // Регистрация инструментов
             telegramMessagesTool.register(mcpServer)
             logger.info("Инструмент get_telegram_messages зарегистрирован")
+            
+            sendTelegramMessageTool.register(mcpServer)
+            logger.info("Инструмент send_telegram_message зарегистрирован")
         }
         
         // Добавляем shutdown hook для корректного завершения
