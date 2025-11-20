@@ -2,6 +2,11 @@ package com.prike
 
 import com.prike.config.Config
 import com.prike.data.client.MCPClientManager
+import com.prike.data.client.OpenAIClient
+import com.prike.data.repository.AIRepository
+import com.prike.domain.agent.LLMCompositionAgent
+import com.prike.domain.agent.MCPToolAgent
+import com.prike.presentation.controller.ChatController
 import com.prike.presentation.controller.ConnectionController
 import com.prike.presentation.controller.ToolController
 import io.ktor.http.HttpHeaders
@@ -62,6 +67,24 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // Создание MCP Client Manager
     val mcpClientManager = MCPClientManager(config.mcp, lessonRoot)
     
+    // Создание LLM клиента и репозитория
+    val openAIClient = OpenAIClient(
+        apiKey = config.ai.apiKey,
+        model = config.ai.model,
+        temperature = 0.7,
+        maxTokens = 2000
+    )
+    val aiRepository = AIRepository(openAIClient)
+    
+    // Создание MCP Tool Agent
+    val mcpToolAgent = MCPToolAgent(mcpClientManager)
+    
+    // Создание LLM Composition Agent
+    val llmCompositionAgent = LLMCompositionAgent(
+        aiRepository = aiRepository,
+        mcpToolAgent = mcpToolAgent
+    )
+    
     // Автоматическое подключение к MCP серверам при старте
     launch {
         try {
@@ -87,6 +110,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // Регистрация контроллеров
     val toolController = ToolController(mcpClientManager, config.mcp)
     val connectionController = ConnectionController(mcpClientManager)
+    val chatController = ChatController(llmCompositionAgent)
     
     routing {
         // Health check API
@@ -100,6 +124,12 @@ fun Application.module(config: com.prike.config.AppConfig) {
         // API routes
         toolController.registerRoutes(this)
         connectionController.registerRoutes(this)
+        chatController.registerRoutes(this)
+    }
+    
+    // Закрытие ресурсов при остановке
+    environment.monitor.subscribe(ApplicationStopped) {
+        openAIClient.close()
     }
     
     logger.info("Server started on ${config.server.host}:${config.server.port}")
