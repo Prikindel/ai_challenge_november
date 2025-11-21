@@ -1,0 +1,12 @@
+database:
+  chatHistory:
+    path: "data/memory.db"
+  telegramMessages:
+    path: "data/summary.db"
+    
+fileSystem:
+  basePath: "."
+
+telegram:
+  groupId: "${TELEGRAM_GROUP_ID}"
+
