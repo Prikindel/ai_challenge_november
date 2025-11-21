@@ -4,6 +4,6 @@ server:
 
 ai:
   provider: "openrouter"
-  apiKey: "${OPENROUTER_API_KEY}"
+  apiKey: "${OPENAI_API_KEY}"
   model: "x-ai/grok-4-fast"
 
