@@ -1,0 +1,35 @@
+mcp:
+  servers:
+    - id: "data-collection"
+      name: "Data Collection MCP Server"
+      description: "Сбор данных из разных источников (веб-чат, Telegram, файлы)"
+      jarPath: "mcp-servers/data-collection-mcp-server-1.0.0.jar"
+      configPath: "config/data-collection-mcp-server.yaml"
+      type: "local"
+      tools:
+        - get_chat_history
+        - get_telegram_messages
+        - get_file_content
+    
+    - id: "data-processing"
+      name: "Data Processing MCP Server"
+      description: "Обработка и анализ данных (тональность, ключевые слова, статистика)"
+      jarPath: "mcp-servers/data-processing-mcp-server-1.0.0.jar"
+      configPath: "config/data-processing-mcp-server.yaml"
+      type: "local"
+      tools:
+        - analyze_sentiment
+        - extract_keywords
+        - calculate_statistics
+    
+    - id: "reporting"
+      name: "Reporting MCP Server"
+      description: "Генерация отчётов и их доставка (файлы, Telegram)"
+      jarPath: "mcp-servers/reporting-mcp-server-1.0.0.jar"
+      configPath: "config/reporting-mcp-server.yaml"
+      type: "local"
+      tools:
+        - generate_report
+        - save_to_file
+        - send_telegram_message
+
