@@ -15,7 +15,7 @@ class MCPController(
 ) {
     private val logger = LoggerFactory.getLogger(MCPController::class.java)
     
-    fun configureRoutes(routing: Routing) {
+    fun registerRoutes(routing: Routing) {
         routing.route("/api/mcp") {
             // Список подключённых MCP серверов
             get("/servers") {
