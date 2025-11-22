@@ -108,3 +108,4 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-11-first-mcp-tool](./lesson-11-first-mcp-tool/) — создание собственного MCP сервера с инструментами для работы с внешним API
 - [lesson-12-reminder-mcp](./lesson-12-reminder-mcp/) — планировщик с автоматической суммаризацией данных из разных источников через MCP
 - [lesson-13-mcp-composition](./lesson-13-mcp-composition/) — композиция MCP-инструментов: LLM сама решает последовательность вызовов инструментов
+- [lesson-14-orchestration](./lesson-14-orchestration/) — оркестрация нескольких MCP серверов: LLM сама выбирает инструменты из разных источников для выполнения сложных задач
