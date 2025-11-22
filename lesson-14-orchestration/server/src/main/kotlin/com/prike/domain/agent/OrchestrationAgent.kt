@@ -144,10 +144,8 @@ class OrchestrationAgent(
                     val previousResult = findPreviousToolResult(toolName, arguments, conversationHistory)
                     if (previousResult != null) {
                         logger.warn("⚠️ ПРЕДУПРЕЖДЕНИЕ: Инструмент $toolName уже был вызван ранее в истории диалога! Используем предыдущий результат.")
-                        conversationHistory.add(MessageDto(
-                            role = "assistant",
-                            content = "[Инструмент $toolName уже был вызван ранее, используем предыдущий результат]"
-                        ))
+                        // Создаем assistant message с tool_calls для повторного использования результата
+                        conversationHistory.add(assistantMessage)
                         conversationHistory.add(MessageDto(
                             role = "tool",
                             content = previousResult,
@@ -156,13 +154,11 @@ class OrchestrationAgent(
                         continue
                     }
                     
-                    // 10. Добавляем краткую метку о вызове инструмента в историю
-                    conversationHistory.add(MessageDto(
-                        role = "assistant",
-                        content = "[Вызван инструмент: $toolName]"
-                    ))
-                    
                     logger.debug("LLM requested tool: $toolName with arguments: ${toolCall.function.arguments}")
+                    
+                    // 10. Добавляем сообщение assistant с tool_calls в историю ПЕРЕД вызовом инструмента
+                    // Это критически важно - API требует, чтобы перед tool message был assistant message с tool_calls
+                    conversationHistory.add(assistantMessage)
                     
                     val toolResult = try {
                         // Вызываем MCP инструмент
@@ -265,8 +261,10 @@ class OrchestrationAgent(
                 // Проверяем предыдущее сообщение assistant, которое вызвало этот инструмент
                 if (i > 0 && conversationHistory[i - 1].role == "assistant") {
                     val assistantMsg = conversationHistory[i - 1]
-                    // Если в истории есть "[Вызван инструмент: toolName]", значит инструмент уже вызывался
-                    val isToolCalled = assistantMsg.content?.contains(toolName) == true
+                    // Проверяем, есть ли в assistant message вызов этого инструмента через tool_calls
+                    val isToolCalled = assistantMsg.toolCalls?.any { toolCall ->
+                        toolCall.function.name == toolName && toolCall.id == message.toolCallId
+                    } == true
                     
                     if (isToolCalled) {
                         // Если результат уже есть и не пустой, и это не ошибка
@@ -341,7 +339,7 @@ class OrchestrationAgent(
             
             - ПЕРЕД КАЖДЫМ вызовом инструмента ОБЯЗАТЕЛЬНО проверяй историю диалога выше!
             - Если в истории уже есть вызов инструмента с теми же аргументами и результат уже получен - НЕ ВЫЗЫВАЙ ЕГО ПОВТОРНО!
-            - Если ты видишь в истории "[Вызван инструмент: <имя_инструмента>]" и затем результат от tool - данные УЖЕ получены, используй их!
+            - Если ты видишь в истории assistant message с tool_calls и затем результат от tool - данные УЖЕ получены, используй их!
             - НЕ вызывай один и тот же инструмент дважды с одинаковыми аргументами!
             - Если результат от инструмента уже есть в истории - используй его, НЕ вызывай инструмент снова!
             
@@ -402,7 +400,7 @@ class OrchestrationAgent(
                - ПЕРЕД КАЖДЫМ вызовом инструмента ОБЯЗАТЕЛЬНО проверяй историю диалога!
                - Если в истории уже есть вызов этого инструмента с теми же аргументами и результат уже получен - НЕ ВЫЗЫВАЙ ЕГО ПОВТОРНО!
                - Если ты уже получила результат от инструмента - НЕ ВЫЗЫВАЙ ЕГО СНОВА! Используй уже полученные данные!
-               - Пример ПРАВИЛЬНОГО поведения: если в истории есть "[Вызван инструмент: <имя>]" и затем результат от tool с данными - данные УЖЕ получены, используй их, НЕ вызывай инструмент снова!
+               - Пример ПРАВИЛЬНОГО поведения: если в истории есть assistant message с tool_calls и затем результат от tool с данными - данные УЖЕ получены, используй их, НЕ вызывай инструмент снова!
             
             4. Анализ результатов и следующий шаг - КРИТИЧЕСКИ ВАЖНО:
                - После получения результата от инструмента, ВСЕГДА анализируй его перед следующим действием.

@@ -5,5 +5,5 @@ server:
 ai:
   provider: "openrouter"
   apiKey: "${OPENAI_API_KEY}"
-  model: "x-ai/grok-4-fast"
+  model: "deepseek/deepseek-chat-v3.1"
 
