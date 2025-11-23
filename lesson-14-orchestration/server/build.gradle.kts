@@ -26,6 +26,7 @@ dependencies {
     implementation("io.ktor:ktor-server-cors:3.2.3")
     implementation("io.ktor:ktor-server-call-logging:3.2.3")
     implementation("io.ktor:ktor-server-sse:3.2.3") // Требуется для MCP SDK
+    implementation("io.ktor:ktor-server-websockets:3.2.3")
     
     // Ktor Client (версия 3.2.3 для совместимости с MCP SDK)
     implementation("io.ktor:ktor-client-core:3.2.3")

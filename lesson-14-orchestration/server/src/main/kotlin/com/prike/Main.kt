@@ -11,6 +11,7 @@ import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.ConnectionController
 import com.prike.presentation.controller.MCPController
 import com.prike.presentation.controller.ToolController
+import com.prike.presentation.controller.WebSocketChatController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -19,9 +20,11 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.calllogging.*
+import io.ktor.server.websocket.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.routing.*
 import io.ktor.server.response.*
+import kotlin.time.Duration.Companion.seconds
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import kotlinx.coroutines.runBlocking
@@ -58,6 +61,13 @@ fun Application.module(config: com.prike.config.AppConfig) {
 
     install(CallLogging) {
         level = Level.INFO
+    }
+    
+    install(WebSockets) {
+        pingPeriod = 15.seconds
+        timeout = 15.seconds
+        maxFrameSize = Long.MAX_VALUE
+        masking = false
     }
 
     val logger = LoggerFactory.getLogger("Application")
@@ -116,6 +126,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val toolController = ToolController(mcpClientManager, config.mcp)
     val connectionController = ConnectionController(mcpClientManager)
     val chatController = ChatController(orchestrationAgent)
+    val webSocketChatController = WebSocketChatController(orchestrationAgent)
     
     routing {
         // Статические файлы для UI
@@ -134,6 +145,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
         toolController.registerRoutes(this)
         connectionController.registerRoutes(this)
         chatController.registerRoutes(this)
+        webSocketChatController.registerRoutes(this)
     }
     
     // Закрытие ресурсов при остановке

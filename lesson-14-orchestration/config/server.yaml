@@ -5,5 +5,5 @@ server:
 ai:
   provider: "openrouter"
   apiKey: "${OPENAI_API_KEY}"
-  model: "deepseek/deepseek-chat-v3.1"
+  model: "qwen/qwen3-coder-30b-a3b-instruct"
 

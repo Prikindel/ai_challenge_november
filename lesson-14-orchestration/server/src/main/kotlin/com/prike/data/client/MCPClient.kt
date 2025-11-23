@@ -88,13 +88,21 @@ class MCPClient(
         )
         
         // Подключаемся к серверу
-        client.connect(transport!!)
-        
-        // Даём время на инициализацию соединения и обмен сообщениями initialize
-        delay(CONNECTION_INIT_DELAY_MS)
-        
-        isConnected = true
-        logger.info("[$serverId] Connected to MCP server")
+        try {
+            logger.debug("[$serverId] Calling client.connect()...")
+            client.connect(transport!!)
+            logger.debug("[$serverId] client.connect() completed, waiting for initialization...")
+            
+            // Даём время на инициализацию соединения и обмен сообщениями initialize
+            delay(CONNECTION_INIT_DELAY_MS)
+            
+            isConnected = true
+            logger.info("[$serverId] Connected to MCP server")
+        } catch (e: Exception) {
+            logger.error("[$serverId] Error during connection: ${e.message}", e)
+            isConnected = false
+            throw e
+        }
     }
     
     suspend fun listTools(): List<MCPTool> {

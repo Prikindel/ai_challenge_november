@@ -134,6 +134,20 @@ section h2 {
     border-bottom-left-radius: 4px;
 }
 
+.bot-message.streaming .message-content {
+    position: relative;
+}
+
+.streaming-content {
+    min-height: 1.5em;
+}
+
+.tool-calls-container {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
 .error-message .message-content {
     background: #fef2f2;
     color: var(--error-color);
@@ -232,21 +246,43 @@ section h2 {
 
 .tool-call-item {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px;
-    margin-bottom: 4px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
     border-radius: 6px;
     font-size: 0.85em;
+    border: 1px solid;
+    transition: all 0.2s;
+}
+
+.tool-call-item.tool-call-starting {
+    background: #fffbeb;
+    border-color: #f59e0b;
+    color: #78350f;
+}
+
+.tool-call-item.tool-call-success {
+    background: #ecfdf5;
+    border-color: #10b981;
+    color: #047857;
+}
+
+.tool-call-item.tool-call-error {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #991b1b;
 }
 
 .tool-call-item.success {
     background: #f0fdf4;
+    border-color: var(--success-color);
     color: var(--success-color);
 }
 
 .tool-call-item.error {
     background: #fef2f2;
+    border-color: var(--error-color);
     color: var(--error-color);
 }
 
@@ -256,6 +292,27 @@ section h2 {
 
 .tool-call-status {
     font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-call-status.starting {
+    color: #78350f;
+}
+
+.tool-call-status.success {
+    color: #047857;
+}
+
+.tool-call-status.error {
+    color: #991b1b;
+}
+
+.tool-call-message {
+    font-size: 0.9em;
+    margin-top: 4px;
+    opacity: 0.8;
 }
 
 .processing-time {
