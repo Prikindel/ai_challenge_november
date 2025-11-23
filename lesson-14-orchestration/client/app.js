@@ -6,8 +6,8 @@ const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
 const loadingIndicator = document.getElementById('loadingIndicator');
 
-// Отправка сообщения
-async function sendMessage() {
+// Отправка сообщения через WebSocket
+function sendMessage() {
     const message = messageInput.value.trim();
     if (!message) return;
     
@@ -23,56 +23,240 @@ async function sendMessage() {
     // Блокируем кнопку отправки
     sendButton.disabled = true;
     
-    const startTime = Date.now();
+    // Создаем сообщение бота, которое будет обновляться в реальном времени
+    let currentBotMessageDiv = null;
+    let currentBotMessageContent = '';
+    let toolCalls = [];
+    let finalMessage = null;
     
-    try {
-        const response = await fetch(`${API_BASE}/chat/message`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ message })
-        });
+    // Подключаемся к WebSocket
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/chat/ws`;
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+        // Отправляем сообщение
+        ws.send(JSON.stringify({ message }));
+        console.log('Message sent to WebSocket:', message.substring(0, 50) + '...');
         
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        // Создаем начальное сообщение бота
+        currentBotMessageDiv = createStreamingBotMessage();
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            console.log('WebSocket message received:', event.data.substring(0, 200));
+            const data = JSON.parse(event.data);
+            console.log('Parsed WebSocket data:', data);
+            
+            // Создаем или обновляем элемент сообщения бота
+            if (!currentBotMessageDiv) {
+                currentBotMessageDiv = createStreamingBotMessage();
+            }
+            
+            switch (data.type) {
+                case 'status':
+                    // Промежуточное сообщение от LLM (например, "Анализирую данные...")
+                    console.log('Status update:', data.message);
+                    updateStreamingBotMessage(currentBotMessageDiv, data.message);
+                    break;
+                    
+                case 'tool_call':
+                    // Информация о вызове инструмента
+                    console.log('Tool call update:', data.toolName, data.status);
+                    addToolCallToMessage(currentBotMessageDiv, data.toolName, data.status, data.message);
+                    if (data.status === 'success' || data.status === 'error') {
+                        toolCalls.push({
+                            toolName: data.toolName,
+                            success: data.status === 'success',
+                            serverId: null
+                        });
+                    }
+                    break;
+                    
+                case 'final':
+                    // Финальный ответ
+                    console.log('Final response received');
+                    finalMessage = data.message;
+                    toolCalls = data.toolCalls || toolCalls;
+                    hideLoadingIndicator();
+                    updateBotMessageContent(currentBotMessageDiv, finalMessage, toolCalls, data.processingTime || 0);
+                    ws.close();
+                    sendButton.disabled = false;
+                    break;
+                    
+                case 'error':
+                    // Ошибка
+                    console.error('Error received:', data.message);
+                    hideLoadingIndicator();
+                    addErrorMessage(data.message);
+                    ws.close();
+                    sendButton.disabled = false;
+                    break;
+                    
+                default:
+                    console.warn('Unknown WebSocket message type:', data.type, data);
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error, event.data);
         }
-        
-        const data = await response.json();
-        const processingTime = Date.now() - startTime;
-        
-        // Скрываем индикатор загрузки
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
         hideLoadingIndicator();
-        
-        // Добавляем ответ бота с информацией об оркестрации
-        addBotMessage(data.message, data.toolCalls, data.processingTime || processingTime);
-        
-    } catch (error) {
-        console.error('Error sending message:', error);
-        hideLoadingIndicator();
-        addErrorMessage(error.message || 'Ошибка отправки сообщения');
-    } finally {
-        // Разблокируем кнопку отправки
+        addErrorMessage('Ошибка подключения к серверу');
         sendButton.disabled = false;
-    }
+    };
+    
+    ws.onclose = (event) => {
+        console.log('WebSocket closed', 'code:', event.code, 'reason:', event.reason, 'wasClean:', event.wasClean);
+        if (!finalMessage) {
+            console.warn('WebSocket closed without final message');
+            hideLoadingIndicator();
+            sendButton.disabled = false;
+        }
+    };
 }
 
 // Добавить сообщение пользователя
 function addUserMessage(message) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message user-message';
+    const timestamp = formatTime();
     messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-time">${timestamp}</span>
+        </div>
         <div class="message-content">${escapeHtml(message)}</div>
     `;
     chatMessages.appendChild(messageDiv);
     scrollToBottom();
 }
 
-// Добавить сообщение бота с визуализацией оркестрации
+// Создать сообщение бота для стриминга (обновляется в реальном времени)
+function createStreamingBotMessage() {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message bot-message streaming';
+    const timestamp = formatTime();
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-time">${timestamp}</span>
+        </div>
+        <div class="message-content">
+            <div class="streaming-content"></div>
+            <div class="streaming-tool-calls"></div>
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    scrollToBottom();
+    return messageDiv;
+}
+
+// Обновить стриминг сообщение бота
+function updateStreamingBotMessage(messageDiv, content) {
+    const contentDiv = messageDiv.querySelector('.streaming-content');
+    if (contentDiv) {
+        contentDiv.innerHTML = formatMarkdown(content);
+    }
+    scrollToBottom();
+}
+
+// Добавить информацию о вызове инструмента в стриминг сообщение
+function addToolCallToMessage(messageDiv, toolName, status, message) {
+    const toolCallsDiv = messageDiv.querySelector('.streaming-tool-calls');
+    if (!toolCallsDiv) return;
+    
+    const statusIcon = status === 'starting' ? '⏳' : status === 'success' ? '✓' : '✗';
+    const statusText = status === 'starting' ? 'Выполняется' : status === 'success' ? 'Успешно' : 'Ошибка';
+    const statusClass = status === 'starting' ? 'starting' : status === 'success' ? 'success' : 'error';
+    const timestamp = formatTime();
+    
+    // Проверяем, есть ли уже этот инструмент в списке
+    let toolDiv = toolCallsDiv.querySelector(`[data-tool-name="${toolName}"]`);
+    if (!toolDiv) {
+        toolDiv = document.createElement('div');
+        toolDiv.className = `streaming-tool-call ${statusClass}`;
+        toolDiv.setAttribute('data-tool-name', toolName);
+        toolCallsDiv.appendChild(toolDiv);
+    } else {
+        toolDiv.className = `streaming-tool-call ${statusClass}`;
+    }
+    
+    toolDiv.innerHTML = `
+        <span class="tool-call-icon">${statusIcon}</span>
+        <span class="tool-call-name">${escapeHtml(toolName)}</span>
+        <span class="tool-call-status-text">${statusText}</span>
+        <span class="tool-call-time">${timestamp}</span>
+        ${message ? `<div class="tool-call-message">${escapeHtml(message)}</div>` : ''}
+    `;
+    
+    scrollToBottom();
+}
+
+// Обновить содержимое сообщения бота
+async function updateBotMessageContent(messageElement, message, toolCalls = [], processingTime = 0) {
+    const contentDiv = messageElement.querySelector('.streaming-content');
+    if (contentDiv) {
+        contentDiv.innerHTML = formatMarkdown(message);
+    }
+
+    const toolCallsSection = messageElement.querySelector('.streaming-tool-calls');
+    if (toolCallsSection) {
+        // Обновляем только если это финальный ответ с полным списком toolCalls
+        if (toolCalls && toolCalls.length > 0) {
+            const serverInfo = await getServerInfo();
+            const toolsByServer = {};
+            toolCalls.forEach(tool => {
+                const serverId = tool.serverId || findServerForTool(tool.toolName, serverInfo);
+                if (!toolsByServer[serverId]) {
+                    toolsByServer[serverId] = [];
+                }
+                toolsByServer[serverId].push(tool);
+            });
+
+            let flowHtml = '<div class="orchestration-flow">';
+            flowHtml += '<div class="flow-label">Оркестрация инструментов:</div>';
+
+            let stepNumber = 1;
+            for (const [serverId, tools] of Object.entries(toolsByServer)) {
+                const serverName = getServerName(serverId, serverInfo);
+                flowHtml += `
+                    <div class="flow-step">
+                        <div class="flow-step-header">
+                            <span class="flow-step-number">${stepNumber++}</span>
+                            <span class="flow-step-server">${escapeHtml(serverName || serverId)}</span>
+                        </div>
+                        <div class="flow-step-tools">
+                            ${tools.map(tool => `
+                                <div class="tool-call-item ${tool.success ? 'success' : 'error'}">
+                                    <span class="tool-call-name">${escapeHtml(tool.toolName)}</span>
+                                    <span class="tool-call-status">${tool.success ? '✓' : '✗'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            flowHtml += '</div>';
+
+            toolCallsSection.innerHTML = `
+                <div class="tool-calls-label">Использованные инструменты (${toolCalls.length}):</div>
+                ${flowHtml}
+                ${processingTime > 0 ? `<div class="processing-time">Время обработки: ${(processingTime / 1000).toFixed(2)}с</div>` : ''}
+            `;
+        }
+    }
+    messageElement.classList.remove('streaming');
+    scrollToBottom();
+}
+
+// Добавить сообщение бота с визуализацией оркестрации (используется как fallback)
 async function addBotMessage(message, toolCalls = [], processingTime = 0) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message bot-message';
+    const timestamp = formatTime();
     
     let toolCallsHtml = '';
     if (toolCalls && toolCalls.length > 0) {
@@ -126,6 +310,9 @@ async function addBotMessage(message, toolCalls = [], processingTime = 0) {
     }
     
     messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-time">${timestamp}</span>
+        </div>
         <div class="message-content">
             ${formatMarkdown(message)}
             ${toolCallsHtml}
@@ -172,7 +359,11 @@ async function getServerInfo() {
 function addErrorMessage(errorMessage) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message error-message';
+    const timestamp = formatTime();
     messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-time">${timestamp}</span>
+        </div>
         <div class="message-content">
             <strong>Ошибка:</strong> ${escapeHtml(errorMessage)}
         </div>
@@ -195,6 +386,16 @@ function hideLoadingIndicator() {
 // Прокрутить чат вниз
 function scrollToBottom() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Форматирование времени в читаемый формат
+function formatTime(timestamp = null) {
+    const date = timestamp ? new Date(timestamp) : new Date();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+    return `${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
 // Простое форматирование Markdown

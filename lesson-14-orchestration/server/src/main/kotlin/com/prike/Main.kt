@@ -11,6 +11,7 @@ import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.ConnectionController
 import com.prike.presentation.controller.MCPController
 import com.prike.presentation.controller.ToolController
+import com.prike.presentation.controller.WebSocketChatController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -19,6 +20,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.calllogging.*
+import io.ktor.server.websocket.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.routing.*
 import io.ktor.server.response.*
@@ -58,6 +60,10 @@ fun Application.module(config: com.prike.config.AppConfig) {
 
     install(CallLogging) {
         level = Level.INFO
+    }
+    
+    install(io.ktor.server.websocket.WebSockets) {
+        // Настройки WebSocket
     }
 
     val logger = LoggerFactory.getLogger("Application")
@@ -116,10 +122,14 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val toolController = ToolController(mcpClientManager, config.mcp)
     val connectionController = ConnectionController(mcpClientManager)
     val chatController = ChatController(orchestrationAgent)
+    val webSocketChatController = WebSocketChatController(orchestrationAgent)
     
     routing {
         // Статические файлы для UI
         clientController.registerRoutes(this)
+        
+        // WebSocket чат
+        webSocketChatController.registerRoutes(this)
         
         // Health check API
         get("/api/health") {
