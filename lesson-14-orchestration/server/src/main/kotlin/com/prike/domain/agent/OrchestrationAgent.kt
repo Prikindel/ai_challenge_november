@@ -10,16 +10,6 @@ import org.slf4j.LoggerFactory
 private const val MAX_ITERATION_COUNT = 20
 
 /**
- * Callback для отправки промежуточных сообщений (например, через WebSocket)
- */
-typealias StatusCallback = suspend (String) -> Unit
-
-/**
- * Callback для отправки информации о вызове инструмента
- */
-typealias ToolCallCallback = suspend (String, String, String?) -> Unit // toolName, status, message
-
-/**
  * LLM агент для оркестрации нескольких MCP серверов
  * 
  * LLM сама выбирает правильные инструменты из разных источников для выполнения сложных задач.
@@ -50,15 +40,8 @@ class OrchestrationAgent(
     
     /**
      * Обработать сообщение пользователя с каскадными вызовами инструментов
-     * @param userMessage сообщение пользователя
-     * @param statusCallback опциональный callback для отправки промежуточных статусов
-     * @param toolCallCallback опциональный callback для отправки информации о вызовах инструментов
      */
-    suspend fun processUserMessage(
-        userMessage: String,
-        statusCallback: StatusCallback? = null,
-        toolCallCallback: ToolCallCallback? = null
-    ): AgentResponse {
+    suspend fun processUserMessage(userMessage: String): AgentResponse {
         try {
             // 1. Добавляем сообщение пользователя в историю
             conversationHistory.add(MessageDto(role = "user", content = userMessage))
@@ -115,31 +98,8 @@ class OrchestrationAgent(
                 
                 val assistantMessage = choice.message
                 
-                // 6.5. Проверяем, есть ли вызов инструмента
-                val hasToolCalls = assistantMessage.toolCalls != null && assistantMessage.toolCalls.isNotEmpty()
-                val contentIsEmpty = assistantMessage.content.isNullOrBlank()
-                
-                // КРИТИЧЕСКАЯ ПРОВЕРКА: если есть tool_calls, но content пустой - это ошибка
-                if (hasToolCalls && contentIsEmpty) {
-                    logger.error("⚠️ КРИТИЧЕСКАЯ ОШИБКА LLM: Вызов инструмента БЕЗ пояснения в content! Это нарушение требований API.")
-                    // Добавляем предупреждение в историю и просим LLM повторить с пояснением
-                    conversationHistory.add(MessageDto(
-                        role = "user",
-                        content = "[СИСТЕМНОЕ ПРЕДУПРЕЖДЕНИЕ: Ты вызвала инструмент БЕЗ пояснения в поле content. Это КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО! При вызове инструмента ты ОБЯЗАНА добавить пояснение в content (например: 'Получаю данные...', 'Анализирую результаты...'). Повтори запрос с пояснением в content.]"
-                    ))
-                    continue
-                }
-                
-                // 6.6. Отправляем промежуточное сообщение от LLM, если оно есть в content
-                // Это может быть пояснение перед вызовом инструмента или промежуточный статус
-                val llmStatusMessage = assistantMessage.content?.trim()
-                if (!llmStatusMessage.isNullOrBlank()) {
-                    // Отправляем статус, даже если есть tool_calls (это пояснение перед вызовом)
-                    statusCallback?.invoke(llmStatusMessage)
-                }
-                
                 // 7. Проверяем, есть ли вызов инструмента
-                if (hasToolCalls) {
+                if (assistantMessage.toolCalls != null && assistantMessage.toolCalls.isNotEmpty()) {
                     // Фильтруем недопустимые имена инструментов
                     val validToolCalls = assistantMessage.toolCalls.filter { toolCall ->
                         val toolName = toolCall.function.name
@@ -185,16 +145,7 @@ class OrchestrationAgent(
                     if (previousResult != null) {
                         logger.warn("⚠️ ПРЕДУПРЕЖДЕНИЕ: Инструмент $toolName уже был вызван ранее в истории диалога! Используем предыдущий результат.")
                         // Создаем assistant message с tool_calls для повторного использования результата
-                        val contentForReuse = if (assistantMessage.content.isNullOrBlank()) {
-                            "Использую ранее полученные данные от инструмента $toolName..."
-                        } else {
-                            assistantMessage.content
-                        }
-                        conversationHistory.add(MessageDto(
-                            role = "assistant",
-                            content = contentForReuse,
-                            toolCalls = assistantMessage.toolCalls
-                        ))
+                        conversationHistory.add(assistantMessage)
                         conversationHistory.add(MessageDto(
                             role = "tool",
                             content = previousResult,
@@ -205,32 +156,15 @@ class OrchestrationAgent(
                     
                     logger.debug("LLM requested tool: $toolName with arguments: ${toolCall.function.arguments}")
                     
-                    // 10. Отправляем информацию о начале вызова инструмента
-                    toolCallCallback?.invoke(toolName, "starting", null)
-                    
-                    // 11. Добавляем сообщение assistant с tool_calls в историю ПЕРЕД вызовом инструмента
+                    // 10. Добавляем сообщение assistant с tool_calls в историю ПЕРЕД вызовом инструмента
                     // Это критически важно - API требует, чтобы перед tool message был assistant message с tool_calls
-                    // Убеждаемся, что content не пустой (если пустой, добавляем дефолтное пояснение)
-                    val contentForHistory = if (assistantMessage.content.isNullOrBlank()) {
-                        logger.warn("⚠️ Content пустой при вызове инструмента, добавляем дефолтное пояснение")
-                        "Вызываю инструмент $toolName..."
-                    } else {
-                        assistantMessage.content
-                    }
-                    conversationHistory.add(MessageDto(
-                        role = "assistant",
-                        content = contentForHistory,
-                        toolCalls = assistantMessage.toolCalls
-                    ))
+                    conversationHistory.add(assistantMessage)
                     
                     val toolResult = try {
                         // Вызываем MCP инструмент
                         logger.info("Вызов инструмента: $toolName")
                         val result = mcpToolAgent.callTool(toolName, arguments)
                         logger.info("Результат инструмента $toolName: ${result.take(200)}${if (result.length > 200) "..." else ""}")
-                        
-                        // Отправляем информацию об успешном вызове
-                        toolCallCallback?.invoke(toolName, "success", "Инструмент выполнен успешно")
                         
                         // Сохраняем информацию о вызове инструмента
                         toolCallsHistory.add(ToolCallInfo(
@@ -245,9 +179,6 @@ class OrchestrationAgent(
                         logger.error("Error calling tool $toolName: ${e.message}", e)
                         val errorResult = """{"success": false, "error": "${e.message}"}"""
                         
-                        // Отправляем информацию об ошибке
-                        toolCallCallback?.invoke(toolName, "error", e.message)
-                        
                         // Сохраняем информацию об ошибке
                         toolCallsHistory.add(ToolCallInfo(
                             name = toolName,
@@ -259,63 +190,32 @@ class OrchestrationAgent(
                         errorResult
                     }
                     
-                    // 12. Добавляем результат в историю диалога
+                    // 11. Добавляем результат в историю диалога
                     conversationHistory.add(MessageDto(
                         role = "tool",
                         content = toolResult,
                         toolCallId = toolCall.id
                     ))
                     
-                    // 13. Продолжаем цикл (LLM обработает результат и решит, что делать дальше)
+                    // 12. Продолжаем цикл (LLM обработает результат и решит, что делать дальше)
                     continue
                 } else {
-                    // 14. Нет вызова инструмента — финальный ответ
+                    // 13. Нет вызова инструмента — финальный ответ
                     currentResponse = assistantMessage.content?.trim()
                     
                     if (currentResponse.isNullOrBlank()) {
                         if (toolCallsHistory.isEmpty()) {
                             logger.warn("LLM вернула пустой ответ без вызова инструментов. Попробуем продолжить.")
                             if (maxIterations > 0) {
-                                conversationHistory.add(MessageDto(
-                                    role = "assistant",
-                                    content = assistantMessage.content,
-                                    toolCalls = assistantMessage.toolCalls
-                                ))
+                                conversationHistory.add(assistantMessage)
                                 continue
                             }
                         } else {
-                            // Если были вызваны инструменты, но финальный ответ пустой - попросим LLM дать финальный ответ
-                            logger.warn("LLM вернула пустой финальный ответ, но инструменты уже были вызваны. Просим дать финальный ответ.")
-                            
-                            // Добавляем сообщение в историю
-                            conversationHistory.add(MessageDto(
-                                role = "assistant",
-                                content = assistantMessage.content,
-                                toolCalls = assistantMessage.toolCalls
-                            ))
-                            
-                            // Просим LLM дать финальный ответ на основе результатов инструментов
-                            if (maxIterations > 0) {
-                                conversationHistory.add(MessageDto(
-                                    role = "user",
-                                    content = "Пожалуйста, дай финальный ответ на основе результатов выполнения инструментов. Объясни, что было сделано и какие результаты получены."
-                                ))
-                                continue
-                            } else {
-                                // Если итерации закончились, используем последний непустой ответ из истории
-                                currentResponse = conversationHistory
-                                    .filter { it.role == "assistant" && !it.content.isNullOrBlank() }
-                                    .lastOrNull()?.content?.trim()
-                                    ?: "Задача выполнена. Все инструменты были вызваны успешно."
-                            }
+                            logger.debug("LLM вернула пустой финальный ответ, но инструменты уже были вызваны. Считаем задачу выполненной.")
                         }
                     }
                     
-                    conversationHistory.add(MessageDto(
-                        role = "assistant",
-                        content = assistantMessage.content,
-                        toolCalls = assistantMessage.toolCalls
-                    ))
+                    conversationHistory.add(assistantMessage)
                     logger.info("=== Итерация $iterationNumber: получен финальный ответ от LLM ===")
                     logger.debug("Финальный ответ: ${currentResponse?.take(200)}${if (currentResponse != null && currentResponse.length > 200) "..." else ""}")
                     break
@@ -401,11 +301,9 @@ class OrchestrationAgent(
             
             Когда нужно вызвать инструмент, ты ДОЛЖЕН использовать функцию calling механизм API через поле "tool_calls".
             КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать JSON в поле "content"!
-            ОБЯЗАТЕЛЬНО добавляй пояснение в поле "content" о том, что ты делаешь!
             
-            ✅ ПРАВИЛЬНО: использовать поле "tool_calls" в структуре ответа + добавить пояснение в content (например: "Получаю данные...")
+            ✅ ПРАВИЛЬНО: использовать поле "tool_calls" в структуре ответа (content = null)
             ❌ НЕПРАВИЛЬНО: писать JSON в поле "content" (например: "content": "{\"tool_calls\": [...]}")
-            ❌ НЕПРАВИЛЬНО: оставлять content пустым при вызове инструмента
             
             Если ты пишешь JSON в content вместо использования tool_calls, система НЕ СМОЖЕТ обработать вызов инструмента!
             
@@ -454,40 +352,27 @@ class OrchestrationAgent(
             
             ⚠️ ФОРМАТ ОТВЕТА ПРИ ВЫЗОВЕ ИНСТРУМЕНТА - КРИТИЧЕСКИ ВАЖНО:
             
-            Когда нужно вызвать инструмент, ты ДОЛЖЕН использовать функцию calling механизм API через поле "tool_calls".
-            ⚠️ ОБЯЗАТЕЛЬНО: Ты ДОЛЖЕН добавить пояснение в поле "content" о том, что ты делаешь сейчас!
+            Когда нужно вызвать инструмент, ты ДОЛЖЕН использовать функцию calling механизм API.
+            НЕ пиши JSON в поле "content"! ВСЕГДА используй поле "tool_calls" в структуре ответа!
             
             Правильный формат ответа при вызове инструмента:
-            - Поле "tool_calls" ОБЯЗАТЕЛЬНО должно содержать массив вызовов инструментов
-            - Поле "content" ОБЯЗАТЕЛЬНО должно содержать краткое пояснение о том, что ты делаешь (например, "Получаю историю переписки за последние 7 дней из Telegram...", "Анализирую полученные данные и извлекаю ключевые темы...", "Рассчитываю статистику по сообщениям...", "Обрабатываю результаты предыдущего инструмента...", "Вызываю следующий инструмент для продолжения обработки...")
-            - Это правило действует для КАЖДОГО вызова инструмента, включая второй, третий и все последующие!
-            - ⚠️ КРИТИЧНО: content НЕ МОЖЕТ быть пустой строкой "" или null при наличии tool_calls - это вызовет ошибку API!
+            - Поле "content" должно быть null или пустой строкой
+            - Поле "tool_calls" должно содержать массив вызовов инструментов
             - Каждый вызов должен иметь структуру: id, type="function", function={name, arguments}
-            
-            ⚠️ КРИТИЧЕСКИ ВАЖНО - ПОЯСНЕНИЯ В CONTENT (ОБЯЗАТЕЛЬНО ДЛЯ API!):
-            - ВСЕГДА добавляй пояснение в content при КАЖДОМ вызове инструмента, чтобы пользователь понимал, что происходит
-            - Это ОБЯЗАТЕЛЬНО для КАЖДОГО вызова инструмента, не только для первого!
-            - Пояснение должно быть понятным и информативным (например: "Получаю данные из Telegram...", "Анализирую сообщения...", "Формирую отчёт...", "Обрабатываю полученные данные...", "Вызываю следующий инструмент...")
-            - НЕ оставляй content пустым при вызове инструмента - это ухудшает пользовательский опыт!
-            - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО вызывать инструмент БЕЗ пояснения в content - это правило действует для ВСЕХ вызовов инструментов, без исключений!
-            - ⚠️ ВАЖНО: API OpenAI может вернуть ошибку HTTP 400, если content пустой при наличии tool_calls!
-            - ⚠️ КРИТИЧНО: Пустой content с tool_calls = ОШИБКА! Система автоматически добавит дефолтное пояснение, но это замедлит обработку!
             
             ⚠️ КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО И НЕПРАВИЛЬНО:
             - ❌ Писать JSON в поле "content" (например: "content": "{\"tool_calls\": [...]}")
             - ❌ Писать JSON в markdown code block в content (например: ```json {"tool_calls": [...]} ```)
-            - ❌ Использовать content для передачи информации о вызове инструмента в виде JSON
-            - ❌ Вызывать инструмент БЕЗ использования поля "tool_calls"
-            - ❌ Оставлять content пустым при вызове инструмента (всегда добавляй пояснение!)
+            - ❌ Писать любой текст или JSON, описывающий вызов инструмента в content
+            - ❌ Использовать content для передачи информации о вызове инструмента
             
             ✅ ПРАВИЛЬНО:
             - Использовать поле "tool_calls" в структуре ответа (это отдельное поле, не строка в content!)
-            - ОБЯЗАТЕЛЬНО добавлять пояснение в content (например: "Получаю данные из Telegram...", "Анализирую сообщения...")
+            - Поле "content" должно быть null или пустой строкой при вызове инструмента
             - API автоматически обработает tool_calls, если они в правильном формате
             
             ЗАПОМНИ: tool_calls - это ОТДЕЛЬНОЕ поле в структуре ответа API, НЕ строка в content!
-            Если ты пишешь JSON в content вместо использования tool_calls, система НЕ СМОЖЕТ обработать вызов инструмента!
-            НО: ты ОБЯЗАТЕЛЬНО должен добавить текстовое пояснение в content вместе с tool_calls - это помогает пользователю понять, что происходит!
+            Если ты пишешь JSON в content, система НЕ СМОЖЕТ обработать вызов инструмента!
             
             В поле "function.name" используй ТОЛЬКО имена из списка tools, который передается в запросе.
             НИКОГДА не используй "tool_calls" как имя функции - это название поля, а не имя инструмента!
@@ -529,13 +414,10 @@ class OrchestrationAgent(
                - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО вызывать один и тот же инструмент дважды с одинаковыми аргументами!
             
             5. Формат ответов - КРИТИЧЕСКИ ВАЖНО:
-               - Для вызова инструмента: tool_calls = [массив с вызовами] (ОБЯЗАТЕЛЬНО!), content = краткое пояснение (ОБЯЗАТЕЛЬНО, НИКОГДА не пустое!)
-               - Это правило действует для КАЖДОГО вызова инструмента - первого, второго, третьего и всех последующих!
+               - Для вызова инструмента: content = null (или пустая строка), tool_calls = [массив с вызовами]
                - Для финального ответа: content = текст ответа, tool_calls = null (или отсутствует)
-               - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать JSON в content - используй ТОЛЬКО поле tool_calls для вызова инструментов!
-               - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО оставлять content пустым при вызове инструмента - всегда добавляй пояснение!
-               - Примеры пояснений для разных этапов: "Получаю данные из Telegram...", "Анализирую сообщения...", "Обрабатываю результаты...", "Вызываю следующий инструмент...", "Формирую отчёт..."
-               - ВАЖНО: даже если ты уже вызывала инструменты ранее, для КАЖДОГО нового вызова ты ДОЛЖНА добавить пояснение в content!
+               - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать JSON в content - используй ТОЛЬКО поле tool_calls!
+               - Если ты пишешь JSON в content вместо использования tool_calls, система НЕ СМОЖЕТ обработать вызов!
             
             6. Ошибки:
                - Если инструмент вернул ошибку, попробуй понять причину и либо повтори попытку с исправленными параметрами,
