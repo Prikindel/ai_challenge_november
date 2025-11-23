@@ -32,9 +32,7 @@ class MCPClientManager(
             val connectionJobs = config.servers.map { serverConfig ->
                 async {
                     try {
-                        logger.debug("Starting connection job for server ${serverConfig.id}")
                         connectToServer(serverConfig)
-                        logger.debug("Connection job completed successfully for server ${serverConfig.id}")
                         true
                     } catch (e: Exception) {
                         logger.error("Failed to connect to server ${serverConfig.id}: ${e.message}", e)
@@ -43,12 +41,10 @@ class MCPClientManager(
                 }
             }
             
-            val results = connectionJobs.awaitAll()
-            val successCount = results.count { it }
-            logger.info("Connection results: $successCount/${config.servers.size} servers connected successfully")
+            connectionJobs.awaitAll()
         }
         
-        logger.info("Connected to ${clients.size} MCP server(s): ${clients.keys.joinToString(", ")}")
+        logger.info("Connected to ${clients.size} MCP server(s)")
     }
     
     /**
@@ -64,14 +60,12 @@ class MCPClientManager(
         
         try {
             val client = MCPClient(serverConfig.id)
-            logger.debug("Created MCPClient for ${serverConfig.id}, starting connection...")
             client.connectToServer(serverConfig.jarPath, lessonRoot)
-            logger.debug("MCPClient.connectToServer completed for ${serverConfig.id}, adding to clients map...")
             clients[serverConfig.id] = client
-            logger.info("Successfully connected to server: ${serverConfig.name} (${serverConfig.id})")
+            logger.info("Successfully connected to server: ${serverConfig.name}")
         } catch (e: Exception) {
             logger.error("Error connecting to server ${serverConfig.id}: ${e.message}", e)
-            throw e // Пробрасываем исключение дальше, чтобы оно было обработано в initialize()
+            throw e
         }
     }
     

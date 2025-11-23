@@ -89,9 +89,7 @@ class MCPClient(
         
         // Подключаемся к серверу
         try {
-            logger.debug("[$serverId] Calling client.connect()...")
             client.connect(transport!!)
-            logger.debug("[$serverId] client.connect() completed, waiting for initialization...")
             
             // Даём время на инициализацию соединения и обмен сообщениями initialize
             delay(CONNECTION_INIT_DELAY_MS)
