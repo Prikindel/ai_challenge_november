@@ -59,10 +59,10 @@ class MCPClientManager(
         logger.info("Connecting to server: ${serverConfig.name} (${serverConfig.id})")
         
         try {
-            val client = MCPClient(serverConfig.id)
-            client.connectToServer(serverConfig.jarPath, lessonRoot)
-            clients[serverConfig.id] = client
-            logger.info("Successfully connected to server: ${serverConfig.name}")
+        val client = MCPClient(serverConfig.id)
+        client.connectToServer(serverConfig.jarPath, lessonRoot)
+        clients[serverConfig.id] = client
+        logger.info("Successfully connected to server: ${serverConfig.name}")
         } catch (e: Exception) {
             logger.error("Error connecting to server ${serverConfig.id}: ${e.message}", e)
             throw e

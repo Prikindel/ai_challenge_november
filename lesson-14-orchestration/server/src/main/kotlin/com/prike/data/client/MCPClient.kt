@@ -89,13 +89,13 @@ class MCPClient(
         
         // Подключаемся к серверу
         try {
-            client.connect(transport!!)
-            
-            // Даём время на инициализацию соединения и обмен сообщениями initialize
-            delay(CONNECTION_INIT_DELAY_MS)
-            
-            isConnected = true
-            logger.info("[$serverId] Connected to MCP server")
+        client.connect(transport!!)
+        
+        // Даём время на инициализацию соединения и обмен сообщениями initialize
+        delay(CONNECTION_INIT_DELAY_MS)
+        
+        isConnected = true
+        logger.info("[$serverId] Connected to MCP server")
         } catch (e: Exception) {
             logger.error("[$serverId] Error during connection: ${e.message}", e)
             isConnected = false
