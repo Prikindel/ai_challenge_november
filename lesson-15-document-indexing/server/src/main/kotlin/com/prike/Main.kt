@@ -1,7 +1,18 @@
 package com.prike
 
 import com.prike.config.Config
+import com.prike.data.client.OllamaClient
+import com.prike.data.repository.KnowledgeBaseRepository
+import com.prike.domain.indexing.CosineSimilarityCalculator
+import com.prike.domain.indexing.TextChunker
+import com.prike.domain.indexing.VectorNormalizer
+import com.prike.domain.service.DocumentIndexer
+import com.prike.domain.service.DocumentLoader
+import com.prike.domain.service.EmbeddingService
+import com.prike.domain.service.KnowledgeBaseSearchService
 import com.prike.presentation.controller.ClientController
+import com.prike.presentation.controller.IndexingController
+import com.prike.presentation.controller.SearchController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -9,12 +20,13 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.callloging.*
 import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.plugins.callloging.CallLogging
 import io.ktor.server.routing.*
 import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
+import kotlinx.coroutines.runBlocking
 import java.io.File
 
 /**
@@ -55,9 +67,55 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val lessonRoot = findLessonRoot()
     logger.info("Lesson root: ${lessonRoot.absolutePath}")
     
+    // Инициализация компонентов
+    
+    // 1. Ollama клиент
+    val ollamaClient = OllamaClient(config.ollama)
+    
+    // 2. Сервис эмбеддингов
+    val embeddingService = EmbeddingService(ollamaClient)
+    
+    // 3. Нормализатор векторов
+    val vectorNormalizer = VectorNormalizer()
+    
+    // 4. База знаний
+    val dbPath = File(lessonRoot, config.knowledgeBase.databasePath).absolutePath
+    val knowledgeBaseRepository = KnowledgeBaseRepository(dbPath)
+    
+    // 5. Разбивка на чанки
+    val textChunker = TextChunker(
+        chunkSize = config.indexing.chunkSize,
+        overlapSize = config.indexing.overlapSize
+    )
+    
+    // 6. Загрузчик документов (с базовым путём относительно корня урока)
+    val documentLoader = DocumentLoader(lessonRoot)
+    
+    // 7. Индексатор документов
+    val documentIndexer = DocumentIndexer(
+        documentLoader = documentLoader,
+        textChunker = textChunker,
+        embeddingService = embeddingService,
+        vectorNormalizer = vectorNormalizer,
+        knowledgeBaseRepository = knowledgeBaseRepository
+    )
+    
+    // 8. Калькулятор косинусного сходства
+    val similarityCalculator = CosineSimilarityCalculator()
+    
+    // 9. Сервис поиска
+    val searchService = KnowledgeBaseSearchService(
+        embeddingService = embeddingService,
+        vectorNormalizer = vectorNormalizer,
+        knowledgeBaseRepository = knowledgeBaseRepository,
+        similarityCalculator = similarityCalculator
+    )
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
+    val indexingController = IndexingController(documentIndexer, knowledgeBaseRepository)
+    val searchController = SearchController(searchService, knowledgeBaseRepository)
     
     routing {
         // Статические файлы для UI
@@ -65,11 +123,24 @@ fun Application.module(config: com.prike.config.AppConfig) {
         
         // Health check API
         get("/api/health") {
+            val ollamaHealthy = runBlocking {
+                ollamaClient.checkHealth()
+            }
             call.respond(mapOf(
                 "status" to "ok",
-                "service" to "lesson-15-document-indexing-server"
+                "service" to "lesson-15-document-indexing-server",
+                "ollama" to ollamaHealthy
             ))
         }
+        
+        // API маршруты
+        indexingController.registerRoutes(this)
+        searchController.registerRoutes(this)
+    }
+    
+    // Закрытие ресурсов при остановке
+    environment.monitor.subscribe(ApplicationStopped) {
+        ollamaClient.close()
     }
     
     logger.info("Server started on ${config.server.host}:${config.server.port}")
@@ -86,8 +157,8 @@ private fun findLessonRoot(): File {
     }
     
     // Ищем lesson-15-document-indexing вверх по дереву
-    var searchDir = currentDir
-    while (searchDir != null && searchDir.parentFile != null) {
+    var searchDir: File? = currentDir
+    while (searchDir != null) {
         if (searchDir.name == "lesson-15-document-indexing") {
             return searchDir
         }
