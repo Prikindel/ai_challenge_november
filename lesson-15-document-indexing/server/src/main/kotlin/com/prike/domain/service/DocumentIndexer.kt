@@ -64,20 +64,16 @@ class DocumentIndexer(
             }
             
             // 3. Генерация эмбеддингов для каждого чанка
-            val indexedChunks = mutableListOf<DataDocumentChunk>()
-            var successCount = 0
-            var errorCount = 0
-            
-            textChunks.forEachIndexed { index, textChunk ->
-                try {
+            val indexedChunks = textChunks.mapNotNull { textChunk ->
+                runCatching {
                     // Генерируем эмбеддинг
                     val embedding = embeddingService.generateEmbedding(textChunk.content)
-                    
+
                     // Нормализуем вектор
                     val normalizedEmbedding = vectorNormalizer.normalizeTo01(embedding)
-                    
+
                     // Создаём чанк с эмбеддингом
-                    val documentChunk = DataDocumentChunk(
+                    DataDocumentChunk(
                         id = textChunk.id,
                         documentId = documentId,
                         chunkIndex = textChunk.chunkIndex,
@@ -88,17 +84,17 @@ class DocumentIndexer(
                         embedding = normalizedEmbedding,
                         createdAt = System.currentTimeMillis()
                     )
-                    
-                    indexedChunks.add(documentChunk)
-                    successCount++
-                    
-                    if ((index + 1) % 10 == 0) {
-                        logger.debug("Processed ${index + 1}/${textChunks.size} chunks")
-                    }
-                } catch (e: Exception) {
-                    errorCount++
-                    logger.error("Failed to generate embedding for chunk ${textChunk.id}: ${e.message}")
-                }
+                }.onFailure { e ->
+                    logger.error("Failed to generate embedding for chunk ${textChunk.id}: ${e.message}", e)
+                }.getOrNull()
+            }
+
+            val successCount = indexedChunks.size
+            val errorCount = textChunks.size - successCount
+            
+            // Логируем прогресс
+            if (textChunks.size > 10) {
+                logger.debug("Processed ${indexedChunks.size}/${textChunks.size} chunks successfully")
             }
             
             if (indexedChunks.isEmpty()) {

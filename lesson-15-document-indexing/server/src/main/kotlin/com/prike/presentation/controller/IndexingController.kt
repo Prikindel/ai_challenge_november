@@ -27,6 +27,16 @@ class IndexingController(
             post("/api/indexing/index") {
                 try {
                     val request = call.receive<IndexDocumentRequest>()
+                    
+                    // Валидация входных данных
+                    if (request.filePath.isBlank()) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.BadRequest,
+                            ErrorResponse("filePath cannot be blank")
+                        )
+                        return@post
+                    }
+                    
                     val result = documentIndexer.indexDocument(request.filePath)
                     
                     call.respond(IndexDocumentResponse(
@@ -49,6 +59,16 @@ class IndexingController(
             post("/api/indexing/index-directory") {
                 try {
                     val request = call.receive<IndexDirectoryRequest>()
+                    
+                    // Валидация входных данных
+                    if (request.directoryPath.isBlank()) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.BadRequest,
+                            ErrorResponse("directoryPath cannot be blank")
+                        )
+                        return@post
+                    }
+                    
                     val results = documentIndexer.indexDirectory(request.directoryPath)
                     
                     val successCount = results.count { it.success }

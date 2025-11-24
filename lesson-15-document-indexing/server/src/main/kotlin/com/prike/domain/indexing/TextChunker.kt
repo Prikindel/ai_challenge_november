@@ -10,10 +10,17 @@ import java.util.UUID
  * @param overlapSize перекрытие между чанками в токенах (по умолчанию 100)
  */
 class TextChunker(
-    private val chunkSize: Int = 800,
-    private val overlapSize: Int = 100
+    private val chunkSize: Int = DEFAULT_CHUNK_SIZE,
+    private val overlapSize: Int = DEFAULT_OVERLAP_SIZE
 ) {
+    companion object {
+        private const val DEFAULT_CHUNK_SIZE = 800
+        private const val DEFAULT_OVERLAP_SIZE = 100
+        private const val MAX_CHUNKS_LIMIT = 10000 // Защита от бесконечного цикла
+    }
+    
     private val tokenCounter = TokenCounter()
+    private val logger = org.slf4j.LoggerFactory.getLogger(TextChunker::class.java)
     
     init {
         require(chunkSize > 0) { "chunkSize must be positive" }
@@ -75,7 +82,8 @@ class TextChunker(
             chunkIndex++
             
             // Защита от бесконечного цикла
-            if (chunks.size > 10000) {
+            if (chunks.size > MAX_CHUNKS_LIMIT) {
+                logger.warn("Reached maximum chunks limit ($MAX_CHUNKS_LIMIT), stopping chunking")
                 break
             }
         }

@@ -187,6 +187,35 @@ class KnowledgeBaseRepository(
     }
     
     /**
+     * Получает документы по списку ID (для оптимизации поиска)
+     */
+    fun getDocumentsByIds(ids: List<String>): List<Document> {
+        if (ids.isEmpty()) return emptyList()
+        
+        return withConnection { connection ->
+            val placeholders = ids.joinToString(",") { "?" }
+            val sql = """
+                SELECT id, file_path, title, content, indexed_at, chunk_count
+                FROM documents
+                WHERE id IN ($placeholders)
+            """.trimIndent()
+            
+            connection.prepareStatement(sql).use { stmt ->
+                ids.forEachIndexed { index, id ->
+                    stmt.setString(index + 1, id)
+                }
+                stmt.executeQuery().use { rs ->
+                    buildList {
+                        while (rs.next()) {
+                            add(mapRowToDocument(rs))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
      * Получает все чанки из базы данных
      */
     fun getAllChunks(): List<DocumentChunk> {
@@ -319,18 +348,17 @@ class KnowledgeBaseRepository(
      * Выполняет операцию с подключением к БД
      */
     private fun <T> withConnection(block: (Connection) -> T): T {
-        val connection = DriverManager.getConnection("jdbc:sqlite:$databasePath")
-        try {
+        DriverManager.getConnection("jdbc:sqlite:$databasePath").use { connection ->
             connection.autoCommit = false
-            val result = block(connection)
-            connection.commit()
-            return result
-        } catch (e: Exception) {
-            connection.rollback()
-            logger.error("Database operation failed: ${e.message}", e)
-            throw e
-        } finally {
-            connection.close()
+            try {
+                val result = block(connection)
+                connection.commit()
+                return result
+            } catch (e: Exception) {
+                connection.rollback()
+                logger.error("Database operation failed: ${e.message}", e)
+                throw e
+            }
         }
     }
 }

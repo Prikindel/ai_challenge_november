@@ -75,7 +75,9 @@ class KnowledgeBaseSearchService(
             .take(limit)
         
         // 6. Обогащаем результаты информацией о документах
-        val documentsMap = knowledgeBaseRepository.getAllDocuments()
+        // Загружаем только нужные документы для оптимизации
+        val documentIds = topResults.map { it.documentId }.distinct()
+        val documentsMap = knowledgeBaseRepository.getDocumentsByIds(documentIds)
             .associateBy { it.id }
         
         return topResults.map { result ->

@@ -4,9 +4,12 @@ const API_BASE = 'http://localhost:8080/api';
 
 // Индексация файла
 async function indexFile() {
-    const filePath = document.getElementById('filePath').value.trim();
+    const filePathInput = document.getElementById('filePath');
+    const filePath = filePathInput?.value.trim();
+    
     if (!filePath) {
         showMessage('Введите путь к файлу', 'error');
+        filePathInput?.focus();
         return;
     }
     
@@ -47,9 +50,12 @@ async function indexFile() {
 
 // Индексация директории
 async function indexDirectory() {
-    const directoryPath = document.getElementById('directoryPath').value.trim();
+    const directoryPathInput = document.getElementById('directoryPath');
+    const directoryPath = directoryPathInput?.value.trim();
+    
     if (!directoryPath) {
         showMessage('Введите путь к директории', 'error');
+        directoryPathInput?.focus();
         return;
     }
     

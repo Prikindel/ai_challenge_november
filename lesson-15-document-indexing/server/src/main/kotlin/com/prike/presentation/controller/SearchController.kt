@@ -27,9 +27,20 @@ class SearchController(
             post("/api/search/query") {
                 try {
                     val request = call.receive<SearchRequest>()
+                    
+                    // Валидация входных данных
+                    if (request.query.isBlank()) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.BadRequest,
+                            ErrorResponse("query cannot be blank")
+                        )
+                        return@post
+                    }
+                    
+                    val limit = (request.limit ?: 10).coerceIn(1, 50) // Ограничиваем до 50
                     val results = searchService.search(
                         query = request.query,
-                        limit = request.limit ?: 10
+                        limit = limit
                     )
                     
                     call.respond(SearchResponse(
