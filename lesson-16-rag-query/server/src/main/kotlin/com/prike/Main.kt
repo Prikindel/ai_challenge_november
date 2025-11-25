@@ -10,9 +10,11 @@ import com.prike.domain.service.DocumentIndexer
 import com.prike.domain.service.DocumentLoader
 import com.prike.domain.service.EmbeddingService
 import com.prike.domain.service.KnowledgeBaseSearchService
+import com.prike.domain.service.LLMService
 import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.IndexingController
 import com.prike.presentation.controller.SearchController
+import com.prike.presentation.controller.LLMController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -111,11 +113,19 @@ fun Application.module(config: com.prike.config.AppConfig) {
         similarityCalculator = similarityCalculator
     )
     
+    // 10. LLM сервис (OpenRouter)
+    val llmService = LLMService(
+        aiConfig = config.ai,
+        defaultTemperature = config.ai.temperature,
+        defaultMaxTokens = config.ai.maxTokens
+    )
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
     val indexingController = IndexingController(documentIndexer, knowledgeBaseRepository)
     val searchController = SearchController(searchService, knowledgeBaseRepository)
+    val llmController = LLMController(llmService)
     
     routing {
         // Статические файлы для UI
@@ -136,11 +146,13 @@ fun Application.module(config: com.prike.config.AppConfig) {
         // API маршруты
         indexingController.registerRoutes(this)
         searchController.registerRoutes(this)
+        llmController.registerRoutes(this)
     }
     
     // Закрытие ресурсов при остановке
     environment.monitor.subscribe(ApplicationStopped) {
         ollamaClient.close()
+        llmService.close()
     }
     
     logger.info("Server started on ${config.server.host}:${config.server.port}")

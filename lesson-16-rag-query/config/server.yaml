@@ -15,3 +15,10 @@ indexing:
   overlapSize: 100    # Перекрытие между чанками в токенах
   documentsPath: "documents"  # Папка с документами для индексации
 
+ai:
+  provider: "openrouter"
+  apiKey: "${OPENAI_API_KEY}"  # берётся из .env
+  model: "gpt-4o-mini"  # модель для генерации ответов
+  temperature: 0.7
+  maxTokens: 2000
+

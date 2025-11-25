@@ -39,13 +39,25 @@ data class IndexingConfig(
 )
 
 /**
+ * Конфигурация AI (OpenRouter)
+ */
+data class AIConfig(
+    val provider: String,
+    val apiKey: String,
+    val model: String,
+    val temperature: Double = 0.7,
+    val maxTokens: Int = 2000
+)
+
+/**
  * Главная конфигурация приложения
  */
 data class AppConfig(
     val server: ServerConfig,
     val ollama: OllamaConfig,
     val knowledgeBase: KnowledgeBaseConfig,
-    val indexing: IndexingConfig
+    val indexing: IndexingConfig,
+    val ai: AIConfig
 )
 
 object Config {
@@ -105,11 +117,22 @@ object Config {
             documentsPath = resolveEnvVar(indexingMap["documentsPath"] as? String ?: "documents")
         )
         
+        // Конфигурация AI (OpenRouter)
+        val aiMap = serverConfigMap["ai"] as? Map<String, Any> ?: emptyMap()
+        val ai = AIConfig(
+            provider = aiMap["provider"] as? String ?: "openrouter",
+            apiKey = resolveEnvVar(aiMap["apiKey"] as? String ?: ""),
+            model = resolveEnvVar(aiMap["model"] as? String ?: "gpt-4o-mini"),
+            temperature = (aiMap["temperature"] as? Number)?.toDouble() ?: 0.7,
+            maxTokens = (aiMap["maxTokens"] as? Number)?.toInt() ?: 2000
+        )
+        
         return AppConfig(
             server = server,
             ollama = ollama,
             knowledgeBase = knowledgeBase,
-            indexing = indexing
+            indexing = indexing,
+            ai = ai
         )
     }
     
