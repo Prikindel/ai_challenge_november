@@ -11,10 +11,14 @@ import com.prike.domain.service.DocumentLoader
 import com.prike.domain.service.EmbeddingService
 import com.prike.domain.service.KnowledgeBaseSearchService
 import com.prike.domain.service.LLMService
+import com.prike.domain.service.PromptBuilder
+import com.prike.domain.service.RAGService
+import com.prike.domain.service.ComparisonService
 import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.IndexingController
 import com.prike.presentation.controller.SearchController
 import com.prike.presentation.controller.LLMController
+import com.prike.presentation.controller.RAGController
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -120,12 +124,29 @@ fun Application.module(config: com.prike.config.AppConfig) {
         defaultMaxTokens = config.ai.maxTokens
     )
     
+    // 11. PromptBuilder для формирования промптов с контекстом
+    val promptBuilder = PromptBuilder()
+    
+    // 12. RAG сервис
+    val ragService = RAGService(
+        searchService = searchService,
+        llmService = llmService,
+        promptBuilder = promptBuilder
+    )
+    
+    // 13. Comparison сервис
+    val comparisonService = ComparisonService(
+        ragService = ragService,
+        llmService = llmService
+    )
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
     val indexingController = IndexingController(documentIndexer, knowledgeBaseRepository)
     val searchController = SearchController(searchService, knowledgeBaseRepository)
     val llmController = LLMController(llmService)
+    val ragController = RAGController(ragService, llmService, comparisonService)
     
     routing {
         // Статические файлы для UI
@@ -147,6 +168,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
         indexingController.registerRoutes(this)
         searchController.registerRoutes(this)
         llmController.registerRoutes(this)
+        ragController.registerRoutes(this)
     }
     
     // Закрытие ресурсов при остановке
