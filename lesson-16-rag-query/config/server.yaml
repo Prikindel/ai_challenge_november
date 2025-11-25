@@ -1,0 +1,17 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+ollama:
+  baseUrl: "http://localhost:11434"  # URL Ollama сервера
+  model: "nomic-embed-text"          # Модель для эмбеддингов
+  timeout: 30000                     # Таймаут в миллисекундах
+
+knowledgeBase:
+  databasePath: "data/knowledge_base.db"  # Путь к базе знаний
+  
+indexing:
+  chunkSize: 800      # Размер чанка в токенах
+  overlapSize: 100    # Перекрытие между чанками в токенах
+  documentsPath: "documents"  # Папка с документами для индексации
+
