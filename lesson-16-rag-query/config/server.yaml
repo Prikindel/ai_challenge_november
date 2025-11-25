@@ -11,7 +11,7 @@ knowledgeBase:
   databasePath: "data/knowledge_base.db"  # Путь к базе знаний
   
 indexing:
-  chunkSize: 800      # Размер чанка в токенах
+  chunkSize: 600      # Размер чанка в токенах
   overlapSize: 100    # Перекрытие между чанками в токенах
   documentsPath: "documents"  # Папка с документами для индексации
 
