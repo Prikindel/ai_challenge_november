@@ -22,3 +22,14 @@ ai:
   temperature: 0.7
   maxTokens: 2000
 
+rag:
+  retrieval:
+    topK: 5
+    minSimilarity: 0.4
+  filter:
+    enabled: true
+    type: "threshold"   # "none" | "threshold" | "reranker" | "hybrid"
+    threshold:
+      minSimilarity: 0.6
+      keepTop: 3
+

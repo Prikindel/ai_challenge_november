@@ -26,6 +26,29 @@ data class RetrievedChunkDto(
 )
 
 /**
+ * DTO для отброшенного чанка
+ */
+@Serializable
+data class DroppedChunkDto(
+    val chunkId: String,
+    val documentPath: String?,
+    val similarity: Float,
+    val reason: String
+)
+
+/**
+ * DTO для статистики фильтрации
+ */
+@Serializable
+data class FilterStatsDto(
+    val retrieved: Int,
+    val kept: Int,
+    val dropped: List<DroppedChunkDto>,
+    val avgSimilarityBefore: Float,
+    val avgSimilarityAfter: Float
+)
+
+/**
  * DTO для RAG-ответа
  */
 @Serializable
@@ -33,7 +56,8 @@ data class RAGQueryResponseDto(
     val question: String,
     val answer: String,
     val contextChunks: List<RetrievedChunkDto>,
-    val tokensUsed: Int? = null
+    val tokensUsed: Int? = null,
+    val filterStats: FilterStatsDto? = null
 )
 
 /**

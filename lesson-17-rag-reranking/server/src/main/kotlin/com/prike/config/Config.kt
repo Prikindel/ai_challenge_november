@@ -50,6 +50,39 @@ data class AIConfig(
 )
 
 /**
+ * Конфигурация поиска для RAG
+ */
+data class RAGRetrievalConfig(
+    val topK: Int = 5,
+    val minSimilarity: Float = 0.4f
+)
+
+/**
+ * Конфигурация порогового фильтра
+ */
+data class ThresholdFilterConfig(
+    val minSimilarity: Float = 0.6f,
+    val keepTop: Int? = null
+)
+
+/**
+ * Конфигурация фильтрации для RAG
+ */
+data class RAGFilterConfig(
+    val enabled: Boolean = true,
+    val type: String = "threshold",  // "none" | "threshold" | "reranker" | "hybrid"
+    val threshold: ThresholdFilterConfig = ThresholdFilterConfig()
+)
+
+/**
+ * Конфигурация RAG
+ */
+data class RAGConfig(
+    val retrieval: RAGRetrievalConfig = RAGRetrievalConfig(),
+    val filter: RAGFilterConfig = RAGFilterConfig()
+)
+
+/**
  * Главная конфигурация приложения
  */
 data class AppConfig(
@@ -57,7 +90,8 @@ data class AppConfig(
     val ollama: OllamaConfig,
     val knowledgeBase: KnowledgeBaseConfig,
     val indexing: IndexingConfig,
-    val ai: AIConfig
+    val ai: AIConfig,
+    val rag: RAGConfig = RAGConfig()
 )
 
 object Config {
@@ -127,12 +161,41 @@ object Config {
             maxTokens = (aiMap["maxTokens"] as? Number)?.toInt() ?: 2000
         )
         
+        // Конфигурация RAG
+        val ragMap = serverConfigMap["rag"] as? Map<String, Any> ?: emptyMap()
+        
+        // Конфигурация поиска
+        val retrievalMap = ragMap["retrieval"] as? Map<String, Any> ?: emptyMap()
+        val retrieval = RAGRetrievalConfig(
+            topK = (retrievalMap["topK"] as? Number)?.toInt() ?: 5,
+            minSimilarity = (retrievalMap["minSimilarity"] as? Number)?.toFloat() ?: 0.4f
+        )
+        
+        // Конфигурация фильтра
+        val filterMap = ragMap["filter"] as? Map<String, Any> ?: emptyMap()
+        val thresholdMap = filterMap["threshold"] as? Map<String, Any> ?: emptyMap()
+        val threshold = ThresholdFilterConfig(
+            minSimilarity = (thresholdMap["minSimilarity"] as? Number)?.toFloat() ?: 0.6f,
+            keepTop = (thresholdMap["keepTop"] as? Number)?.toInt()
+        )
+        val filter = RAGFilterConfig(
+            enabled = (filterMap["enabled"] as? Boolean) ?: true,
+            type = filterMap["type"] as? String ?: "threshold",
+            threshold = threshold
+        )
+        
+        val rag = RAGConfig(
+            retrieval = retrieval,
+            filter = filter
+        )
+        
         return AppConfig(
             server = server,
             ollama = ollama,
             knowledgeBase = knowledgeBase,
             indexing = indexing,
-            ai = ai
+            ai = ai,
+            rag = rag
         )
     }
     

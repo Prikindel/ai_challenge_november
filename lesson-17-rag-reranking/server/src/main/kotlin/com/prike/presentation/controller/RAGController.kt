@@ -147,7 +147,23 @@ class RAGController(
                     chunkIndex = chunk.chunkIndex
                 )
             },
-            tokensUsed = ragResponse.tokensUsed
+            tokensUsed = ragResponse.tokensUsed,
+            filterStats = ragResponse.filterStats?.let { stats ->
+                FilterStatsDto(
+                    retrieved = stats.retrieved,
+                    kept = stats.kept,
+                    dropped = stats.dropped.map { dropped ->
+                        DroppedChunkDto(
+                            chunkId = dropped.chunkId,
+                            documentPath = dropped.documentPath,
+                            similarity = dropped.similarity,
+                            reason = dropped.reason
+                        )
+                    },
+                    avgSimilarityBefore = stats.avgSimilarityBefore,
+                    avgSimilarityAfter = stats.avgSimilarityAfter
+                )
+            }
         )
     }
 }

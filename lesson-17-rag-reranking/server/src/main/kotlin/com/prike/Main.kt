@@ -127,14 +127,22 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // 11. PromptBuilder для формирования промптов с контекстом
     val promptBuilder = PromptBuilder()
     
-    // 12. RAG сервис
+    // 12. Конфигурация фильтра (если включён)
+    val filterConfig = if (config.rag.filter.enabled && config.rag.filter.type == "threshold") {
+        config.rag.filter.threshold
+    } else {
+        null
+    }
+    
+    // 13. RAG сервис
     val ragService = RAGService(
         searchService = searchService,
         llmService = llmService,
-        promptBuilder = promptBuilder
+        promptBuilder = promptBuilder,
+        filterConfig = filterConfig
     )
     
-    // 13. Comparison сервис
+    // 14. Comparison сервис
     val comparisonService = ComparisonService(
         ragService = ragService,
         llmService = llmService

@@ -1,5 +1,6 @@
 package com.prike.domain.service
 
+import com.prike.config.ThresholdFilterConfig as ConfigThresholdFilterConfig
 import com.prike.domain.model.RAGRequest
 import com.prike.domain.model.RAGResponse
 import com.prike.domain.model.RetrievedChunk
@@ -12,7 +13,8 @@ import org.slf4j.LoggerFactory
 class RAGService(
     private val searchService: KnowledgeBaseSearchService,
     private val llmService: LLMService,
-    private val promptBuilder: PromptBuilder
+    private val promptBuilder: PromptBuilder,
+    private val filterConfig: ConfigThresholdFilterConfig? = null  // Конфигурация фильтра (опционально)
 ) {
     private val logger = LoggerFactory.getLogger(RAGService::class.java)
     
@@ -57,15 +59,36 @@ class RAGService(
             )
         }
         
-        // 3. Формируем промпт с контекстом
+        // 3. Применяем фильтр, если настроен
+        val (filteredChunks, filterStats) = if (filterConfig != null) {
+            // Преобразуем конфигурацию из config в domain
+            val domainFilterConfig = ThresholdFilterConfig(
+                minSimilarity = filterConfig.minSimilarity,
+                keepTop = filterConfig.keepTop
+            )
+            val filter = RelevanceFilter(domainFilterConfig)
+            val filterResult = filter.filter(retrievedChunks)
+            logger.info("Filter applied: ${filterResult.stats.retrieved} -> ${filterResult.stats.kept} chunks")
+            Pair(filterResult.filteredChunks, filterResult.stats)
+        } else {
+            Pair(retrievedChunks, null)
+        }
+        
+        // Если после фильтрации не осталось чанков, возвращаем ответ без контекста
+        if (filteredChunks.isEmpty()) {
+            logger.warn("No chunks left after filtering")
+            return generateResponseWithoutContext(request.question).copy(filterStats = filterStats)
+        }
+        
+        // 4. Формируем промпт с контекстом
         val promptResult = promptBuilder.buildPromptWithContext(
             question = request.question,
-            chunks = retrievedChunks
+            chunks = filteredChunks
         )
         
-        logger.debug("Built prompt with ${retrievedChunks.size} chunks (systemPrompt length: ${promptResult.systemPrompt.length}, userMessage length: ${promptResult.userMessage.length})")
+        logger.debug("Built prompt with ${filteredChunks.size} chunks (systemPrompt length: ${promptResult.systemPrompt.length}, userMessage length: ${promptResult.userMessage.length})")
         
-        // 4. Генерируем ответ через LLM с контекстом
+        // 5. Генерируем ответ через LLM с контекстом
         val llmResponse = llmService.generateAnswer(
             question = promptResult.userMessage,
             systemPrompt = promptResult.systemPrompt
@@ -76,8 +99,9 @@ class RAGService(
         return RAGResponse(
             question = request.question,
             answer = llmResponse.answer,
-            contextChunks = retrievedChunks,
-            tokensUsed = llmResponse.tokensUsed
+            contextChunks = filteredChunks,
+            tokensUsed = llmResponse.tokensUsed,
+            filterStats = filterStats
         )
     }
     
