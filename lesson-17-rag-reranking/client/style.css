@@ -633,3 +633,168 @@ input:focus, textarea:focus {
     text-align: center;
 }
 
+/* Новые стили для фильтрации и реранкинга */
+.baseline-response {
+    border-left-color: #48bb78;
+}
+
+.filtered-response {
+    border-left-color: #ed8936;
+}
+
+.metrics-panel {
+    background: #f0f4ff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 2px solid #667eea;
+}
+
+.metrics-panel h3 {
+    margin-bottom: 15px;
+    color: #667eea;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.metric-item {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-label {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.filter-stats {
+    background: #fff5e6;
+    padding: 15px;
+    border-radius: 6px;
+    margin: 15px 0;
+    border-left: 3px solid #ed8936;
+}
+
+.filter-stats h4 {
+    margin-bottom: 10px;
+    color: #ed8936;
+}
+
+.stats-info {
+    margin-bottom: 10px;
+}
+
+.stats-info p {
+    margin: 5px 0;
+    font-size: 0.9em;
+}
+
+.dropped-chunks {
+    margin-top: 10px;
+}
+
+.dropped-chunk-item {
+    background: #ffe6e6;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    border-left: 3px solid #c33;
+    font-size: 0.85em;
+}
+
+.dropped-chunk-item .reason {
+    color: #c33;
+    font-weight: 500;
+    margin-top: 5px;
+}
+
+.rerank-insights {
+    background: #e6f3ff;
+    padding: 15px;
+    border-radius: 6px;
+    margin: 15px 0;
+    border-left: 3px solid #4299e1;
+}
+
+.rerank-insights h4 {
+    margin-bottom: 10px;
+    color: #4299e1;
+}
+
+.rerank-decision {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border-left: 3px solid #4299e1;
+}
+
+.rerank-decision-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.rerank-score {
+    background: #4299e1;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+}
+
+.rerank-reason {
+    font-size: 0.9em;
+    color: #555;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.rerank-should-use {
+    margin-top: 5px;
+    font-size: 0.85em;
+}
+
+.rerank-should-use.yes {
+    color: #48bb78;
+    font-weight: 500;
+}
+
+.rerank-should-use.no {
+    color: #c33;
+    font-weight: 500;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85em;
+    color: #666;
+    font-style: italic;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    background: white;
+}
+
