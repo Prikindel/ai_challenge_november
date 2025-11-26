@@ -46,7 +46,9 @@ class RAGController(
                     
                     // Применяем фильтр согласно запросу (или конфигурации)
                     val applyFilter = request.applyFilter
-                    val ragResponse = ragService.query(ragRequest, applyFilter = applyFilter)
+                    val strategy = request.strategy?.takeIf { it in listOf("none", "threshold", "reranker", "hybrid") }
+                    logger.debug("RAG query: applyFilter=$applyFilter, strategy=$strategy")
+                    val ragResponse = ragService.query(ragRequest, applyFilter = applyFilter, strategy = strategy)
                     
                     call.respond(mapRAGResponseToDto(ragResponse))
                 } catch (e: Exception) {
@@ -111,8 +113,12 @@ class RAGController(
                         minSimilarity = request.minSimilarity.coerceIn(0f, 1f)
                     )
                     
+                    // Получаем стратегию из запроса
+                    val strategy = request.strategy?.takeIf { it in listOf("none", "threshold", "reranker", "hybrid") }
+                    logger.debug("Comparison: strategy=$strategy")
+                    
                     // Используем новый метод сравнения с фильтром
-                    val comparisonResult = comparisonService.compareBaselineVsFiltered(ragRequest)
+                    val comparisonResult = comparisonService.compareBaselineVsFiltered(ragRequest, strategy = strategy)
                     
                     call.respond(mapComparisonResultToDto(comparisonResult))
                 } catch (e: Exception) {

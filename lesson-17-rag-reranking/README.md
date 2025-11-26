@@ -4,7 +4,7 @@
 
 ## Демонстрация
 
-> 📹 Видео появится после записи (формат: Видео + Код).
+📹 **[Видео демонстрации](https://disk.yandex.ru/d/kxRC0Sz1xjjjhA)** (формат: Видео + Код)
 
 **Сценарий демонстрации:**
 1. Запуск сервера и открытие UI
@@ -148,9 +148,9 @@ http://localhost:8080
   ],
   "tokensUsed": 1350,
   "filterStats": {
-    "retrieved": 5,
-    "kept": 3,
-    "dropped": [
+      "retrieved": 5,
+      "kept": 3,
+      "dropped": [
       {
         "chunkId": "...",
         "documentPath": "documents/...",
@@ -198,7 +198,7 @@ http://localhost:8080
     "tokensUsed": 1500
   },
   "filtered": {
-    "question": "...",
+  "question": "...",
     "answer": "...",
     "contextChunks": [...],
     "filterStats": {...},
@@ -206,10 +206,10 @@ http://localhost:8080
     "tokensUsed": 1290
   },
   "metrics": {
-    "baselineChunks": 5,
-    "filteredChunks": 3,
-    "avgSimilarityBefore": 0.52,
-    "avgSimilarityAfter": 0.74,
+     "baselineChunks": 5,
+     "filteredChunks": 3,
+     "avgSimilarityBefore": 0.52,
+     "avgSimilarityAfter": 0.74,
     "tokensSaved": 210,
     "filterApplied": true,
     "strategy": "hybrid"
@@ -249,14 +249,14 @@ rag:
     minSimilarity: 0.4
   filter:
     enabled: true
-    strategy: "hybrid"     # none | threshold | reranker | hybrid
+    type: "threshold"   # none | threshold | reranker | hybrid
     threshold:
       minSimilarity: 0.6
       keepTop: 3
     reranker:
       model: "gpt-4o-mini"
       maxChunks: 6
-      systemPrompt: "Ты — reranker..."
+      systemPrompt: "Ты — reranker. Оцени релевантность каждого чанка вопросу."
 ```
 
 `.env` (в корне репозитория):

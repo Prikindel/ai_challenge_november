@@ -108,16 +108,17 @@ class ComparisonService(
      * Сравнивает два режима: baseline (без фильтра) и filtered (с фильтром)
      * 
      * @param request запрос для RAG
+     * @param strategy стратегия фильтрации (если null, используется из конфигурации)
      * @return результат сравнения с метриками
      */
-    suspend fun compareBaselineVsFiltered(request: RAGRequest): ComparisonResult {
-        logger.info("Comparing baseline vs filtered for question: ${request.question}")
+    suspend fun compareBaselineVsFiltered(request: RAGRequest, strategy: String? = null): ComparisonResult {
+        logger.info("Comparing baseline vs filtered for question: ${request.question}, strategy: $strategy")
         
         // 1. Baseline: RAG без фильтра
-        val baseline = ragService.query(request, applyFilter = false)
+        val baseline = ragService.query(request, applyFilter = false, strategy = "none")
         
-        // 2. Filtered: RAG с фильтром
-        val filtered = ragService.query(request, applyFilter = true)
+        // 2. Filtered: RAG с фильтром (используем стратегию из запроса или конфигурации)
+        val filtered = ragService.query(request, applyFilter = true, strategy = strategy)
         
         // Вычисляем метрики
         val metrics = ComparisonMetrics(
@@ -127,7 +128,7 @@ class ComparisonService(
             avgSimilarityAfter = filtered.contextChunks.map { it.similarity }.average().toFloat().takeIf { filtered.contextChunks.isNotEmpty() },
             tokensSaved = (baseline.tokensUsed ?: 0) - (filtered.tokensUsed ?: 0),
             filterApplied = filtered.filterStats != null || filtered.rerankInsights != null,
-            strategy = null
+            strategy = strategy
         )
         
         return ComparisonResult(

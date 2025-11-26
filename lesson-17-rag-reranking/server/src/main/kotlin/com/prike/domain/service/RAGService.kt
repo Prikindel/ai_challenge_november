@@ -40,9 +40,10 @@ class RAGService(
      * 
      * @param request запрос для RAG
      * @param applyFilter применять ли фильтр/реранкер (по умолчанию используется конфигурация)
+     * @param strategy стратегия фильтрации (none, threshold, reranker, hybrid). Если null, используется из конфигурации
      * @return ответ с контекстом и использованными чанками
      */
-    suspend fun query(request: RAGRequest, applyFilter: Boolean? = null): RAGResponse {
+    suspend fun query(request: RAGRequest, applyFilter: Boolean? = null, strategy: String? = null): RAGResponse {
         if (request.question.isBlank()) {
             throw IllegalArgumentException("Question cannot be blank")
         }
@@ -77,14 +78,29 @@ class RAGService(
             )
         }
         
-        // 3. Применяем стратегию фильтрации/реранкинга (если не отключено явно)
-        val shouldApplyFilter = applyFilter ?: (filterConfig != null && filterConfig.enabled)
+        // 3. Применяем стратегию фильтрации/реранкинга
+        // Определяем, какую стратегию использовать: из запроса или из конфигурации
+        val strategyToUse = strategy ?: filterConfig?.type ?: "none"
+        
+        // Если applyFilter явно false - не применяем фильтр
+        // Если applyFilter null - используем конфигурацию или стратегию из запроса
+        // Если applyFilter true - применяем фильтр
+        val shouldApplyFilter = when {
+            applyFilter == false -> false  // Явно отключено
+            applyFilter == true -> true     // Явно включено
+            strategyToUse != "none" -> true // Если стратегия указана и не "none"
+            else -> filterConfig != null && filterConfig.enabled && filterConfig.type != "none"  // Используем конфигурацию
+        }
+        
+        
         val (filteredChunks, filterStats, rerankInsights) = if (shouldApplyFilter) {
             applyFilteringStrategy(
                 chunks = retrievedChunks,
-                question = request.question
+                question = request.question,
+                strategy = strategyToUse
             )
         } else {
+            logger.debug("Filter disabled, using all ${retrievedChunks.size} chunks")
             Triple(retrievedChunks, null, null)
         }
         
@@ -128,22 +144,28 @@ class RAGService(
      * 
      * @param chunks список чанков для обработки
      * @param question вопрос пользователя
+     * @param strategy стратегия фильтрации (none, threshold, reranker, hybrid)
      * @return тройка: (отфильтрованные чанки, статистика фильтрации, решения реранкера)
      */
     private suspend fun applyFilteringStrategy(
         chunks: List<RetrievedChunk>,
-        question: String
+        question: String,
+        strategy: String
     ): Triple<List<RetrievedChunk>, FilterStats?, List<RerankDecision>?> {
-        if (filterConfig == null || !filterConfig.enabled || filterConfig.type == "none") {
+        if (strategy == "none") {
             return Triple(chunks, null, null)
         }
         
-        return when (filterConfig.type) {
+        // Если нет конфигурации, но стратегия указана, используем значения по умолчанию
+        val thresholdConfig = filterConfig?.threshold ?: ConfigThresholdFilterConfig(minSimilarity = 0.6f, keepTop = null)
+        
+        return when (strategy) {
             "threshold" -> {
                 // Только пороговый фильтр
-                val domainFilterConfig = ThresholdFilterConfig(
-                    minSimilarity = filterConfig.threshold.minSimilarity,
-                    keepTop = filterConfig.threshold.keepTop
+                // Преобразуем конфигурацию из config в domain
+                val domainFilterConfig = com.prike.domain.service.ThresholdFilterConfig(
+                    minSimilarity = thresholdConfig.minSimilarity,
+                    keepTop = thresholdConfig.keepTop
                 )
                 val filter = RelevanceFilter(domainFilterConfig)
                 val filterResult = filter.filter(chunks)
@@ -158,22 +180,23 @@ class RAGService(
                     return Triple(chunks, null, null)
                 }
                 
-                val rerankResult = rerankerService.rerank(question, chunks)
-                
-                // Фильтруем по shouldUse
-                val filteredChunks = rerankResult.rerankedChunks.filter { chunk ->
-                    rerankResult.decisions.find { it.chunkId == chunk.chunkId }?.shouldUse == true
+                try {
+                    val rerankResult = rerankerService.rerank(question, chunks)
+                    // Фильтрация по shouldUse уже выполнена в RerankerService
+                    Triple(rerankResult.rerankedChunks, null, rerankResult.decisions)
+                } catch (e: Exception) {
+                    // Если реранкер упал (таймаут, ошибка API), используем все чанки без фильтрации
+                    logger.error("Reranker failed, using all chunks without filtering: ${e.message}", e)
+                    Triple(chunks, null, null)
                 }
-                
-                logger.info("Reranker applied: ${chunks.size} -> ${filteredChunks.size} chunks")
-                Triple(filteredChunks, null, rerankResult.decisions)
             }
             
             "hybrid" -> {
                 // Сначала порог, потом реранкер
-                val domainFilterConfig = ThresholdFilterConfig(
-                    minSimilarity = filterConfig.threshold.minSimilarity,
-                    keepTop = filterConfig.threshold.keepTop
+                // Преобразуем конфигурацию из config в domain
+                val domainFilterConfig = com.prike.domain.service.ThresholdFilterConfig(
+                    minSimilarity = thresholdConfig.minSimilarity,
+                    keepTop = thresholdConfig.keepTop
                 )
                 val filter = RelevanceFilter(domainFilterConfig)
                 val filterResult = filter.filter(chunks)
@@ -188,19 +211,25 @@ class RAGService(
                     return Triple(filterResult.filteredChunks, filterResult.stats, null)
                 }
                 
-                val rerankResult = rerankerService.rerank(question, filterResult.filteredChunks)
-                
-                // Фильтруем по shouldUse
-                val finalChunks = rerankResult.rerankedChunks.filter { chunk ->
-                    rerankResult.decisions.find { it.chunkId == chunk.chunkId }?.shouldUse == true
+                try {
+                    val rerankResult = rerankerService.rerank(question, filterResult.filteredChunks)
+                    
+                    // Фильтруем по shouldUse
+                    val finalChunks = rerankResult.rerankedChunks.filter { chunk ->
+                        rerankResult.decisions.find { it.chunkId == chunk.chunkId }?.shouldUse == true
+                    }
+                    
+                    logger.info("Hybrid strategy: threshold ${filterResult.stats.retrieved} -> ${filterResult.stats.kept}, reranker -> ${finalChunks.size} chunks")
+                    Triple(finalChunks, filterResult.stats, rerankResult.decisions)
+                } catch (e: Exception) {
+                    // Если реранкер упал, используем результат порогового фильтра
+                    logger.error("Reranker failed in hybrid mode, using threshold filter result: ${e.message}", e)
+                    Triple(filterResult.filteredChunks, filterResult.stats, null)
                 }
-                
-                logger.info("Hybrid strategy: threshold ${filterResult.stats.retrieved} -> ${filterResult.stats.kept}, reranker -> ${finalChunks.size} chunks")
-                Triple(finalChunks, filterResult.stats, rerankResult.decisions)
             }
             
             else -> {
-                logger.warn("Unknown filter strategy: ${filterConfig.type}, skipping filtering")
+                logger.warn("Unknown filter strategy: $strategy, skipping filtering")
                 Triple(chunks, null, null)
             }
         }

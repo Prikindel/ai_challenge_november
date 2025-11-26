@@ -189,8 +189,8 @@ function displayResponse(responseData, type) {
     } else {
         answerDiv.innerHTML = '<p class="error-text">Ответ не получен</p>';
     }
-}
-
+    }
+    
 // Отображение стандартного ответа
 function displayStandardResponse(standardData) {
     // Можно добавить отдельный блок для стандартного ответа, если нужно
@@ -244,7 +244,7 @@ function displayFilterStats(stats) {
                 </div>
             `;
         }).join('');
-    } else {
+        } else {
         droppedList.innerHTML = '<p class="no-chunks">Нет отброшенных чанков</p>';
     }
 }

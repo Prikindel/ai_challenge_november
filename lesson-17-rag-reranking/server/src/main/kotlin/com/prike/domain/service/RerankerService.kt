@@ -57,7 +57,8 @@ class RerankerService(
         apiKey = aiConfig.apiKey,
         model = config.model,
         temperature = 0.3,  // Низкая температура для более детерминированных оценок
-        maxTokens = 2000
+        maxTokens = 2000,
+        requestTimeoutSeconds = 180  // Увеличенный таймаут для реранкера (3 минуты)
     )
     
     /**
@@ -78,7 +79,7 @@ class RerankerService(
             logger.warn("Reranking only top ${config.maxChunks} chunks out of ${chunks.size}")
         }
         
-        logger.debug("Reranking ${chunksToRerank.size} chunks for question: ${question.take(100)}...")
+        logger.info("Reranking ${chunksToRerank.size} chunks (model: ${config.model})")
         
         try {
             // Формируем промпт для реранкера
@@ -90,10 +91,14 @@ class RerankerService(
                 MessageDto(role = "user", content = prompt)
             )
             
+            // OpenAIClient сам логирует запрос и ответ в формате OkHttp
             val response = rerankerClient.chatCompletion(messages, temperature = 0.3)
             
+            val responseContent = response.choices.firstOrNull()?.message?.content ?: ""
+            val tokensUsed = response.usage?.totalTokens
+            
             // Парсим JSON ответ
-            val decisions = parseRerankerResponse(response.choices.firstOrNull()?.message?.content ?: "")
+            val decisions = parseRerankerResponse(responseContent)
             
             if (decisions.isEmpty()) {
                 logger.warn("Reranker returned no decisions, falling back to original order")
@@ -107,7 +112,6 @@ class RerankerService(
             val rerankedChunks = chunksToRerank.mapNotNull { chunk ->
                 val decision = decisionMap[chunk.chunkId]
                 if (decision != null) {
-                    // Можно добавить rerankScore к чанку, но пока оставляем оригинальный similarity
                     chunk
                 } else {
                     logger.warn("No rerank decision for chunk ${chunk.chunkId}, skipping")
@@ -117,15 +121,23 @@ class RerankerService(
                 decisionMap[chunk.chunkId]?.rerankScore ?: chunk.similarity
             }
             
-            logger.info("Reranked ${chunksToRerank.size} chunks: ${rerankedChunks.size} kept")
+            // Фильтруем по shouldUse
+            val filteredByShouldUse = rerankedChunks.filter { chunk ->
+                decisionMap[chunk.chunkId]?.shouldUse == true
+            }
+            
+            val shouldUseCount = decisions.count { it.shouldUse }
+            logger.info("Reranker result: ${chunksToRerank.size} → ${filteredByShouldUse.size} chunks (shouldUse: $shouldUseCount/${decisions.size}${if (tokensUsed != null) ", tokens: $tokensUsed" else ""})")
             
             return RerankResult(
                 decisions = decisions,
-                rerankedChunks = rerankedChunks
+                rerankedChunks = filteredByShouldUse
             )
             
         } catch (e: Exception) {
             logger.error("Reranker failed: ${e.message}, falling back to original order", e)
+            // При ошибке (таймаут, недоступность API) возвращаем исходный порядок
+            // Это позволяет системе продолжать работать даже если реранкер недоступен
             return createFallbackResult(chunksToRerank)
         }
     }
@@ -134,7 +146,7 @@ class RerankerService(
      * Формирует промпт для реранкера
      */
     private fun buildRerankerPrompt(question: String, chunks: List<RetrievedChunk>): String {
-        val chunksJson = chunks.mapIndexed { index, chunk ->
+        val chunksJson = chunks.map { chunk ->
             """
             {
                 "chunkId": "${chunk.chunkId}",
@@ -183,6 +195,7 @@ class RerankerService(
             }
         } catch (e: Exception) {
             logger.error("Failed to parse reranker response: ${e.message}", e)
+            logger.debug("Response text that failed to parse:\n$responseText")
             emptyList()
         }
     }
