@@ -1,6 +1,9 @@
 package com.prike.domain.service
 
+import com.prike.config.RAGFilterConfig
 import com.prike.config.ThresholdFilterConfig as ConfigThresholdFilterConfig
+import com.prike.config.RerankerConfig as ConfigRerankerConfig
+import com.prike.config.AIConfig
 import com.prike.domain.model.RAGRequest
 import com.prike.domain.model.RAGResponse
 import com.prike.domain.model.RetrievedChunk
@@ -9,14 +12,28 @@ import org.slf4j.LoggerFactory
 /**
  * Сервис для RAG-запросов
  * Объединяет поиск по базе знаний с генерацией ответа через LLM
+ * Поддерживает различные стратегии фильтрации и реранкинга
  */
 class RAGService(
     private val searchService: KnowledgeBaseSearchService,
     private val llmService: LLMService,
     private val promptBuilder: PromptBuilder,
-    private val filterConfig: ConfigThresholdFilterConfig? = null  // Конфигурация фильтра (опционально)
+    private val filterConfig: RAGFilterConfig? = null,  // Конфигурация фильтрации
+    private val aiConfig: AIConfig? = null  // Конфигурация AI для реранкера
 ) {
     private val logger = LoggerFactory.getLogger(RAGService::class.java)
+    
+    private val rerankerService: RerankerService? = if (filterConfig != null && aiConfig != null) {
+        // Преобразуем конфигурацию из config в domain
+        val domainRerankerConfig = com.prike.domain.service.RerankerConfig(
+            model = filterConfig.reranker.model,
+            maxChunks = filterConfig.reranker.maxChunks,
+            systemPrompt = filterConfig.reranker.systemPrompt
+        )
+        RerankerService(aiConfig, domainRerankerConfig)
+    } else {
+        null
+    }
     
     /**
      * Выполняет RAG-запрос: поиск чанков + генерация ответа с контекстом
@@ -59,25 +76,19 @@ class RAGService(
             )
         }
         
-        // 3. Применяем фильтр, если настроен
-        val (filteredChunks, filterStats) = if (filterConfig != null) {
-            // Преобразуем конфигурацию из config в domain
-            val domainFilterConfig = ThresholdFilterConfig(
-                minSimilarity = filterConfig.minSimilarity,
-                keepTop = filterConfig.keepTop
-            )
-            val filter = RelevanceFilter(domainFilterConfig)
-            val filterResult = filter.filter(retrievedChunks)
-            logger.info("Filter applied: ${filterResult.stats.retrieved} -> ${filterResult.stats.kept} chunks")
-            Pair(filterResult.filteredChunks, filterResult.stats)
-        } else {
-            Pair(retrievedChunks, null)
-        }
+        // 3. Применяем стратегию фильтрации/реранкинга
+        val (filteredChunks, filterStats, rerankInsights) = applyFilteringStrategy(
+            chunks = retrievedChunks,
+            question = request.question
+        )
         
         // Если после фильтрации не осталось чанков, возвращаем ответ без контекста
         if (filteredChunks.isEmpty()) {
             logger.warn("No chunks left after filtering")
-            return generateResponseWithoutContext(request.question).copy(filterStats = filterStats)
+            return generateResponseWithoutContext(request.question).copy(
+                filterStats = filterStats,
+                rerankInsights = rerankInsights
+            )
         }
         
         // 4. Формируем промпт с контекстом
@@ -101,8 +112,92 @@ class RAGService(
             answer = llmResponse.answer,
             contextChunks = filteredChunks,
             tokensUsed = llmResponse.tokensUsed,
-            filterStats = filterStats
+            filterStats = filterStats,
+            rerankInsights = rerankInsights
         )
+    }
+    
+    /**
+     * Применяет стратегию фильтрации/реранкинга
+     * 
+     * @param chunks список чанков для обработки
+     * @param question вопрос пользователя
+     * @return тройка: (отфильтрованные чанки, статистика фильтрации, решения реранкера)
+     */
+    private suspend fun applyFilteringStrategy(
+        chunks: List<RetrievedChunk>,
+        question: String
+    ): Triple<List<RetrievedChunk>, FilterStats?, List<RerankDecision>?> {
+        if (filterConfig == null || !filterConfig.enabled || filterConfig.type == "none") {
+            return Triple(chunks, null, null)
+        }
+        
+        return when (filterConfig.type) {
+            "threshold" -> {
+                // Только пороговый фильтр
+                val domainFilterConfig = ThresholdFilterConfig(
+                    minSimilarity = filterConfig.threshold.minSimilarity,
+                    keepTop = filterConfig.threshold.keepTop
+                )
+                val filter = RelevanceFilter(domainFilterConfig)
+                val filterResult = filter.filter(chunks)
+                logger.info("Threshold filter applied: ${filterResult.stats.retrieved} -> ${filterResult.stats.kept} chunks")
+                Triple(filterResult.filteredChunks, filterResult.stats, null)
+            }
+            
+            "reranker" -> {
+                // Только реранкер
+                if (rerankerService == null) {
+                    logger.warn("Reranker service not available, skipping reranking")
+                    return Triple(chunks, null, null)
+                }
+                
+                val rerankResult = rerankerService.rerank(question, chunks)
+                
+                // Фильтруем по shouldUse
+                val filteredChunks = rerankResult.rerankedChunks.filter { chunk ->
+                    rerankResult.decisions.find { it.chunkId == chunk.chunkId }?.shouldUse == true
+                }
+                
+                logger.info("Reranker applied: ${chunks.size} -> ${filteredChunks.size} chunks")
+                Triple(filteredChunks, null, rerankResult.decisions)
+            }
+            
+            "hybrid" -> {
+                // Сначала порог, потом реранкер
+                val domainFilterConfig = ThresholdFilterConfig(
+                    minSimilarity = filterConfig.threshold.minSimilarity,
+                    keepTop = filterConfig.threshold.keepTop
+                )
+                val filter = RelevanceFilter(domainFilterConfig)
+                val filterResult = filter.filter(chunks)
+                
+                if (filterResult.filteredChunks.isEmpty()) {
+                    return Triple(emptyList(), filterResult.stats, null)
+                }
+                
+                // Применяем реранкер к отфильтрованным чанкам
+                if (rerankerService == null) {
+                    logger.warn("Reranker service not available, using threshold filter only")
+                    return Triple(filterResult.filteredChunks, filterResult.stats, null)
+                }
+                
+                val rerankResult = rerankerService.rerank(question, filterResult.filteredChunks)
+                
+                // Фильтруем по shouldUse
+                val finalChunks = rerankResult.rerankedChunks.filter { chunk ->
+                    rerankResult.decisions.find { it.chunkId == chunk.chunkId }?.shouldUse == true
+                }
+                
+                logger.info("Hybrid strategy: threshold ${filterResult.stats.retrieved} -> ${filterResult.stats.kept}, reranker -> ${finalChunks.size} chunks")
+                Triple(finalChunks, filterResult.stats, rerankResult.decisions)
+            }
+            
+            else -> {
+                logger.warn("Unknown filter strategy: ${filterConfig.type}, skipping filtering")
+                Triple(chunks, null, null)
+            }
+        }
     }
     
     /**
@@ -123,6 +218,13 @@ class RAGService(
             contextChunks = emptyList(),
             tokensUsed = llmResponse.tokensUsed
         )
+    }
+    
+    /**
+     * Закрывает ресурсы (реранкер)
+     */
+    fun close() {
+        rerankerService?.close()
     }
 }
 

@@ -163,6 +163,14 @@ class RAGController(
                     avgSimilarityBefore = stats.avgSimilarityBefore,
                     avgSimilarityAfter = stats.avgSimilarityAfter
                 )
+            },
+            rerankInsights = ragResponse.rerankInsights?.map { decision ->
+                RerankDecisionDto(
+                    chunkId = decision.chunkId,
+                    rerankScore = decision.rerankScore,
+                    reason = decision.reason,
+                    shouldUse = decision.shouldUse
+                )
             }
         )
     }

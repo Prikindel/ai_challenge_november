@@ -49,6 +49,17 @@ data class FilterStatsDto(
 )
 
 /**
+ * DTO для решения реранкера
+ */
+@Serializable
+data class RerankDecisionDto(
+    val chunkId: String,
+    val rerankScore: Float,
+    val reason: String,
+    val shouldUse: Boolean
+)
+
+/**
  * DTO для RAG-ответа
  */
 @Serializable
@@ -57,7 +68,8 @@ data class RAGQueryResponseDto(
     val answer: String,
     val contextChunks: List<RetrievedChunkDto>,
     val tokensUsed: Int? = null,
-    val filterStats: FilterStatsDto? = null
+    val filterStats: FilterStatsDto? = null,
+    val rerankInsights: List<RerankDecisionDto>? = null
 )
 
 /**

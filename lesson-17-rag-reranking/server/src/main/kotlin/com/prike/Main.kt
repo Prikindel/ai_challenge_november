@@ -127,9 +127,9 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // 11. PromptBuilder для формирования промптов с контекстом
     val promptBuilder = PromptBuilder()
     
-    // 12. Конфигурация фильтра (если включён)
-    val filterConfig = if (config.rag.filter.enabled && config.rag.filter.type == "threshold") {
-        config.rag.filter.threshold
+    // 12. Конфигурация фильтрации (если включена)
+    val filterConfig = if (config.rag.filter.enabled) {
+        config.rag.filter
     } else {
         null
     }
@@ -139,7 +139,8 @@ fun Application.module(config: com.prike.config.AppConfig) {
         searchService = searchService,
         llmService = llmService,
         promptBuilder = promptBuilder,
-        filterConfig = filterConfig
+        filterConfig = filterConfig,
+        aiConfig = config.ai
     )
     
     // 14. Comparison сервис
@@ -183,6 +184,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     environment.monitor.subscribe(ApplicationStopped) {
         ollamaClient.close()
         llmService.close()
+        ragService.close()
     }
     
     logger.info("Server started on ${config.server.host}:${config.server.port}")

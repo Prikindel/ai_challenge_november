@@ -32,4 +32,8 @@ rag:
     threshold:
       minSimilarity: 0.6
       keepTop: 3
+    reranker:
+      model: "gpt-4o-mini"
+      maxChunks: 6
+      systemPrompt: "Ты — reranker. Оцени релевантность каждого чанка вопросу."
 

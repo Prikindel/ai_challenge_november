@@ -66,12 +66,22 @@ data class ThresholdFilterConfig(
 )
 
 /**
+ * Конфигурация реранкера
+ */
+data class RerankerConfig(
+    val model: String = "gpt-4o-mini",
+    val maxChunks: Int = 6,
+    val systemPrompt: String = "Ты — reranker. Оцени релевантность каждого чанка вопросу."
+)
+
+/**
  * Конфигурация фильтрации для RAG
  */
 data class RAGFilterConfig(
     val enabled: Boolean = true,
     val type: String = "threshold",  // "none" | "threshold" | "reranker" | "hybrid"
-    val threshold: ThresholdFilterConfig = ThresholdFilterConfig()
+    val threshold: ThresholdFilterConfig = ThresholdFilterConfig(),
+    val reranker: RerankerConfig = RerankerConfig()
 )
 
 /**
@@ -178,10 +188,20 @@ object Config {
             minSimilarity = (thresholdMap["minSimilarity"] as? Number)?.toFloat() ?: 0.6f,
             keepTop = (thresholdMap["keepTop"] as? Number)?.toInt()
         )
+        
+        // Конфигурация реранкера
+        val rerankerMap = filterMap["reranker"] as? Map<String, Any> ?: emptyMap()
+        val reranker = RerankerConfig(
+            model = resolveEnvVar(rerankerMap["model"] as? String ?: "gpt-4o-mini"),
+            maxChunks = (rerankerMap["maxChunks"] as? Number)?.toInt() ?: 6,
+            systemPrompt = rerankerMap["systemPrompt"] as? String ?: "Ты — reranker. Оцени релевантность каждого чанка вопросу."
+        )
+        
         val filter = RAGFilterConfig(
             enabled = (filterMap["enabled"] as? Boolean) ?: true,
             type = filterMap["type"] as? String ?: "threshold",
-            threshold = threshold
+            threshold = threshold,
+            reranker = reranker
         )
         
         val rag = RAGConfig(
