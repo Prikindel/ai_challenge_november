@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+ollama:
+  baseUrl: "http://localhost:11434"  # URL Ollama сервера
+  model: "nomic-embed-text"          # Модель для эмбеддингов
+  timeout: 120000                    # Таймаут в миллисекундах (2 минуты для больших текстов)
+
+knowledgeBase:
+  databasePath: "data/knowledge_base.db"  # Путь к базе знаний
+  
+indexing:
+  chunkSize: 400      # Размер чанка в токенах (уменьшено для стабильности Ollama)
+  overlapSize: 50     # Перекрытие между чанками в токенах
+  documentsPath: "documents"  # Папка с документами для индексации
+
+ai:
+  provider: "openrouter"
+  apiKey: "${OPENAI_API_KEY}"  # берётся из .env
+  model: "gpt-4o-mini"  # модель для генерации ответов
+  temperature: 0.7
+  maxTokens: 2000
+
