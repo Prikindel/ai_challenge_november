@@ -32,7 +32,7 @@ class OllamaClient(
         
         install(HttpTimeout) {
             requestTimeoutMillis = config.timeout
-            connectTimeoutMillis = 10_000L
+            connectTimeoutMillis = 30_000L  // Увеличено для стабильности подключения
             socketTimeoutMillis = config.timeout
         }
     }
@@ -49,9 +49,15 @@ class OllamaClient(
             throw IllegalArgumentException("Text cannot be blank")
         }
         
-        val url = "${config.baseUrl}/api/embeddings"
+        // Проверка размера текста (nomic-embed-text обычно поддерживает до ~8000 токенов)
+        // Приблизительно: 1 токен ≈ 4 символа, значит ~2000 символов безопасно
+        // Но если текст больше 1500 символов, предупреждаем
+        if (text.length > 1500) {
+            logger.warn("Large text detected (${text.length} chars). Ollama may have issues with very large texts. Consider reducing chunk size.")
+        }
         
-        logger.debug("Generating embedding for text (length: ${text.length}) via $url")
+        val url = "${config.baseUrl}/api/embeddings"
+        logger.debug("Generating embedding for text (length: ${text.length} chars) via $url")
         
         try {
             val request = OllamaEmbeddingRequest(
@@ -59,8 +65,11 @@ class OllamaClient(
                 prompt = text
             )
             
+            logger.debug("Sending embedding request to Ollama (timeout: ${config.timeout}ms, model: ${config.model})")
+            
             val response = client.post(url) {
                 contentType(ContentType.Application.Json)
+                header("Connection", "close")  // Явно закрываем соединение после запроса
                 setBody(request)
             }
             
@@ -84,8 +93,16 @@ class OllamaClient(
         } catch (e: Exception) {
             when (e) {
                 is OllamaException -> throw e
+                is java.net.SocketTimeoutException -> {
+                    logger.error("Timeout generating embedding (text length: ${text.length}, timeout: ${config.timeout}ms): ${e.message}")
+                    throw OllamaException("Timeout generating embedding: request exceeded ${config.timeout}ms", e)
+                }
+                is java.io.EOFException -> {
+                    logger.error("Connection closed (EOF) while generating embedding (text length: ${text.length}): ${e.message}")
+                    throw OllamaException("Connection closed while generating embedding. Text may be too large or Ollama server may be overloaded.", e)
+                }
                 else -> {
-                    logger.error("Error generating embedding: ${e.message}", e)
+                    logger.error("Error generating embedding (text length: ${text.length}): ${e.message}", e)
                     throw OllamaException("Failed to generate embedding: ${e.message}", e)
                 }
             }

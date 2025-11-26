@@ -23,7 +23,7 @@ class EmbeddingService(
      */
     suspend fun generateEmbedding(
         text: String,
-        maxRetries: Int = 3
+        maxRetries: Int = 6
     ): List<Float> {
         if (text.isBlank()) {
             throw IllegalArgumentException("Text cannot be blank")
@@ -39,8 +39,9 @@ class EmbeddingService(
                 logger.warn("Attempt ${attempt + 1}/$maxRetries failed: ${e.message}")
                 
                 if (attempt < maxRetries - 1) {
-                    // Экспоненциальная задержка между попытками
-                    val delayMs = (1000L * (1 shl attempt)).coerceAtMost(10000L)
+                    // Экспоненциальная задержка между попытками (увеличена для больших текстов)
+                    val delayMs = (2000L * (1 shl attempt)).coerceAtMost(30000L)
+                    logger.debug("Waiting ${delayMs}ms before retry...")
                     delay(delayMs)
                 }
             }

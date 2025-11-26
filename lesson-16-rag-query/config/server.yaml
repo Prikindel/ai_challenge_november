@@ -5,14 +5,14 @@ server:
 ollama:
   baseUrl: "http://localhost:11434"  # URL Ollama сервера
   model: "nomic-embed-text"          # Модель для эмбеддингов
-  timeout: 30000                     # Таймаут в миллисекундах
+  timeout: 120000                    # Таймаут в миллисекундах (2 минуты для больших текстов)
 
 knowledgeBase:
   databasePath: "data/knowledge_base.db"  # Путь к базе знаний
   
 indexing:
-  chunkSize: 600      # Размер чанка в токенах
-  overlapSize: 100    # Перекрытие между чанками в токенах
+  chunkSize: 400      # Размер чанка в токенах (уменьшено для стабильности Ollama)
+  overlapSize: 50     # Перекрытие между чанками в токенах
   documentsPath: "documents"  # Папка с документами для индексации
 
 ai:
