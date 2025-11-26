@@ -123,3 +123,4 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-14-orchestration](./lesson-14-orchestration/) — оркестрация нескольких MCP серверов: LLM сама выбирает инструменты из разных источников для выполнения сложных задач
 - [lesson-15-document-indexing](./lesson-15-document-indexing/) — индексация документов с эмбеддингами: разбивка на чанки, генерация векторов через Ollama, семантический поиск по базе знаний
 - [lesson-16-rag-query](./lesson-16-rag-query/) — первый RAG-запрос: вопрос → поиск чанков → объединение с вопросом → запрос к LLM, сравнение ответов с RAG и без RAG
+- [lesson-17-rag-reranking](./lesson-17-rag-reranking/) — улучшенный RAG с фильтрацией и реранкингом: настройка порога, гибридные стратегии, сравнение ответов без фильтра и с фильтром
