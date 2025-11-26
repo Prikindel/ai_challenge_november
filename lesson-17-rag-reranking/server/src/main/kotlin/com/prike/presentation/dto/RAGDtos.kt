@@ -9,7 +9,9 @@ import kotlinx.serialization.Serializable
 data class RAGQueryRequestDto(
     val question: String,
     val topK: Int = 3,
-    val minSimilarity: Float = 0.7f
+    val minSimilarity: Float = 0.7f,
+    val applyFilter: Boolean? = null,  // Применить фильтр (null = использовать конфигурацию)
+    val strategy: String? = null  // Стратегия фильтрации (none, threshold, reranker, hybrid)
 )
 
 /**
@@ -83,12 +85,58 @@ data class StandardResponseDto(
 )
 
 /**
+ * DTO для метрик сравнения
+ */
+@Serializable
+data class ComparisonMetricsDto(
+    val baselineChunks: Int? = null,
+    val filteredChunks: Int? = null,
+    val avgSimilarityBefore: Float? = null,
+    val avgSimilarityAfter: Float? = null,
+    val tokensSaved: Int? = null,
+    val filterApplied: Boolean = false,
+    val strategy: String? = null
+)
+
+/**
  * DTO для результата сравнения
  */
 @Serializable
 data class ComparisonResponseDto(
     val question: String,
-    val ragResponse: RAGQueryResponseDto,
-    val standardResponse: StandardResponseDto
+    val baseline: RAGQueryResponseDto? = null,  // RAG без фильтра
+    val filtered: RAGQueryResponseDto? = null,  // RAG с фильтром
+    val ragResponse: RAGQueryResponseDto? = null,  // Для обратной совместимости
+    val standardResponse: StandardResponseDto? = null,
+    val metrics: ComparisonMetricsDto? = null
+)
+
+/**
+ * DTO для конфигурации фильтра
+ */
+@Serializable
+data class FilterConfigDto(
+    val enabled: Boolean,
+    val strategy: String,  // "none" | "threshold" | "reranker" | "hybrid"
+    val threshold: ThresholdConfigDto? = null
+)
+
+/**
+ * DTO для конфигурации порога
+ */
+@Serializable
+data class ThresholdConfigDto(
+    val minSimilarity: Float,
+    val keepTop: Int? = null
+)
+
+/**
+ * DTO для запроса обновления конфигурации фильтра
+ */
+@Serializable
+data class UpdateFilterConfigRequestDto(
+    val strategy: String? = null,
+    val minSimilarity: Float? = null,
+    val keepTop: Int? = null
 )
 

@@ -155,7 +155,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val indexingController = IndexingController(documentIndexer, knowledgeBaseRepository)
     val searchController = SearchController(searchService, knowledgeBaseRepository)
     val llmController = LLMController(llmService)
-    val ragController = RAGController(ragService, llmService, comparisonService)
+    val ragController = RAGController(ragService, llmService, comparisonService, filterConfig)
     
     routing {
         // Статические файлы для UI

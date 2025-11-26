@@ -39,9 +39,10 @@ class RAGService(
      * Выполняет RAG-запрос: поиск чанков + генерация ответа с контекстом
      * 
      * @param request запрос для RAG
+     * @param applyFilter применять ли фильтр/реранкер (по умолчанию используется конфигурация)
      * @return ответ с контекстом и использованными чанками
      */
-    suspend fun query(request: RAGRequest): RAGResponse {
+    suspend fun query(request: RAGRequest, applyFilter: Boolean? = null): RAGResponse {
         if (request.question.isBlank()) {
             throw IllegalArgumentException("Question cannot be blank")
         }
@@ -76,11 +77,16 @@ class RAGService(
             )
         }
         
-        // 3. Применяем стратегию фильтрации/реранкинга
-        val (filteredChunks, filterStats, rerankInsights) = applyFilteringStrategy(
-            chunks = retrievedChunks,
-            question = request.question
-        )
+        // 3. Применяем стратегию фильтрации/реранкинга (если не отключено явно)
+        val shouldApplyFilter = applyFilter ?: (filterConfig != null && filterConfig.enabled)
+        val (filteredChunks, filterStats, rerankInsights) = if (shouldApplyFilter) {
+            applyFilteringStrategy(
+                chunks = retrievedChunks,
+                question = request.question
+            )
+        } else {
+            Triple(retrievedChunks, null, null)
+        }
         
         // Если после фильтрации не осталось чанков, возвращаем ответ без контекста
         if (filteredChunks.isEmpty()) {
