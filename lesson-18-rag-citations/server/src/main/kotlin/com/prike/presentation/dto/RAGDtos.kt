@@ -62,6 +62,17 @@ data class RerankDecisionDto(
 )
 
 /**
+ * DTO для цитаты
+ */
+@Serializable
+data class CitationDto(
+    val text: String,
+    val documentPath: String,
+    val documentTitle: String,
+    val chunkId: String? = null
+)
+
+/**
  * DTO для RAG-ответа
  */
 @Serializable
@@ -71,7 +82,8 @@ data class RAGQueryResponseDto(
     val contextChunks: List<RetrievedChunkDto>,
     val tokensUsed: Int? = null,
     val filterStats: FilterStatsDto? = null,
-    val rerankInsights: List<RerankDecisionDto>? = null
+    val rerankInsights: List<RerankDecisionDto>? = null,
+    val citations: List<CitationDto> = emptyList()
 )
 
 /**
@@ -138,5 +150,51 @@ data class UpdateFilterConfigRequestDto(
     val strategy: String? = null,
     val minSimilarity: Float? = null,
     val keepTop: Int? = null
+)
+
+/**
+ * DTO для запроса тестирования цитат
+ */
+@Serializable
+data class CitationTestRequestDto(
+    val questions: List<String>,
+    val topK: Int = 5,
+    val minSimilarity: Float = 0.4f,
+    val applyFilter: Boolean = true,
+    val strategy: String = "hybrid"
+)
+
+/**
+ * DTO для результата теста одного вопроса
+ */
+@Serializable
+data class CitationTestResultDto(
+    val question: String,
+    val hasCitations: Boolean,
+    val citationsCount: Int,
+    val validCitationsCount: Int,
+    val answer: String,
+    val citations: List<CitationDto>
+)
+
+/**
+ * DTO для метрик тестирования
+ */
+@Serializable
+data class CitationMetricsDto(
+    val totalQuestions: Int,
+    val questionsWithCitations: Int,
+    val averageCitationsPerAnswer: Double,
+    val validCitationsPercentage: Double,
+    val answersWithoutHallucinations: Int
+)
+
+/**
+ * DTO для отчёта о тестировании
+ */
+@Serializable
+data class CitationTestReportDto(
+    val results: List<CitationTestResultDto>,
+    val metrics: CitationMetricsDto
 )
 

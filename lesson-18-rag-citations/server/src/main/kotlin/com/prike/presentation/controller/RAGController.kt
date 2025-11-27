@@ -4,6 +4,7 @@ import com.prike.domain.model.RAGRequest
 import com.prike.domain.service.ComparisonService
 import com.prike.domain.service.RAGService
 import com.prike.domain.service.LLMService
+import com.prike.domain.service.CitationAnalyzer
 import com.prike.presentation.dto.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -18,6 +19,7 @@ class RAGController(
     private val ragService: RAGService,
     private val llmService: LLMService,
     private val comparisonService: ComparisonService,
+    private val citationAnalyzer: CitationAnalyzer? = null,
     private val filterConfig: com.prike.config.RAGFilterConfig? = null  // Конфигурация фильтра для чтения
 ) {
     private val logger = LoggerFactory.getLogger(RAGController::class.java)
@@ -182,6 +184,85 @@ class RAGController(
                     )
                 }
             }
+            
+            // Тестирование цитат на нескольких вопросах
+            post("/api/rag/test-citations") {
+                try {
+                    if (citationAnalyzer == null) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                            ErrorResponse("Citation analyzer is not available")
+                        )
+                        return@post
+                    }
+                    
+                    val request = call.receive<CitationTestRequestDto>()
+                    
+                    // Валидация
+                    if (request.questions.isEmpty()) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.BadRequest,
+                            ErrorResponse("questions list cannot be empty")
+                        )
+                        return@post
+                    }
+                    
+                    if (request.questions.size > 20) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.BadRequest,
+                            ErrorResponse("Too many questions. Maximum is 20")
+                        )
+                        return@post
+                    }
+                    
+                    logger.info("Starting citation test with ${request.questions.size} questions")
+                    
+                    // Выполняем тест
+                    val report = citationAnalyzer.testCitations(
+                        questions = request.questions,
+                        topK = request.topK.coerceIn(1, 10),
+                        minSimilarity = request.minSimilarity.coerceIn(0f, 1f),
+                        applyFilter = request.applyFilter,
+                        strategy = request.strategy.takeIf { it in listOf("none", "threshold", "reranker", "hybrid") } ?: "hybrid"
+                    )
+                    
+                    // Преобразуем в DTO
+                    val reportDto = CitationTestReportDto(
+                        results = report.results.map { result ->
+                            CitationTestResultDto(
+                                question = result.question,
+                                hasCitations = result.hasCitations,
+                                citationsCount = result.citationsCount,
+                                validCitationsCount = result.validCitationsCount,
+                                answer = result.answer,
+                                citations = result.citations.map { citation ->
+                                    CitationDto(
+                                        text = citation.text,
+                                        documentPath = citation.documentPath,
+                                        documentTitle = citation.documentTitle,
+                                        chunkId = citation.chunkId
+                                    )
+                                }
+                            )
+                        },
+                        metrics = CitationMetricsDto(
+                            totalQuestions = report.metrics.totalQuestions,
+                            questionsWithCitations = report.metrics.questionsWithCitations,
+                            averageCitationsPerAnswer = report.metrics.averageCitationsPerAnswer,
+                            validCitationsPercentage = report.metrics.validCitationsPercentage,
+                            answersWithoutHallucinations = report.metrics.answersWithoutHallucinations
+                        )
+                    )
+                    
+                    call.respond(reportDto)
+                } catch (e: Exception) {
+                    logger.error("Citation test error", e)
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to test citations: ${e.message}")
+                    )
+                }
+            }
         }
     }
     
@@ -255,6 +336,14 @@ class RAGController(
                     rerankScore = decision.rerankScore,
                     reason = decision.reason,
                     shouldUse = decision.shouldUse
+                )
+            },
+            citations = ragResponse.citations.map { citation ->
+                CitationDto(
+                    text = citation.text,
+                    documentPath = citation.documentPath,
+                    documentTitle = citation.documentTitle,
+                    chunkId = citation.chunkId
                 )
             }
         )

@@ -1,8 +1,11 @@
 package com.prike.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Цитата из ответа LLM
  */
+@Serializable
 data class Citation(
     /**
      * Полный текст цитаты, как он появился в ответе
@@ -33,6 +36,7 @@ data class Citation(
 /**
  * Позиция текста в ответе
  */
+@Serializable
 data class TextPosition(
     /**
      * Начальная позиция (индекс первого символа)

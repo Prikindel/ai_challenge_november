@@ -149,13 +149,16 @@ fun Application.module(config: com.prike.config.AppConfig) {
         llmService = llmService
     )
     
+    // 15. Citation Analyzer для тестирования цитат
+    val citationAnalyzer = com.prike.domain.service.CitationAnalyzer(ragService)
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
     val indexingController = IndexingController(documentIndexer, knowledgeBaseRepository)
     val searchController = SearchController(searchService, knowledgeBaseRepository)
     val llmController = LLMController(llmService)
-    val ragController = RAGController(ragService, llmService, comparisonService, filterConfig)
+    val ragController = RAGController(ragService, llmService, comparisonService, citationAnalyzer, filterConfig)
     val documentController = com.prike.presentation.controller.DocumentController(knowledgeBaseRepository)
     
     routing {
