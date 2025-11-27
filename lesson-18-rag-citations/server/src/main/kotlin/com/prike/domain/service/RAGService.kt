@@ -7,6 +7,7 @@ import com.prike.config.AIConfig
 import com.prike.domain.model.RAGRequest
 import com.prike.domain.model.RAGResponse
 import com.prike.domain.model.RetrievedChunk
+import com.prike.domain.model.Citation
 import org.slf4j.LoggerFactory
 
 /**
@@ -22,6 +23,7 @@ class RAGService(
     private val aiConfig: AIConfig? = null  // Конфигурация AI для реранкера
 ) {
     private val logger = LoggerFactory.getLogger(RAGService::class.java)
+    private val citationParser = CitationParser()
     
     private val rerankerService: RerankerService? = if (filterConfig != null && aiConfig != null) {
         // Преобразуем конфигурацию из config в domain
@@ -129,13 +131,42 @@ class RAGService(
         
         logger.info("RAG query completed: answer length=${llmResponse.answer.length}, tokens=${llmResponse.tokensUsed}")
         
+        // 6. Парсим цитаты из ответа и валидируем их
+        val availableDocumentsMap = filteredChunks
+            .mapNotNull { chunk ->
+                chunk.documentPath?.let { path ->
+                    path to (chunk.documentTitle ?: path)
+                }
+            }
+            .distinctBy { it.first }
+            .toMap()
+        
+        val availableDocumentsPaths = availableDocumentsMap.keys.toSet()
+        
+        val answerWithCitations = citationParser.parseCitations(
+            rawAnswer = llmResponse.answer,
+            availableDocuments = availableDocumentsMap
+        )
+        
+        // Валидируем цитаты - проверяем, что документы были в контексте
+        val validatedCitations = answerWithCitations.citations.filter { citation ->
+            val isValid = citationParser.validateCitation(citation, availableDocumentsPaths)
+            if (!isValid) {
+                logger.warn("Invalid citation detected: ${citation.documentPath} (not in context)")
+            }
+            isValid
+        }
+        
+        logger.debug("Parsed ${answerWithCitations.citations.size} citations, ${validatedCitations.size} are valid")
+        
         return RAGResponse(
             question = request.question,
-            answer = llmResponse.answer,
+            answer = answerWithCitations.answer,
             contextChunks = filteredChunks,
             tokensUsed = llmResponse.tokensUsed,
             filterStats = filterStats,
-            rerankInsights = rerankInsights
+            rerankInsights = rerankInsights,
+            citations = validatedCitations
         )
     }
     
@@ -247,11 +278,18 @@ class RAGService(
             systemPrompt = promptResult.systemPrompt
         )
         
+        // Парсим цитаты даже для ответа без контекста (может быть пусто)
+        val answerWithCitations = citationParser.parseCitations(
+            rawAnswer = llmResponse.answer,
+            availableDocuments = emptyMap()
+        )
+        
         return RAGResponse(
             question = question,
-            answer = llmResponse.answer,
+            answer = answerWithCitations.answer,
             contextChunks = emptyList(),
-            tokensUsed = llmResponse.tokensUsed
+            tokensUsed = llmResponse.tokensUsed,
+            citations = emptyList()  // Нет контекста, значит цитаты невалидны
         )
     }
     

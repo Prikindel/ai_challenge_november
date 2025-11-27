@@ -12,5 +12,6 @@ data class RAGResponse(
     val contextChunks: List<RetrievedChunk>,  // использованные чанки
     val tokensUsed: Int? = null,
     val filterStats: FilterStats? = null,  // статистика фильтрации (если применён фильтр)
-    val rerankInsights: List<RerankDecision>? = null  // решения реранкера (если применён реранкер)
+    val rerankInsights: List<RerankDecision>? = null,  // решения реранкера (если применён реранкер)
+    val citations: List<Citation> = emptyList()  // извлечённые цитаты из ответа
 )
