@@ -41,10 +41,14 @@ class PromptBuilder(
         }
         
         val contextSection = buildContextSection(chunks)
+        val documentsList = buildDocumentsList(chunks)
         val instructions = buildInstructions()
         
         val systemPrompt = buildString {
             appendLine(systemMessage)
+            appendLine()
+            appendLine("Доступные документы:")
+            appendLine(documentsList)
             appendLine()
             appendLine("Контекст из базы знаний:")
             appendLine()
@@ -88,17 +92,40 @@ class PromptBuilder(
      */
     private fun buildContextSection(chunks: List<RetrievedChunk>): String {
         return chunks.mapIndexed { index, chunk ->
-            val documentInfo = chunk.documentPath ?: chunk.documentTitle ?: "Неизвестный документ"
+            val documentPath = chunk.documentPath ?: "unknown.md"
+            val documentTitle = chunk.documentTitle ?: documentPath
             val similarityPercent = (chunk.similarity * 100).toInt()
             
             buildString {
-                appendLine("[Чанк ${index + 1}] (документ: $documentInfo, сходство: ${similarityPercent}%)")
+                appendLine("[Чанк ${index + 1}] (документ: $documentTitle, путь: $documentPath, сходство: ${similarityPercent}%)")
                 appendLine(chunk.content.trim())
                 if (index < chunks.size - 1) {
                     appendLine() // Пустая строка между чанками
                 }
             }
         }.joinToString("\n")
+    }
+    
+    /**
+     * Формирует список доступных документов
+     */
+    private fun buildDocumentsList(chunks: List<RetrievedChunk>): String {
+        val uniqueDocuments = chunks
+            .mapNotNull { chunk ->
+                val path = chunk.documentPath ?: return@mapNotNull null
+                val title = chunk.documentTitle ?: path
+                path to title
+            }
+            .distinctBy { it.first }
+            .sortedBy { it.first }
+        
+        if (uniqueDocuments.isEmpty()) {
+            return "Нет доступных документов"
+        }
+        
+        return uniqueDocuments.joinToString("\n") { (path, title) ->
+            "- $title → путь: $path"
+        }
     }
     
     /**
@@ -110,7 +137,16 @@ class PromptBuilder(
             - Если в контексте нет информации для ответа, скажи об этом
             - Используй конкретные детали из контекста
             - Если информация противоречива, укажи на это
-            - Указывай источники информации, когда это возможно
+            
+            КРИТИЧЕСКИ ВАЖНО - ОБЯЗАТЕЛЬНЫЕ ЦИТАТЫ:
+            - Ты ОБЯЗАН указывать источники информации в каждом ответе
+            - Каждое утверждение, основанное на контексте, должно иметь ссылку на источник
+            - Используй формат Markdown для цитат: [Источник: название_документа](путь_к_документу)
+            - Название документа и путь к документу указывай точно из контекста выше
+            - Пример: [Источник: Создание MCP сервера](documents/01-mcp-server-creation.md)
+            - Если используешь информацию из нескольких документов, укажи все источники
+            - Минимум 2 цитаты в ответе, если контекст содержит достаточно информации
+            - Цитаты должны быть расположены рядом с соответствующими утверждениями
         """.trimIndent()
     }
 }
