@@ -155,9 +155,35 @@ function displayResponse(responseData, type) {
     const chunksList = document.getElementById(`${type}ChunksListContent`);
     
     if (responseData) {
+        // Извлекаем цитаты из ответа
+        let answerText = responseData.answer;
+        let citations = [];
+        
+        // Если есть цитаты в response, используем их
+        if (responseData.citations && responseData.citations.length > 0) {
+            citations = responseData.citations.map(cit => ({
+                text: cit.text,
+                title: cit.documentTitle,
+                path: cit.documentPath,
+                start: cit.position?.start || 0,
+                end: cit.position?.end || 0
+            }));
+        } else {
+            // Иначе пытаемся извлечь из текста
+            citations = extractCitations(answerText);
+        }
+        
+        // Заменяем цитаты на кликабельные ссылки
+        if (citations.length > 0) {
+            answerText = replaceCitationsWithLinks(answerText, citations);
+        }
+        
         // Рендерим Markdown
-        const markdownHtml = marked.parse(responseData.answer);
+        const markdownHtml = marked.parse(answerText);
         answerDiv.innerHTML = markdownHtml;
+        
+        // Инициализируем обработчики кликов на цитаты
+        initializeCitationLinks(answerDiv);
         
         // Токены
         if (responseData.tokensUsed !== null && responseData.tokensUsed !== undefined) {
