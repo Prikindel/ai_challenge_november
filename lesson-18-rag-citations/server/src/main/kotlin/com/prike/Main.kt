@@ -156,6 +156,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val searchController = SearchController(searchService, knowledgeBaseRepository)
     val llmController = LLMController(llmService)
     val ragController = RAGController(ragService, llmService, comparisonService, filterConfig)
+    val documentController = com.prike.presentation.controller.DocumentController(knowledgeBaseRepository)
     
     routing {
         // Статические файлы для UI
@@ -178,6 +179,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
         searchController.registerRoutes(this)
         llmController.registerRoutes(this)
         ragController.registerRoutes(this)
+        documentController.registerRoutes(this)
     }
     
     // Закрытие ресурсов при остановке

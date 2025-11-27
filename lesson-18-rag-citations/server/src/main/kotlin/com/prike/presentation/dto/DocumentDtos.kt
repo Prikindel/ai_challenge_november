@@ -22,3 +22,14 @@ data class DocumentInfo(
     val chunkCount: Int
 )
 
+/**
+ * DTO для ответа с содержимым документа
+ */
+@Serializable
+data class DocumentContentResponse(
+    val documentPath: String,
+    val documentTitle: String?,
+    val content: String,
+    val indexedAt: Long,
+    val chunksCount: Int
+)

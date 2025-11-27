@@ -216,6 +216,30 @@ class KnowledgeBaseRepository(
     }
     
     /**
+     * Получает документ по пути к файлу
+     */
+    fun getDocumentByPath(filePath: String): Document? {
+        return withConnection { connection ->
+            val sql = """
+                SELECT id, file_path, title, content, indexed_at, chunk_count
+                FROM documents
+                WHERE file_path = ?
+            """.trimIndent()
+            
+            connection.prepareStatement(sql).use { stmt ->
+                stmt.setString(1, filePath)
+                stmt.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        mapRowToDocument(rs)
+                    } else {
+                        null
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
      * Получает все чанки из базы данных
      */
     fun getAllChunks(): List<DocumentChunk> {
