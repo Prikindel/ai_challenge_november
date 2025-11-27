@@ -1,6 +1,11 @@
 // Базовый JavaScript для клиента
 
-console.log('Document Indexing System loaded');
+// Document Indexing System loaded
+
+// Глобальная константа для API базового URL
+if (typeof window.API_BASE === 'undefined') {
+    window.API_BASE = 'http://localhost:8080/api';
+}
 
 // Функция для отображения сообщений
 function showMessage(message, type = 'info') {

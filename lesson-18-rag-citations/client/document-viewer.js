@@ -1,6 +1,7 @@
 // Просмотрщик документов - модальное окно
 
-const API_BASE = 'http://localhost:8080/api';
+// Используем глобальную константу из app.js
+var API_BASE = window.API_BASE || 'http://localhost:8080/api';
 
 /**
  * Открывает модальное окно просмотра документа (глобальная функция)
@@ -76,13 +77,16 @@ async function loadDocument(documentPath, documentTitle) {
     titleDiv.textContent = documentTitle || 'Загрузка документа...';
     
     try {
-        // Кодируем путь для URL (заменяем / на /)
-        const encodedPath = encodeURIComponent(documentPath).replace(/%2F/g, '/');
-        const response = await fetch(`${API_BASE}/documents/${encodedPath}`);
+        // Кодируем каждый сегмент пути отдельно, сохраняя разделители /
+        // Для пути "documents/01-mcp-server-creation.md" получим "documents/01-mcp-server-creation.md"
+        const pathSegments = documentPath.split('/').map(segment => encodeURIComponent(segment));
+        const encodedPath = pathSegments.join('/');
+        const url = `${API_BASE}/documents/${encodedPath}`;
+        const response = await fetch(url);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-            throw new Error(errorData.message || `HTTP ${response.status}`);
+            throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
         }
         
         const document = await response.json();

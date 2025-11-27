@@ -1,6 +1,7 @@
 // JavaScript для страницы сравнения RAG с фильтрацией и реранкингом
 
-const API_BASE = 'http://localhost:8080/api';
+// Используем глобальную константу из app.js
+var API_BASE = window.API_BASE || 'http://localhost:8080/api';
 
 // Инициализация: показываем/скрываем поля в зависимости от стратегии
 document.addEventListener('DOMContentLoaded', () => {
@@ -173,17 +174,19 @@ function displayResponse(responseData, type) {
             citations = extractCitations(answerText);
         }
         
-        // Заменяем цитаты на кликабельные ссылки
-        if (citations.length > 0) {
-            answerText = replaceCitationsWithLinks(answerText, citations);
-        }
-        
-        // Рендерим Markdown
+        // Рендерим Markdown сначала
         const markdownHtml = marked.parse(answerText);
         answerDiv.innerHTML = markdownHtml;
         
+        // Затем заменяем ссылки на цитаты в уже обработанном HTML
+        if (citations.length > 0 && typeof window.replaceCitationLinksInHTML === 'function') {
+            window.replaceCitationLinksInHTML(answerDiv, citations);
+        }
+        
         // Инициализируем обработчики кликов на цитаты
-        initializeCitationLinks(answerDiv);
+        if (typeof window.initializeCitationLinks === 'function') {
+            window.initializeCitationLinks(answerDiv);
+        }
         
         // Токены
         if (responseData.tokensUsed !== null && responseData.tokensUsed !== undefined) {

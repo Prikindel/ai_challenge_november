@@ -124,16 +124,92 @@ function handleCitationClick(event, documentPath, documentTitle) {
 }
 
 /**
+ * Заменяет ссылки на цитаты в уже обработанном HTML
+ * Ищет ссылки, которые соответствуют цитатам, и заменяет их на ссылки с обработчиками
+ */
+function replaceCitationLinksInHTML(containerElement, citations) {
+    if (!citations || citations.length === 0) {
+        return;
+    }
+    
+    // Создаём Map для быстрого поиска цитат по пути
+    const citationMap = new Map();
+    citations.forEach(cit => {
+        // Нормализуем путь для сравнения
+        const normalizedPath = cit.path.replace(/^\/+|\/+$/g, ''); // Убираем ведущие/конечные слэши
+        citationMap.set(normalizedPath, cit);
+        
+        // Также добавляем вариант с полным путём
+        if (cit.path.startsWith('documents/')) {
+            citationMap.set(cit.path, cit);
+        }
+    });
+    
+    // Находим все ссылки в контейнере
+    const allLinks = containerElement.querySelectorAll('a');
+    
+    allLinks.forEach(link => {
+        const href = link.getAttribute('href') || '';
+        const linkText = link.textContent.trim();
+        
+        // Нормализуем href для сравнения
+        let normalizedHref = href.replace(/^\/+|\/+$/g, '');
+        
+        // Ищем соответствующую цитату по пути
+        let citation = citationMap.get(normalizedHref);
+        
+        if (!citation) {
+            // Пробуем найти по части пути
+            citation = Array.from(citationMap.values()).find(cit => {
+                const citPath = cit.path.replace(/^\/+|\/+$/g, '');
+                return normalizedHref === citPath || 
+                       normalizedHref.endsWith('/' + citPath) ||
+                       normalizedHref.endsWith(citPath) ||
+                       citPath.endsWith(normalizedHref);
+            });
+        }
+        
+        // Если не нашли по пути, проверяем по тексту
+        if (!citation) {
+            citation = citations.find(cit => {
+                const citationText = cit.text.replace(/\[|\]/g, '').trim();
+                return linkText.includes(citationText) ||
+                       (citationText.includes('Источник') && linkText.includes('Источник')) ||
+                       (citationText.includes(cit.title) && cit.title.length > 3);
+            });
+        }
+        
+        if (citation) {
+            // Заменяем ссылку на нашу ссылку с обработчиком
+            link.className = 'citation-link';
+            link.href = '#'; // Предотвращаем переход по ссылке
+            link.setAttribute('data-document-path', citation.path);
+            link.setAttribute('data-document-title', citation.title);
+        }
+    });
+}
+
+/**
  * Инициализирует обработчики кликов на цитаты в элементе
  */
 function initializeCitationLinks(containerElement) {
     const citationLinks = containerElement.querySelectorAll('.citation-link');
     citationLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            const path = link.getAttribute('data-document-path');
-            const title = link.getAttribute('data-document-title');
-            handleCitationClick(e, path, title);
-        });
+        // Удаляем старые обработчики, чтобы избежать дублирования
+        const newLink = link.cloneNode(true);
+        link.parentNode.replaceChild(newLink, link);
+        
+        const path = newLink.getAttribute('data-document-path');
+        const title = newLink.getAttribute('data-document-title');
+        
+        if (path && title) {
+            newLink.addEventListener('click', (e) => {
+                handleCitationClick(e, path, title);
+            });
+        }
     });
 }
+
+// Делаем функции глобально доступными
+window.replaceCitationLinksInHTML = replaceCitationLinksInHTML;
 

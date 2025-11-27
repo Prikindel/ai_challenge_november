@@ -1,6 +1,7 @@
 // JavaScript для страницы поиска
 
-const API_BASE = 'http://localhost:8080/api';
+// Используем глобальную константу из app.js
+var API_BASE = window.API_BASE || 'http://localhost:8080/api';
 
 // Выполнение поиска
 async function performSearch() {

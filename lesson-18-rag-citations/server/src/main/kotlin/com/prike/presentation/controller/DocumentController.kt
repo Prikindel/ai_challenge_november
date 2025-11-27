@@ -24,6 +24,7 @@ class DocumentController(
                 try {
                     val pathParts = call.parameters.getAll("documentPath") ?: emptyList()
                     val documentPath = if (pathParts.isEmpty()) {
+                        logger.warn("Document path is empty")
                         call.respond(
                             io.ktor.http.HttpStatusCode.BadRequest,
                             ErrorResponse("documentPath is required")
@@ -54,8 +55,6 @@ class DocumentController(
                         )
                         return@get
                     }
-                    
-                    logger.debug("Retrieved document: $documentPath")
                     
                     call.respond(
                         DocumentContentResponse(

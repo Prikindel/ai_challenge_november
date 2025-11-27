@@ -219,24 +219,56 @@ class KnowledgeBaseRepository(
      * Получает документ по пути к файлу
      */
     fun getDocumentByPath(filePath: String): Document? {
+        // Нормализуем путь (убираем лишние слэши, нормализуем разделители)
+        val normalizedPath = normalizePath(filePath)
+        
         return withConnection { connection ->
-            val sql = """
+            // Сначала пробуем точное совпадение
+            var sql = """
                 SELECT id, file_path, title, content, indexed_at, chunk_count
                 FROM documents
                 WHERE file_path = ?
             """.trimIndent()
             
             connection.prepareStatement(sql).use { stmt ->
-                stmt.setString(1, filePath)
+                stmt.setString(1, normalizedPath)
                 stmt.executeQuery().use { rs ->
                     if (rs.next()) {
-                        mapRowToDocument(rs)
-                    } else {
-                        null
+                        return@withConnection mapRowToDocument(rs)
                     }
                 }
             }
+            
+            // Если не нашли, пробуем поиск с нормализацией путей в БД
+            sql = """
+                SELECT id, file_path, title, content, indexed_at, chunk_count
+                FROM documents
+            """.trimIndent()
+            
+            connection.createStatement().use { stmt ->
+                stmt.executeQuery(sql).use { rs ->
+                    while (rs.next()) {
+                        val dbPath = rs.getString("file_path")
+                        val normalizedDbPath = normalizePath(dbPath)
+                        if (normalizedPath == normalizedDbPath) {
+                            return@withConnection mapRowToDocument(rs)
+                        }
+                    }
+                }
+            }
+            
+            null
         }
+    }
+    
+    /**
+     * Нормализует путь к документу для сравнения
+     */
+    private fun normalizePath(path: String): String {
+        return path
+            .replace("\\", "/")
+            .replace(Regex("/+"), "/")
+            .trim('/')
     }
     
     /**

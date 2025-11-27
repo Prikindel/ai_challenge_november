@@ -1,9 +1,10 @@
 // JavaScript для страницы тестирования цитат
 
-const API_BASE = 'http://localhost:8080/api';
+// Используем глобальную константу из app.js
+var API_BASE = window.API_BASE || 'http://localhost:8080/api';
 
-// Запуск теста
-async function runCitationTest() {
+// Запуск теста (глобальная функция)
+window.runCitationTest = async function() {
     const questionsText = document.getElementById('questionsInput').value.trim();
     if (!questionsText) {
         showMessage('Введите вопросы', 'error');
@@ -54,14 +55,18 @@ async function runCitationTest() {
             })
         });
         
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                if (!response.ok) {
+                    const errorText = await response.text();
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch (e) {
+                errorData = { message: errorText || `HTTP ${response.status}` };
+            }
             throw new Error(errorData.message || `HTTP ${response.status}`);
         }
         
         const report = await response.json();
-        
-        // Отображаем результаты
         displayTestResults(report);
         
         statusDiv.className = 'status success';
@@ -72,11 +77,23 @@ async function runCitationTest() {
         statusDiv.className = 'status error';
         statusDiv.textContent = `Ошибка: ${error.message}`;
         resultsDiv.style.display = 'none';
+        
+        // Показываем более подробную информацию об ошибке
+        if (error.message.includes('fetch')) {
+            statusDiv.textContent = `Ошибка подключения к серверу. Убедитесь, что сервер запущен на ${API_BASE}`;
+        }
     } finally {
         testButton.disabled = false;
         testButton.textContent = 'Запустить тест';
     }
-}
+};
+
+// Показ сообщения
+window.showMessage = function(message, type) {
+    const statusDiv = document.getElementById('testStatus');
+    statusDiv.className = `status ${type}`;
+    statusDiv.textContent = message;
+};
 
 // Отображение результатов теста
 function displayTestResults(report) {
@@ -113,19 +130,8 @@ function displayQuestionResults(results) {
                 : `<span class="status-badge warning">${result.validCitationsCount}/${result.citationsCount} валидны</span>`
             : '';
         
-        // Извлекаем цитаты и делаем их кликабельными
-        let answerText = result.answer;
-        if (result.citations && result.citations.length > 0) {
-            const citations = result.citations.map(cit => ({
-                text: cit.text,
-                title: cit.documentTitle,
-                path: cit.documentPath,
-                start: 0,
-                end: 0
-            }));
-            answerText = replaceCitationsWithLinks(answerText, citations);
-        }
-        
+        // Сначала рендерим Markdown
+        const answerText = result.answer;
         const answerHtml = typeof marked !== 'undefined' 
             ? marked.parse(answerText)
             : escapeHtml(answerText).replace(/\n/g, '<br>');
@@ -139,7 +145,7 @@ function displayQuestionResults(results) {
                         ${validStatus}
                     </div>
                 </div>
-                <div class="result-answer markdown-content">
+                <div class="result-answer markdown-content" data-citations='${JSON.stringify(result.citations || [])}'>
                     ${answerHtml}
                 </div>
                 ${result.citations && result.citations.length > 0 ? `
@@ -163,31 +169,58 @@ function displayQuestionResults(results) {
         `;
     }).join('');
     
+    // Обрабатываем ссылки на цитаты в HTML ответов
+    resultsList.querySelectorAll('.result-answer').forEach(answerDiv => {
+        const citationsData = answerDiv.getAttribute('data-citations');
+        if (citationsData) {
+            try {
+                const citations = JSON.parse(citationsData);
+                if (citations.length > 0 && typeof window.replaceCitationLinksInHTML === 'function') {
+                    const citationsForReplace = citations.map(cit => ({
+                        text: cit.text || '',
+                        title: cit.documentTitle || '',
+                        path: cit.documentPath || '',
+                        start: 0,
+                        end: 0
+                    }));
+                    window.replaceCitationLinksInHTML(answerDiv, citationsForReplace);
+                }
+            } catch (e) {
+                // Ignore citation parsing errors
+            }
+        }
+    });
+    
     // Инициализируем ссылки на цитаты
     resultsList.querySelectorAll('.citation-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const path = link.getAttribute('data-document-path');
             const title = link.getAttribute('data-document-title');
-            if (typeof window.openDocumentViewer === 'function') {
+            if (path && typeof window.openDocumentViewer === 'function') {
                 window.openDocumentViewer(path, title);
             }
         });
     });
 }
 
-// Показ сообщения
-function showMessage(message, type) {
-    const statusDiv = document.getElementById('testStatus');
-    statusDiv.className = `status ${type}`;
-    statusDiv.textContent = message;
+// Экранирование HTML (глобальная функция, если не определена в других скриптах)
+if (typeof escapeHtml === 'undefined') {
+    window.escapeHtml = function(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
 }
 
-// Экранирование HTML
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    const testButton = document.getElementById('testButton');
+    if (testButton && typeof window.runCitationTest === 'function') {
+        testButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.runCitationTest();
+        });
+    }
+});
