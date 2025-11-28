@@ -23,27 +23,43 @@
                 <a href="chat.html" class="tab active">Чат</a>
             </nav>
             
-            <div class="chat-container">
-                <!-- Область истории сообщений -->
-                <div class="chat-messages" id="chatMessages">
-                    <div class="chat-welcome">
-                        <h2>Добро пожаловать в чат!</h2>
-                        <p>Задайте вопрос, и я найду ответ в базе знаний с указанием источников.</p>
+            <div class="chat-layout">
+                <!-- Боковая панель с сессиями -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <h3>Сессии чата</h3>
+                        <button class="btn-new-session" onclick="createNewSession()" title="Создать новую сессию">
+                            <span>+</span>
+                        </button>
+                    </div>
+                    <div class="chat-sessions-list" id="sessionsList">
+                        <div class="sessions-loading">Загрузка сессий...</div>
                     </div>
                 </div>
                 
-                <!-- Область ввода сообщения -->
-                <div class="chat-input-container">
-                    <div class="chat-input-wrapper">
-                        <textarea 
-                            id="messageInput" 
-                            placeholder="Введите ваш вопрос..." 
-                            rows="2"
-                            maxlength="2000"
-                        ></textarea>
-                        <button id="sendButton" onclick="sendMessage()">Отправить</button>
+                <!-- Основная область чата -->
+                <div class="chat-container">
+                    <!-- Область истории сообщений -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-welcome">
+                            <h2>Добро пожаловать в чат!</h2>
+                            <p>Задайте вопрос, и я найду ответ в базе знаний с указанием источников.</p>
+                        </div>
                     </div>
-                    <div class="chat-status" id="chatStatus"></div>
+                    
+                    <!-- Область ввода сообщения -->
+                    <div class="chat-input-container">
+                        <div class="chat-input-wrapper">
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Введите ваш вопрос..." 
+                                rows="2"
+                                maxlength="2000"
+                            ></textarea>
+                            <button id="sendButton" onclick="sendMessage()">Отправить</button>
+                        </div>
+                        <div class="chat-status" id="chatStatus"></div>
+                    </div>
                 </div>
             </div>
         </main>

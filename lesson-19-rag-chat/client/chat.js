@@ -8,11 +8,15 @@ let currentSessionId = null;
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', async () => {
+    // Загружаем список сессий
+    await loadSessions();
+    
     // Проверяем, есть ли сохраненная сессия в localStorage
     const savedSessionId = localStorage.getItem('chatSessionId');
     if (savedSessionId) {
         currentSessionId = savedSessionId;
         await loadHistory();
+        updateActiveSession();
     } else {
         // Создаем новую сессию
         await createNewSession();
@@ -27,6 +31,123 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+/**
+ * Загружает список всех сессий
+ */
+async function loadSessions() {
+    try {
+        const response = await fetch(`${API_BASE}/chat/sessions`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const sessions = await response.json();
+        renderSessionsList(sessions);
+    } catch (error) {
+        console.error('Failed to load sessions:', error);
+        const sessionsList = document.getElementById('sessionsList');
+        sessionsList.innerHTML = '<div class="sessions-error">Ошибка загрузки сессий</div>';
+    }
+}
+
+/**
+ * Отображает список сессий в боковой панели
+ */
+function renderSessionsList(sessions) {
+    const sessionsList = document.getElementById('sessionsList');
+    
+    if (!sessions || sessions.length === 0) {
+        sessionsList.innerHTML = '<div class="sessions-empty">Нет сессий</div>';
+        return;
+    }
+    
+    sessionsList.innerHTML = sessions.map(session => {
+        const date = new Date(session.updatedAt);
+        const dateStr = formatDate(date);
+        const title = session.title || `Сессия ${dateStr}`;
+        const isActive = session.id === currentSessionId;
+        
+        return `
+            <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
+                <div class="session-content" onclick="switchSession('${session.id}')">
+                    <div class="session-title">${escapeHtml(title)}</div>
+                    <div class="session-date">${dateStr}</div>
+                </div>
+                <button class="session-delete" onclick="deleteSession('${session.id}', event)" title="Удалить сессию">
+                    ×
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Переключается на другую сессию
+ */
+async function switchSession(sessionId) {
+    if (sessionId === currentSessionId) {
+        return;
+    }
+    
+    currentSessionId = sessionId;
+    localStorage.setItem('chatSessionId', currentSessionId);
+    
+    updateActiveSession();
+    await loadHistory();
+}
+
+/**
+ * Обновляет выделение активной сессии
+ */
+function updateActiveSession() {
+    const sessionItems = document.querySelectorAll('.session-item');
+    sessionItems.forEach(item => {
+        const sessionId = item.getAttribute('data-session-id');
+        if (sessionId === currentSessionId) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+/**
+ * Удаляет сессию
+ */
+async function deleteSession(sessionId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    if (!confirm('Вы уверены, что хотите удалить эту сессию? Все сообщения будут удалены.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/chat/sessions/${sessionId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Если удалили текущую сессию, создаем новую
+        if (sessionId === currentSessionId) {
+            currentSessionId = null;
+            localStorage.removeItem('chatSessionId');
+            await createNewSession();
+        }
+        
+        // Обновляем список сессий
+        await loadSessions();
+    } catch (error) {
+        console.error('Failed to delete session:', error);
+        alert('Ошибка удаления сессии: ' + error.message);
+    }
+}
 
 /**
  * Создает новую сессию чата
@@ -56,6 +177,10 @@ async function createNewSession() {
         showStatus('');
         clearMessages();
         addWelcomeMessage();
+        
+        // Обновляем список сессий
+        await loadSessions();
+        updateActiveSession();
         
         console.log('Session created:', currentSessionId);
     } catch (error) {
@@ -127,6 +252,10 @@ async function sendMessage() {
         
         // Добавляем ответ ассистента
         addMessage('assistant', data.message.content, data.message.citations);
+        
+        // Обновляем список сессий (сессия обновилась)
+        await loadSessions();
+        updateActiveSession();
         
         showStatus('');
     } catch (error) {
@@ -339,5 +468,37 @@ function showStatus(message, type = 'info') {
     } else {
         statusDiv.style.display = 'none';
     }
+}
+
+/**
+ * Форматирует дату для отображения
+ */
+function formatDate(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) {
+        return 'только что';
+    } else if (minutes < 60) {
+        return `${minutes} мин назад`;
+    } else if (hours < 24) {
+        return `${hours} ч назад`;
+    } else if (days < 7) {
+        return `${days} дн назад`;
+    } else {
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    }
+}
+
+/**
+ * Экранирует HTML для безопасности
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
