@@ -1,7 +1,10 @@
 package com.prike.domain.service
 
 import com.prike.domain.model.RetrievedChunk
+import com.prike.domain.model.ChatMessage
+import com.prike.domain.model.MessageRole
 import org.slf4j.LoggerFactory
+import kotlin.text.buildString
 
 /**
  * Построитель промптов с контекстом из базы знаний
@@ -75,6 +78,84 @@ class PromptBuilder(
      */
     fun buildPromptWithoutContext(question: String): PromptResult {
         val systemPrompt = systemMessage
+        val userMessage = buildString {
+            appendLine("Вопрос: $question")
+            appendLine()
+            appendLine("Ответ:")
+        }
+        
+        return PromptResult(
+            systemPrompt = systemPrompt,
+            userMessage = userMessage
+        )
+    }
+    
+    /**
+     * Формирует промпт для чата с историей диалога и контекстом из RAG
+     * 
+     * @param question текущий вопрос пользователя
+     * @param history история диалога (последние N сообщений)
+     * @param chunks релевантные чанки из RAG-поиска
+     * @return системный промпт и сообщение пользователя
+     */
+    fun buildChatPrompt(
+        question: String,
+        history: List<ChatMessage> = emptyList(),
+        chunks: List<RetrievedChunk> = emptyList()
+    ): PromptResult {
+        val contextSection = if (chunks.isNotEmpty()) {
+            buildContextSection(chunks)
+        } else {
+            null
+        }
+        
+        val documentsList = if (chunks.isNotEmpty()) {
+            buildDocumentsList(chunks)
+        } else {
+            null
+        }
+        
+        val instructions = buildInstructions()
+        
+        // Формируем системный промпт
+        val systemPrompt = buildString {
+            appendLine(systemMessage)
+            appendLine()
+            
+            if (documentsList != null) {
+                appendLine("Доступные документы:")
+                appendLine(documentsList)
+                appendLine()
+            }
+            
+            if (contextSection != null) {
+                appendLine("Контекст из базы знаний:")
+                appendLine()
+                append(contextSection)
+                appendLine()
+            }
+            
+            if (history.isNotEmpty()) {
+                appendLine("История диалога:")
+                appendLine()
+                history.forEach { message ->
+                    val roleLabel = when (message.role) {
+                        MessageRole.USER -> "Пользователь"
+                        MessageRole.ASSISTANT -> "Ассистент"
+                    }
+                    appendLine("$roleLabel: ${message.content}")
+                    if (message.citations.isNotEmpty()) {
+                        appendLine("  (Источники: ${message.citations.joinToString(", ") { it.documentTitle }})")
+                    }
+                    appendLine()
+                }
+            }
+            
+            appendLine("Инструкции:")
+            append(instructions)
+        }
+        
+        // Формируем сообщение пользователя
         val userMessage = buildString {
             appendLine("Вопрос: $question")
             appendLine()
