@@ -93,6 +93,22 @@ data class RAGConfig(
 )
 
 /**
+ * Конфигурация истории чата
+ */
+data class ChatHistoryConfig(
+    val maxMessages: Int = 10,
+    val maxTokens: Int = 2000,
+    val strategy: String = "sliding"  // "sliding" | "token_limit" | "none"
+)
+
+/**
+ * Конфигурация чата
+ */
+data class ChatConfig(
+    val history: ChatHistoryConfig = ChatHistoryConfig()
+)
+
+/**
  * Главная конфигурация приложения
  */
 data class AppConfig(
@@ -101,7 +117,8 @@ data class AppConfig(
     val knowledgeBase: KnowledgeBaseConfig,
     val indexing: IndexingConfig,
     val ai: AIConfig,
-    val rag: RAGConfig = RAGConfig()
+    val rag: RAGConfig = RAGConfig(),
+    val chat: ChatConfig = ChatConfig()
 )
 
 object Config {
@@ -209,13 +226,24 @@ object Config {
             filter = filter
         )
         
+        // Конфигурация чата
+        val chatMap = serverConfigMap["chat"] as? Map<String, Any> ?: emptyMap()
+        val historyMap = chatMap["history"] as? Map<String, Any> ?: emptyMap()
+        val history = ChatHistoryConfig(
+            maxMessages = (historyMap["maxMessages"] as? Number)?.toInt() ?: 10,
+            maxTokens = (historyMap["maxTokens"] as? Number)?.toInt() ?: 2000,
+            strategy = historyMap["strategy"] as? String ?: "sliding"
+        )
+        val chat = ChatConfig(history = history)
+        
         return AppConfig(
             server = server,
             ollama = ollama,
             knowledgeBase = knowledgeBase,
             indexing = indexing,
             ai = ai,
-            rag = rag
+            rag = rag,
+            chat = chat
         )
     }
     

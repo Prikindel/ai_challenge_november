@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
 class ChatService(
     private val chatRepository: ChatRepository,
     private val ragService: RAGService,
-    private val promptBuilder: PromptBuilder,
+    private val chatPromptBuilder: ChatPromptBuilder,
     private val llmService: LLMService,
     private val citationParser: CitationParser = CitationParser()
 ) {
@@ -31,6 +31,7 @@ class ChatService(
      * @param minSimilarity минимальное сходство для RAG-поиска
      * @param applyFilter применять ли фильтр/реранкер
      * @param strategy стратегия фильтрации
+     * @param historyStrategy стратегия оптимизации истории ("sliding" | "token_limit" | "none")
      * @return ответ ассистента с цитатами
      */
     suspend fun processMessage(
@@ -39,7 +40,8 @@ class ChatService(
         topK: Int = 5,
         minSimilarity: Float = 0.4f,
         applyFilter: Boolean? = null,
-        strategy: String? = null
+        strategy: String? = null,
+        historyStrategy: String? = null
     ): ChatMessage {
         logger.info("Processing message in session $sessionId: ${userMessage.take(50)}...")
         
@@ -73,18 +75,19 @@ class ChatService(
         
         logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations")
         
-        // 5. Получаем историю для промпта (только сообщения ассистента и пользователя)
-        // Используем последние N сообщений для контекста
-        val historyForPrompt = history.takeLast(10) // Последние 10 сообщений
-        
-        // 6. Формируем промпт с историей и контекстом из RAG
-        val promptResult = promptBuilder.buildChatPrompt(
+        // 5. Формируем промпт с оптимизированной историей и контекстом из RAG
+        // Используем переданную стратегию или конфигурацию по умолчанию
+        val promptResult = chatPromptBuilder.buildChatPrompt(
             question = userMessage,
-            history = historyForPrompt,
-            chunks = ragResponse.contextChunks
+            history = history,
+            chunks = ragResponse.contextChunks,
+            strategy = historyStrategy
         )
         
-        logger.debug("Built chat prompt with ${historyForPrompt.size} history messages and ${ragResponse.contextChunks.size} chunks")
+        // Логируем статистику оптимизации
+        val optimizedHistory = chatPromptBuilder.optimizeHistory(history, strategy = historyStrategy)
+        val stats = chatPromptBuilder.getOptimizationStats(history, optimizedHistory)
+        logger.debug("Built chat prompt (strategy: ${historyStrategy ?: "default"}): ${stats.originalMessagesCount} -> ${stats.optimizedMessagesCount} messages, ${stats.originalTokens} -> ${stats.optimizedTokens} tokens (saved: ${stats.tokensSaved})")
         
         // 7. Генерируем ответ через LLM
         val llmResponse = llmService.generateAnswer(

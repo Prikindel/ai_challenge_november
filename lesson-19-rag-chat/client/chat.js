@@ -226,6 +226,9 @@ async function sendMessage() {
     try {
         showStatus('Поиск ответа в базе знаний...');
         
+        // Получаем выбранную стратегию истории
+        const historyStrategy = document.getElementById('historyStrategy').value;
+        
         const response = await fetch(`${API_BASE}/chat/sessions/${currentSessionId}/messages`, {
             method: 'POST',
             headers: {
@@ -236,7 +239,8 @@ async function sendMessage() {
                 topK: 5,
                 minSimilarity: 0.4,
                 applyFilter: true,
-                strategy: 'hybrid'
+                strategy: 'hybrid',
+                historyStrategy: historyStrategy
             })
         });
         

@@ -147,6 +147,11 @@ class ChatController(
                         return@post
                     }
                     
+                    // Валидация стратегии истории
+                    val historyStrategy = request.historyStrategy?.takeIf { 
+                        it in listOf("sliding", "token_limit", "none") 
+                    }
+                    
                     // Обрабатываем сообщение через ChatService
                     val assistantMessage = chatService.processMessage(
                         sessionId = sessionId,
@@ -154,7 +159,8 @@ class ChatController(
                         topK = request.topK.coerceIn(1, 10),
                         minSimilarity = request.minSimilarity.coerceIn(0f, 1f),
                         applyFilter = request.applyFilter,
-                        strategy = request.strategy?.takeIf { it in listOf("none", "threshold", "reranker", "hybrid") }
+                        strategy = request.strategy?.takeIf { it in listOf("none", "threshold", "reranker", "hybrid") },
+                        historyStrategy = historyStrategy
                     )
                     
                     logger.info("Message processed: session=$sessionId, messageId=${assistantMessage.id}")

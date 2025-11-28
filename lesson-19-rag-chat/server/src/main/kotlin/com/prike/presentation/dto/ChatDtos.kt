@@ -30,7 +30,8 @@ data class SendMessageRequest(
     val topK: Int = 5,
     val minSimilarity: Float = 0.4f,
     val applyFilter: Boolean? = null,
-    val strategy: String? = null
+    val strategy: String? = null,
+    val historyStrategy: String? = null  // Стратегия оптимизации истории: "sliding" | "token_limit" | "none"
 )
 
 /**

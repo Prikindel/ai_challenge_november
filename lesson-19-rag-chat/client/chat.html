@@ -49,6 +49,14 @@
                     
                     <!-- Область ввода сообщения -->
                     <div class="chat-input-container">
+                        <div class="chat-settings">
+                            <label for="historyStrategy">Стратегия истории:</label>
+                            <select id="historyStrategy" title="Выберите стратегию оптимизации истории диалога">
+                                <option value="sliding">Sliding Window (последние N сообщений)</option>
+                                <option value="token_limit">Token Limit (ограничение по токенам)</option>
+                                <option value="none">Без оптимизации (вся история)</option>
+                            </select>
+                        </div>
                         <div class="chat-input-wrapper">
                             <textarea 
                                 id="messageInput" 

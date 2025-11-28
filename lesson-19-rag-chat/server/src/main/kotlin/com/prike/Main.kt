@@ -12,6 +12,7 @@ import com.prike.domain.service.EmbeddingService
 import com.prike.domain.service.KnowledgeBaseSearchService
 import com.prike.domain.service.LLMService
 import com.prike.domain.service.PromptBuilder
+import com.prike.domain.service.ChatPromptBuilder
 import com.prike.domain.service.RAGService
 import com.prike.domain.service.ComparisonService
 import com.prike.presentation.controller.ClientController
@@ -158,11 +159,17 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // 16. Chat Repository для истории диалога
     val chatRepository = ChatRepository(dbPath)  // Используем ту же базу данных
     
-    // 17. Chat Service для обработки сообщений с RAG и историей
+    // 17. ChatPromptBuilder для оптимизации истории диалога
+    val chatPromptBuilder = ChatPromptBuilder(
+        historyConfig = config.chat.history,
+        basePromptBuilder = promptBuilder
+    )
+    
+    // 18. Chat Service для обработки сообщений с RAG и историей
     val chatService = ChatService(
         chatRepository = chatRepository,
         ragService = ragService,
-        promptBuilder = promptBuilder,
+        chatPromptBuilder = chatPromptBuilder,
         llmService = llmService
     )
     
