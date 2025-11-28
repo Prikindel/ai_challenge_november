@@ -19,6 +19,9 @@ import com.prike.presentation.controller.IndexingController
 import com.prike.presentation.controller.SearchController
 import com.prike.presentation.controller.LLMController
 import com.prike.presentation.controller.RAGController
+import com.prike.presentation.controller.ChatController
+import com.prike.data.repository.ChatRepository
+import com.prike.domain.service.ChatService
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.*
@@ -152,6 +155,17 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // 15. Citation Analyzer для тестирования цитат
     val citationAnalyzer = com.prike.domain.service.CitationAnalyzer(ragService)
     
+    // 16. Chat Repository для истории диалога
+    val chatRepository = ChatRepository(dbPath)  // Используем ту же базу данных
+    
+    // 17. Chat Service для обработки сообщений с RAG и историей
+    val chatService = ChatService(
+        chatRepository = chatRepository,
+        ragService = ragService,
+        promptBuilder = promptBuilder,
+        llmService = llmService
+    )
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
@@ -160,6 +174,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val llmController = LLMController(llmService)
     val ragController = RAGController(ragService, llmService, comparisonService, citationAnalyzer, filterConfig)
     val documentController = com.prike.presentation.controller.DocumentController(knowledgeBaseRepository)
+    val chatController = ChatController(chatService, chatRepository)
     
     routing {
         // Статические файлы для UI
@@ -183,6 +198,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
         llmController.registerRoutes(this)
         ragController.registerRoutes(this)
         documentController.registerRoutes(this)
+        chatController.registerRoutes(this)
     }
     
     // Закрытие ресурсов при остановке
