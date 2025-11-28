@@ -50,12 +50,23 @@
                     <!-- Область ввода сообщения -->
                     <div class="chat-input-container">
                         <div class="chat-settings">
-                            <label for="historyStrategy">Стратегия истории:</label>
-                            <select id="historyStrategy" title="Выберите стратегию оптимизации истории диалога">
-                                <option value="sliding">Sliding Window (последние N сообщений)</option>
-                                <option value="token_limit">Token Limit (ограничение по токенам)</option>
-                                <option value="none">Без оптимизации (вся история)</option>
-                            </select>
+                            <div class="chat-setting-item">
+                                <label for="ragStrategy">Стратегия RAG:</label>
+                                <select id="ragStrategy" title="Выберите стратегию фильтрации для RAG">
+                                    <option value="threshold">Threshold (пороговый фильтр, без LLM)</option>
+                                    <option value="reranker" selected>Reranker (LLM реранкинг)</option>
+                                    <option value="hybrid">Hybrid (threshold + reranker)</option>
+                                    <option value="none">Без фильтрации</option>
+                                </select>
+                            </div>
+                            <div class="chat-setting-item">
+                                <label for="historyStrategy">Стратегия истории:</label>
+                                <select id="historyStrategy" title="Выберите стратегию оптимизации истории диалога">
+                                    <option value="sliding">Sliding Window (последние N сообщений)</option>
+                                    <option value="token_limit">Token Limit (ограничение по токенам)</option>
+                                    <option value="none">Без оптимизации (вся история)</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="chat-input-wrapper">
                             <textarea 

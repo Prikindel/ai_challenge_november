@@ -4,7 +4,7 @@
 
 ## Демонстрация
 
-> 📹 Видео появится после записи (формат: Видео + Код).
+> 📹 [Видео можно посмотреть тут](https://disk.yandex.ru/i/StwHc5iLyNHDlw)
 
 **Сценарий использования:**
 1. Запуск сервера и открытие UI
@@ -258,14 +258,14 @@ http://localhost:8080
     "sessionId": "550e8400-e29b-41d4-a716-446655440000",
     "role": "ASSISTANT",
     "content": "Для создания MCP сервера нужно установить SDK [Источник: Создание MCP сервера](documents/01-mcp-server-creation.md).",
-    "citations": [
-      {
-        "text": "[Источник: Создание MCP сервера](documents/01-mcp-server-creation.md)",
-        "documentPath": "documents/01-mcp-server-creation.md",
+  "citations": [
+    {
+      "text": "[Источник: Создание MCP сервера](documents/01-mcp-server-creation.md)",
+      "documentPath": "documents/01-mcp-server-creation.md",
         "documentTitle": "Создание MCP сервера",
         "chunkId": null
-      }
-    ],
+    }
+  ],
     "createdAt": 1705320610000
   },
   "sessionId": "550e8400-e29b-41d4-a716-446655440000"

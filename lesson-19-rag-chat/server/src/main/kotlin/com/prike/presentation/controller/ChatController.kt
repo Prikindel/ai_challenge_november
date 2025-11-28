@@ -120,7 +120,8 @@ class ChatController(
                     chatRepository.deleteSession(sessionId)
                     logger.info("Deleted chat session: $sessionId")
                     
-                    call.respond(HttpStatusCode.NoContent)
+                    // Возвращаем 200 OK с пустым объектом для совместимости
+                    call.respond(HttpStatusCode.OK, mapOf("success" to true))
                 } catch (e: Exception) {
                     logger.error("Failed to delete session", e)
                     call.respond(

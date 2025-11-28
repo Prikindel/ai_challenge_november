@@ -70,34 +70,35 @@ class ChatService(
         val ragResponse = ragService.query(
             request = ragRequest,
             applyFilter = applyFilter,
-            strategy = strategy
+            strategy = strategy,
+            skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
         )
         
         logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations")
         
-        // 5. Формируем промпт с оптимизированной историей и контекстом из RAG
-        // Используем переданную стратегию или конфигурацию по умолчанию
+        // 5. Всегда генерируем ответ один раз с учетом истории и контекста из RAG
+        // Оптимизируем историю
+        val optimizedHistory = chatPromptBuilder.optimizeHistory(history, strategy = historyStrategy)
+        
+        logger.debug("Generating answer with history (${optimizedHistory.size} messages) and ${ragResponse.contextChunks.size} chunks")
+        
+        val stats = chatPromptBuilder.getOptimizationStats(history, optimizedHistory)
+        logger.debug("Built chat prompt (strategy: ${historyStrategy ?: "default"}): ${stats.originalMessagesCount} -> ${stats.optimizedMessagesCount} messages, ${stats.originalTokens} -> ${stats.optimizedTokens} tokens (saved: ${stats.tokensSaved})")
+        
+        // Формируем промпт с оптимизированной историей и контекстом из RAG
         val promptResult = chatPromptBuilder.buildChatPrompt(
             question = userMessage,
-            history = history,
+            history = optimizedHistory,
             chunks = ragResponse.contextChunks,
             strategy = historyStrategy
         )
         
-        // Логируем статистику оптимизации
-        val optimizedHistory = chatPromptBuilder.optimizeHistory(history, strategy = historyStrategy)
-        val stats = chatPromptBuilder.getOptimizationStats(history, optimizedHistory)
-        logger.debug("Built chat prompt (strategy: ${historyStrategy ?: "default"}): ${stats.originalMessagesCount} -> ${stats.optimizedMessagesCount} messages, ${stats.originalTokens} -> ${stats.optimizedTokens} tokens (saved: ${stats.tokensSaved})")
-        
-        // 7. Генерируем ответ через LLM
-        val llmResponse = llmService.generateAnswer(
-            question = promptResult.userMessage,
-            systemPrompt = promptResult.systemPrompt
-        )
+        // Генерируем ответ через LLM с историей в формате messages
+        val llmResponse = llmService.generateAnswerWithMessages(promptResult.messages)
         
         logger.info("Generated answer: length=${llmResponse.answer.length}, tokens=${llmResponse.tokensUsed}")
         
-        // 8. Парсим цитаты из ответа
+        // Парсим цитаты из ответа
         val availableDocumentsMap = ragResponse.contextChunks
             .mapNotNull { chunk ->
                 chunk.documentPath?.let { path ->
@@ -125,15 +126,18 @@ class ChatService(
         
         logger.debug("Parsed ${answerWithCitations.citations.size} citations, ${validatedCitations.size} are valid")
         
-        // 9. Сохраняем ответ ассистента в историю
+        val finalAnswer = answerWithCitations.answer
+        val finalCitations = validatedCitations
+        
+        // 6. Сохраняем ответ ассистента в историю
         val assistantMessage = chatRepository.saveMessage(
             sessionId = sessionId,
             role = MessageRole.ASSISTANT,
-            content = answerWithCitations.answer,
-            citations = validatedCitations
+            content = finalAnswer,
+            citations = finalCitations
         )
         
-        logger.info("Message processed successfully: session=$sessionId, answerLength=${answerWithCitations.answer.length}, citations=${validatedCitations.size}")
+        logger.info("Message processed successfully: session=$sessionId, answerLength=${finalAnswer.length}, citations=${finalCitations.size}")
         
         return assistantMessage
     }

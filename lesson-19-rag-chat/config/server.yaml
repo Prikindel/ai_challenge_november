@@ -28,7 +28,7 @@ rag:
     minSimilarity: 0.4
   filter:
     enabled: true
-    type: "threshold"   # "none" | "threshold" | "reranker" | "hybrid"
+    type: "reranker"   # "none" | "threshold" | "reranker" | "hybrid"
     threshold:
       minSimilarity: 0.6
       keepTop: 3

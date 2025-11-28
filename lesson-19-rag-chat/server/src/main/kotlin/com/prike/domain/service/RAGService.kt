@@ -43,9 +43,15 @@ class RAGService(
      * @param request запрос для RAG
      * @param applyFilter применять ли фильтр/реранкер (по умолчанию используется конфигурация)
      * @param strategy стратегия фильтрации (none, threshold, reranker, hybrid). Если null, используется из конфигурации
+     * @param skipGeneration если true, не генерирует ответ, только возвращает чанки (для использования в ChatService)
      * @return ответ с контекстом и использованными чанками
      */
-    suspend fun query(request: RAGRequest, applyFilter: Boolean? = null, strategy: String? = null): RAGResponse {
+    suspend fun query(
+        request: RAGRequest, 
+        applyFilter: Boolean? = null, 
+        strategy: String? = null,
+        skipGeneration: Boolean = false
+    ): RAGResponse {
         if (request.question.isBlank()) {
             throw IllegalArgumentException("Question cannot be blank")
         }
@@ -61,8 +67,15 @@ class RAGService(
         
         if (searchResults.isEmpty()) {
             logger.warn("No relevant chunks found for question: ${request.question}")
-            // Возвращаем ответ без контекста, если чанки не найдены
-            return generateResponseWithoutContext(request.question)
+            // Возвращаем пустой ответ - ChatService сам решит, как обработать
+            // (с историей или без, с цитатами или без)
+            return RAGResponse(
+                question = request.question,
+                answer = "",  // Пустой ответ - будет сгенерирован в ChatService
+                contextChunks = emptyList(),
+                tokensUsed = null,
+                citations = emptyList()
+            )
         }
         
         logger.debug("Found ${searchResults.size} relevant chunks")
@@ -106,12 +119,31 @@ class RAGService(
             Triple(retrievedChunks, null, null)
         }
         
-        // Если после фильтрации не осталось чанков, возвращаем ответ без контекста
+        // Если после фильтрации не осталось чанков, возвращаем пустой ответ
         if (filteredChunks.isEmpty()) {
             logger.warn("No chunks left after filtering")
-            return generateResponseWithoutContext(request.question).copy(
+            return RAGResponse(
+                question = request.question,
+                answer = "",  // Пустой ответ - будет сгенерирован в ChatService
+                contextChunks = emptyList(),
+                tokensUsed = null,
                 filterStats = filterStats,
-                rerankInsights = rerankInsights
+                rerankInsights = rerankInsights,
+                citations = emptyList()
+            )
+        }
+        
+        // Если skipGeneration = true, возвращаем только чанки без генерации ответа
+        if (skipGeneration) {
+            logger.debug("Skipping answer generation, returning chunks only")
+            return RAGResponse(
+                question = request.question,
+                answer = "",  // Пустой ответ - будет сгенерирован в ChatService
+                contextChunks = filteredChunks,
+                tokensUsed = null,
+                filterStats = filterStats,
+                rerankInsights = rerankInsights,
+                citations = emptyList()
             )
         }
         

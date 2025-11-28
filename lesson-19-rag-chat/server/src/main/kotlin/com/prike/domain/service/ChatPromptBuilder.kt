@@ -106,7 +106,7 @@ class ChatPromptBuilder(
         history: List<ChatMessage> = emptyList(),
         chunks: List<RetrievedChunk> = emptyList(),
         strategy: String? = null
-    ): PromptBuilder.PromptResult {
+    ): PromptBuilder.ChatPromptResult {
         // Оптимизируем историю с учетом переданной стратегии
         val optimizedHistory = optimizeHistory(history, strategy = strategy)
         

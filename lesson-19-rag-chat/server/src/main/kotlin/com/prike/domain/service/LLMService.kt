@@ -62,6 +62,38 @@ class LLMService(
     }
     
     /**
+     * Генерирует ответ через LLM с использованием массива messages (для чата с историей)
+     * 
+     * @param messages массив сообщений (system, user, assistant, user, ...)
+     * @param temperature температура генерации
+     * @return ответ от LLM и количество использованных токенов
+     */
+    suspend fun generateAnswerWithMessages(
+        messages: List<MessageDto>,
+        temperature: Double = defaultTemperature
+    ): LLMResponse {
+        if (messages.isEmpty()) {
+            throw IllegalArgumentException("Messages cannot be empty")
+        }
+        
+        logger.debug("Generating answer with ${messages.size} messages")
+        
+        return try {
+            val response = openAIClient.chatCompletion(messages, temperature)
+            val answer = response.choices.firstOrNull()?.message?.content ?: ""
+            val tokensUsed = response.usage?.totalTokens ?: 0
+            
+            LLMResponse(
+                answer = answer,
+                tokensUsed = tokensUsed
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to generate answer: ${e.message}", e)
+            throw LLMException("Не удалось получить ответ от LLM: ${e.message}", e)
+        }
+    }
+    
+    /**
      * Закрывает клиент и освобождает ресурсы
      */
     fun close() {

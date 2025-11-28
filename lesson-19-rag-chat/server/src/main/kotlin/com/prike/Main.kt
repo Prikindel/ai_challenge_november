@@ -58,6 +58,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Post)
         allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Delete)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
         anyHost()

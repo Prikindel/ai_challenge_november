@@ -130,19 +130,29 @@ async function deleteSession(sessionId, event) {
             method: 'DELETE'
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        // Успешное удаление (200 OK или 204 No Content)
+        if (response.ok || response.status === 204) {
+            // Если удалили текущую сессию, создаем новую
+            if (sessionId === currentSessionId) {
+                currentSessionId = null;
+                localStorage.removeItem('chatSessionId');
+                await createNewSession();
+            } else {
+                // Обновляем список сессий
+                await loadSessions();
+            }
+            return;
         }
         
-        // Если удалили текущую сессию, создаем новую
-        if (sessionId === currentSessionId) {
-            currentSessionId = null;
-            localStorage.removeItem('chatSessionId');
-            await createNewSession();
+        // Обработка ошибок
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+            // Игнорируем ошибку парсинга JSON для 204
         }
-        
-        // Обновляем список сессий
-        await loadSessions();
+        throw new Error(errorMessage);
     } catch (error) {
         console.error('Failed to delete session:', error);
         alert('Ошибка удаления сессии: ' + error.message);
@@ -226,7 +236,8 @@ async function sendMessage() {
     try {
         showStatus('Поиск ответа в базе знаний...');
         
-        // Получаем выбранную стратегию истории
+        // Получаем выбранные стратегии
+        const ragStrategy = document.getElementById('ragStrategy').value;
         const historyStrategy = document.getElementById('historyStrategy').value;
         
         const response = await fetch(`${API_BASE}/chat/sessions/${currentSessionId}/messages`, {
@@ -238,8 +249,8 @@ async function sendMessage() {
                 message: message,
                 topK: 5,
                 minSimilarity: 0.4,
-                applyFilter: true,
-                strategy: 'hybrid',
+                applyFilter: ragStrategy !== 'none',
+                strategy: ragStrategy !== 'none' ? ragStrategy : null,
                 historyStrategy: historyStrategy
             })
         });
