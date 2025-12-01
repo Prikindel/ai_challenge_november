@@ -23,7 +23,7 @@ class EmbeddingService(
      */
     suspend fun generateEmbedding(
         text: String,
-        maxRetries: Int = 6
+        maxRetries: Int = 8
     ): List<Float> {
         if (text.isBlank()) {
             throw IllegalArgumentException("Text cannot be blank")

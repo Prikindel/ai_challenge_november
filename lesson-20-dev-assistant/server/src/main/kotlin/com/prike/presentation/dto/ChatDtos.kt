@@ -76,3 +76,12 @@ data class SendMessageResponse(
     val sessionId: String
 )
 
+/**
+ * DTO для ответа с информацией о git-ветке
+ */
+@Serializable
+data class GitBranchResponse(
+    val branch: String,
+    val available: Boolean
+)
+

@@ -264,10 +264,12 @@ class ChatController(
                         "unknown"
                     }
                     
-                    call.respond(mapOf(
-                        "branch" to branch,
-                        "available" to (gitMCPService != null && branch != "unknown")
-                    ))
+                    call.respond(
+                        com.prike.presentation.dto.GitBranchResponse(
+                            branch = branch,
+                            available = gitMCPService != null && branch != "unknown"
+                        )
+                    )
                 } catch (e: Exception) {
                     logger.error("Failed to get git branch", e)
                     call.respond(

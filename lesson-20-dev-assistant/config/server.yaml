@@ -11,7 +11,7 @@ knowledgeBase:
   databasePath: "data/knowledge_base.db"  # Путь к базе знаний
   
 indexing:
-  chunkSize: 400      # Размер чанка в токенах (уменьшено для стабильности Ollama)
+  chunkSize: 300      # Размер чанка в токенах (уменьшено для стабильности Ollama)
   overlapSize: 50     # Перекрытие между чанками в токенах
   documentsPath: "documents"  # Папка с документами для индексации
   projectDocsPath: "project/docs"  # Папка с документацией проекта
