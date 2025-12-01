@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с RAG</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 20. Ассистент разработчика</h1>
+            <p>Ассистент разработчика с RAG и MCP интеграцией</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="indexing.html" class="tab">Индексация</a>
+                <a href="search.html" class="tab">Поиск</a>
+                <a href="rag-compare.html" class="tab">Сравнение RAG</a>
+                <a href="citation-test.html" class="tab">Тест цитат</a>
+                <a href="chat.html" class="tab active">Чат</a>
+            </nav>
+            
+            <div class="chat-layout">
+                <!-- Боковая панель с сессиями -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <h3>Сессии чата</h3>
+                        <button class="btn-new-session" onclick="createNewSession()" title="Создать новую сессию">
+                            <span>+</span>
+                        </button>
+                    </div>
+                    <div class="chat-sessions-list" id="sessionsList">
+                        <div class="sessions-loading">Загрузка сессий...</div>
+                    </div>
+                </div>
+                
+                <!-- Основная область чата -->
+                <div class="chat-container">
+                    <!-- Область истории сообщений -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-welcome">
+                            <h2>Добро пожаловать в чат!</h2>
+                            <p>Задайте вопрос, и я найду ответ в базе знаний с указанием источников.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Область ввода сообщения -->
+                    <div class="chat-input-container">
+                        <div class="chat-settings">
+                            <div class="chat-setting-item">
+                                <label for="ragStrategy">Стратегия RAG:</label>
+                                <select id="ragStrategy" title="Выберите стратегию фильтрации для RAG">
+                                    <option value="threshold">Threshold (пороговый фильтр, без LLM)</option>
+                                    <option value="reranker" selected>Reranker (LLM реранкинг)</option>
+                                    <option value="hybrid">Hybrid (threshold + reranker)</option>
+                                    <option value="none">Без фильтрации</option>
+                                </select>
+                            </div>
+                            <div class="chat-setting-item">
+                                <label for="historyStrategy">Стратегия истории:</label>
+                                <select id="historyStrategy" title="Выберите стратегию оптимизации истории диалога">
+                                    <option value="sliding">Sliding Window (последние N сообщений)</option>
+                                    <option value="token_limit">Token Limit (ограничение по токенам)</option>
+                                    <option value="none">Без оптимизации (вся история)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="chat-input-wrapper">
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Введите ваш вопрос..." 
+                                rows="2"
+                                maxlength="2000"
+                            ></textarea>
+                            <button id="sendButton" onclick="sendMessage()">Отправить</button>
+                        </div>
+                        <div class="chat-status" id="chatStatus"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Marked.js для рендеринга Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+    <script src="citations.js"></script>
+    <script src="document-viewer.js"></script>
+    <script src="chat.js"></script>
+</body>
+</html>
+

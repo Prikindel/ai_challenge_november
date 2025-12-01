@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Индексация документов</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Индексация документов</h1>
+            <p>Загрузите документы для индексации в базу знаний</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="indexing.html" class="tab active">Индексация</a>
+                <a href="search.html" class="tab">Поиск</a>
+                <a href="rag-compare.html" class="tab">Сравнение RAG</a>
+                <a href="citation-test.html" class="tab">Тест цитат</a>
+                <a href="chat.html" class="tab">Чат</a>
+            </nav>
+            
+            <section class="indexing-section">
+                <h2>Индексация документов</h2>
+                
+                <div class="form-group">
+                    <label for="filePath">Путь к файлу:</label>
+                    <input type="text" id="filePath" placeholder="documents/article1.md" value="documents">
+                    <button onclick="indexFile()">Индексировать файл</button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="directoryPath">Путь к директории:</label>
+                    <input type="text" id="directoryPath" placeholder="documents" value="documents">
+                    <button onclick="indexDirectory()">Индексировать директорию</button>
+                </div>
+                
+                <div id="indexingStatus" class="status"></div>
+                <div id="indexingProgress" class="progress" style="display: none;">
+                    <div class="progress-bar"></div>
+                </div>
+            </section>
+            
+            <section class="statistics-section">
+                <h2>Статистика базы знаний</h2>
+                <div id="statistics" class="statistics">
+                    <div class="stat-item">
+                        <span class="stat-label">Документов:</span>
+                        <span class="stat-value" id="documentsCount">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Чанков:</span>
+                        <span class="stat-value" id="chunksCount">-</span>
+                    </div>
+                </div>
+                <button onclick="loadStatistics()">Обновить статистику</button>
+            </section>
+            
+            <section class="documents-section">
+                <h2>Индексированные документы</h2>
+                <button onclick="loadDocuments()">Обновить список</button>
+                <div id="documentsList" class="documents-list"></div>
+            </section>
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+    <script src="indexing.js"></script>
+</body>
+</html>
+
