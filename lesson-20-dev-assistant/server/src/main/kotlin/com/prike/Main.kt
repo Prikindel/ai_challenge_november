@@ -211,7 +211,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
     val llmController = LLMController(llmService)
     val ragController = RAGController(ragService, llmService, comparisonService, citationAnalyzer, filterConfig)
     val documentController = com.prike.presentation.controller.DocumentController(knowledgeBaseRepository)
-    val chatController = ChatController(chatService, chatRepository)
+    val chatController = ChatController(chatService, chatRepository, gitMCPService)
     
     routing {
         // Статические файлы для UI

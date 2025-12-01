@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Загружаем список сессий
     await loadSessions();
     
+    // Загружаем информацию о git-ветке
+    await loadGitBranch();
+    
     // Проверяем, есть ли сохраненная сессия в localStorage
     const savedSessionId = localStorage.getItem('chatSessionId');
     if (savedSessionId) {
@@ -515,5 +518,35 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Загружает информацию о текущей ветке git
+ */
+async function loadGitBranch() {
+    try {
+        const response = await fetch(`${API_BASE}/chat/git-branch`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const branchInfo = document.getElementById('gitBranchInfo');
+        const branchValue = document.getElementById('gitBranchValue');
+        
+        if (data.available && data.branch && data.branch !== 'unknown') {
+            branchValue.textContent = data.branch;
+            branchInfo.style.display = 'block';
+        } else {
+            branchInfo.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Failed to load git branch:', error);
+        // Скрываем информацию о ветке при ошибке
+        const branchInfo = document.getElementById('gitBranchInfo');
+        if (branchInfo) {
+            branchInfo.style.display = 'none';
+        }
+    }
 }
 

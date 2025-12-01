@@ -16,7 +16,8 @@ import org.slf4j.LoggerFactory
  */
 class ChatController(
     private val chatService: ChatService,
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val gitMCPService: com.prike.domain.service.GitMCPService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ChatController::class.java)
     
@@ -248,6 +249,30 @@ class ChatController(
                     call.respond(
                         HttpStatusCode.InternalServerError,
                         ErrorResponse("Failed to get history: ${e.message}")
+                    )
+                }
+            }
+            
+            // Получить текущую ветку git
+            get("/api/chat/git-branch") {
+                try {
+                    val branch = if (gitMCPService != null) {
+                        kotlinx.coroutines.runBlocking {
+                            gitMCPService.getCurrentBranch()
+                        }
+                    } else {
+                        "unknown"
+                    }
+                    
+                    call.respond(mapOf(
+                        "branch" to branch,
+                        "available" to (gitMCPService != null && branch != "unknown")
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Failed to get git branch", e)
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to get git branch: ${e.message}")
                     )
                 }
             }

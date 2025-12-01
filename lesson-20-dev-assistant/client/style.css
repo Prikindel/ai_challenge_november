@@ -1367,6 +1367,30 @@ select {
     margin-bottom: 8px;
 }
 
+.chat-git-info {
+    padding: 10px 20px;
+    background: #f0f4ff;
+    border-bottom: 1px solid #e0e7ff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+}
+
+.git-branch-label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.git-branch-value {
+    color: #333;
+    font-family: 'Courier New', monospace;
+    background: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e0e7ff;
+}
+
 .chat-message {
     display: flex;
     margin-bottom: 10px;
