@@ -95,6 +95,42 @@ async function indexDirectory() {
     }
 }
 
+// Индексация документации проекта
+async function indexProjectDocs() {
+    const statusDiv = document.getElementById('indexingStatus');
+    const progressDiv = document.getElementById('indexingProgress');
+    
+    statusDiv.className = 'status';
+    statusDiv.textContent = 'Индексация документации проекта...';
+    progressDiv.style.display = 'block';
+    
+    try {
+        const response = await fetch(`${API_BASE}/indexing/index-project-docs`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            statusDiv.className = 'status success';
+            statusDiv.textContent = `Успешно! Обработано документов: ${result.documentsProcessed}, успешно: ${result.documentsSucceeded}, чанков: ${result.totalChunks}`;
+            loadStatistics();
+            loadDocuments();
+        } else {
+            statusDiv.className = 'status error';
+            statusDiv.textContent = `Ошибка: ${result.error || 'Неизвестная ошибка'}`;
+        }
+    } catch (error) {
+        statusDiv.className = 'status error';
+        statusDiv.textContent = `Ошибка: ${error.message}`;
+    } finally {
+        progressDiv.style.display = 'none';
+    }
+}
+
 // Загрузка статистики
 async function loadStatistics() {
     try {

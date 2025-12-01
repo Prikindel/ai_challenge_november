@@ -17,7 +17,9 @@ import org.slf4j.LoggerFactory
  */
 class IndexingController(
     private val documentIndexer: DocumentIndexer,
-    private val knowledgeBaseRepository: KnowledgeBaseRepository
+    private val knowledgeBaseRepository: KnowledgeBaseRepository,
+    private val projectDocsPath: String? = null,
+    private val projectReadmePath: String? = null
 ) {
     private val logger = LoggerFactory.getLogger(IndexingController::class.java)
     
@@ -122,6 +124,41 @@ class IndexingController(
                     }
                 ))
             }
+            
+            // Индексировать документацию проекта
+            post("/api/indexing/index-project-docs") {
+                try {
+                    val results = documentIndexer.indexProjectDocs(
+                        projectDocsPath = projectDocsPath,
+                        projectReadmePath = projectReadmePath
+                    )
+                    
+                    val successCount = results.count { it.success }
+                    val totalChunks = results.sumOf { it.chunksCount }
+                    
+                    call.respond(IndexProjectDocsResponse(
+                        success = true,
+                        documentsProcessed = results.size,
+                        documentsSucceeded = successCount,
+                        totalChunks = totalChunks,
+                        results = results.map { result ->
+                            IndexDocumentResponse(
+                                success = result.success,
+                                documentId = result.documentId,
+                                chunksCount = result.chunksCount,
+                                error = result.error,
+                                errorsCount = result.errorsCount
+                            )
+                        }
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Project docs indexing error", e)
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to index project documentation: ${e.message}")
+                    )
+                }
+            }
         }
     }
 }
@@ -158,5 +195,14 @@ data class IndexDirectoryResponse(
 data class IndexingStatusResponse(
     val documentsCount: Int,
     val chunksCount: Int
+)
+
+@Serializable
+data class IndexProjectDocsResponse(
+    val success: Boolean,
+    val documentsProcessed: Int,
+    val documentsSucceeded: Int,
+    val totalChunks: Int,
+    val results: List<IndexDocumentResponse>
 )
 

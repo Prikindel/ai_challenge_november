@@ -158,6 +158,60 @@ class DocumentIndexer(
         logger.info("Directory indexing completed: ${results.size} documents processed")
         return results
     }
+    
+    /**
+     * Индексирует документацию проекта (project/docs/ и project/README.md)
+     * 
+     * @param projectDocsPath путь к папке с документацией проекта
+     * @param projectReadmePath путь к корневому README проекта
+     * @return список результатов индексации
+     */
+    suspend fun indexProjectDocs(
+        projectDocsPath: String?,
+        projectReadmePath: String?
+    ): List<IndexingResult> {
+        logger.info("Starting project documentation indexing")
+        val results = mutableListOf<IndexingResult>()
+        
+        // Индексируем документацию из project/docs/
+        if (!projectDocsPath.isNullOrBlank()) {
+            try {
+                val docsResults = indexDirectory(projectDocsPath)
+                results.addAll(docsResults)
+                logger.info("Indexed ${docsResults.size} documents from $projectDocsPath")
+            } catch (e: Exception) {
+                logger.error("Failed to index project docs from $projectDocsPath", e)
+                results.add(IndexingResult(
+                    documentId = "",
+                    chunksCount = 0,
+                    success = false,
+                    error = "Failed to index project docs: ${e.message}"
+                ))
+            }
+        }
+        
+        // Индексируем корневой README
+        if (!projectReadmePath.isNullOrBlank()) {
+            try {
+                val readmeResult = indexDocument(projectReadmePath)
+                results.add(readmeResult)
+                logger.info("Indexed README: $projectReadmePath (success: ${readmeResult.success})")
+            } catch (e: Exception) {
+                logger.error("Failed to index project README from $projectReadmePath", e)
+                results.add(IndexingResult(
+                    documentId = "",
+                    chunksCount = 0,
+                    success = false,
+                    error = "Failed to index project README: ${e.message}"
+                ))
+            }
+        }
+        
+        val successCount = results.count { it.success }
+        logger.info("Project documentation indexing completed: ${results.size} documents processed, $successCount succeeded")
+        
+        return results
+    }
 }
 
 /**

@@ -35,7 +35,9 @@ data class KnowledgeBaseConfig(
 data class IndexingConfig(
     val chunkSize: Int,
     val overlapSize: Int,
-    val documentsPath: String
+    val documentsPath: String,
+    val projectDocsPath: String? = null,
+    val projectReadmePath: String? = null
 )
 
 /**
@@ -175,7 +177,9 @@ object Config {
         val indexing = IndexingConfig(
             chunkSize = (indexingMap["chunkSize"] as? Number)?.toInt() ?: 800,
             overlapSize = (indexingMap["overlapSize"] as? Number)?.toInt() ?: 100,
-            documentsPath = resolveEnvVar(indexingMap["documentsPath"] as? String ?: "documents")
+            documentsPath = resolveEnvVar(indexingMap["documentsPath"] as? String ?: "documents"),
+            projectDocsPath = indexingMap["projectDocsPath"] as? String,
+            projectReadmePath = indexingMap["projectReadmePath"] as? String
         )
         
         // Конфигурация AI (OpenRouter)

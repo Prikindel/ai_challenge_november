@@ -177,7 +177,12 @@ fun Application.module(config: com.prike.config.AppConfig) {
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
-    val indexingController = IndexingController(documentIndexer, knowledgeBaseRepository)
+    val indexingController = IndexingController(
+        documentIndexer, 
+        knowledgeBaseRepository,
+        projectDocsPath = config.indexing.projectDocsPath,
+        projectReadmePath = config.indexing.projectReadmePath
+    )
     val searchController = SearchController(searchService, knowledgeBaseRepository)
     val llmController = LLMController(llmService)
     val ragController = RAGController(ragService, llmService, comparisonService, citationAnalyzer, filterConfig)
