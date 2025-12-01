@@ -326,6 +326,132 @@ class RAGService(
     }
     
     /**
+     * Выполняет RAG-запрос только в документации проекта (project/docs/ и project/README.md)
+     * Используется для команды /help
+     * 
+     * @param request запрос для RAG
+     * @param applyFilter применять ли фильтр/реранкер
+     * @param strategy стратегия фильтрации
+     * @param skipGeneration если true, не генерирует ответ, только возвращает чанки
+     * @return ответ с контекстом только из документации проекта
+     */
+    suspend fun queryProjectDocs(
+        request: RAGRequest,
+        applyFilter: Boolean? = null,
+        strategy: String? = null,
+        skipGeneration: Boolean = false
+    ): RAGResponse {
+        if (request.question.isBlank()) {
+            throw IllegalArgumentException("Question cannot be blank")
+        }
+        
+        logger.info("RAG query (project docs only): ${request.question} (topK=${request.topK}, minSimilarity=${request.minSimilarity})")
+        
+        // 1. Поиск релевантных чанков только в документации проекта
+        val searchResults = searchService.searchProjectDocs(
+            query = request.question,
+            limit = request.topK,
+            minSimilarity = request.minSimilarity
+        )
+        
+        if (searchResults.isEmpty()) {
+            logger.warn("No relevant chunks found in project documentation for question: ${request.question}")
+            return RAGResponse(
+                question = request.question,
+                answer = "",
+                contextChunks = emptyList(),
+                tokensUsed = null,
+                citations = emptyList()
+            )
+        }
+        
+        logger.debug("Found ${searchResults.size} relevant chunks in project documentation")
+        
+        // 2. Преобразуем SearchResult в RetrievedChunk
+        val retrievedChunks = searchResults.map { result ->
+            RetrievedChunk(
+                chunkId = result.chunkId,
+                documentId = result.documentId,
+                documentPath = result.documentFilePath,
+                documentTitle = result.documentTitle,
+                content = result.content,
+                similarity = result.similarity,
+                chunkIndex = result.chunkIndex
+            )
+        }
+        
+        // 3. Применяем стратегию фильтрации/реранкинга (аналогично query)
+        val strategyToUse = strategy ?: filterConfig?.type ?: "none"
+        val shouldApplyFilter = applyFilter ?: filterConfig?.enabled ?: false
+        
+        val (filteredChunks, filterStats, rerankInsights) = if (shouldApplyFilter && strategyToUse != "none") {
+            applyFilteringStrategy(retrievedChunks, question = request.question, strategy = strategyToUse)
+        } else {
+            Triple(retrievedChunks, null, null)
+        }
+        
+        if (skipGeneration) {
+            logger.debug("Skipping answer generation, returning chunks only")
+            return RAGResponse(
+                question = request.question,
+                answer = "",
+                contextChunks = filteredChunks,
+                tokensUsed = null,
+                filterStats = filterStats,
+                rerankInsights = rerankInsights,
+                citations = emptyList()
+            )
+        }
+        
+        // 4. Формируем промпт с контекстом
+        val promptResult = promptBuilder.buildPromptWithContext(
+            question = request.question,
+            chunks = filteredChunks
+        )
+        
+        // 5. Генерируем ответ через LLM с контекстом
+        val llmResponse = llmService.generateAnswer(
+            question = promptResult.userMessage,
+            systemPrompt = promptResult.systemPrompt
+        )
+        
+        logger.info("RAG query (project docs) completed: answer length=${llmResponse.answer.length}, tokens=${llmResponse.tokensUsed}")
+        
+        // 6. Парсим цитаты из ответа
+        val availableDocumentsMap = filteredChunks
+            .mapNotNull { chunk ->
+                chunk.documentPath?.let { path ->
+                    path to (chunk.documentTitle ?: path)
+                }
+            }
+            .distinctBy { it.first }
+            .toMap()
+        
+        val answerWithCitations = citationParser.parseCitations(
+            rawAnswer = llmResponse.answer,
+            availableDocuments = availableDocumentsMap
+        )
+        
+        val validatedCitations = answerWithCitations.citations.filter { citation ->
+            val isValid = citationParser.validateCitation(citation, availableDocumentsMap.keys.toSet())
+            if (!isValid) {
+                logger.warn("Invalid citation detected: ${citation.documentPath} (not in context)")
+            }
+            isValid
+        }
+        
+        return RAGResponse(
+            question = request.question,
+            answer = answerWithCitations.answer,
+            contextChunks = filteredChunks,
+            tokensUsed = llmResponse.tokensUsed,
+            filterStats = filterStats,
+            rerankInsights = rerankInsights,
+            citations = validatedCitations
+        )
+    }
+    
+    /**
      * Закрывает ресурсы (реранкер)
      */
     fun close() {

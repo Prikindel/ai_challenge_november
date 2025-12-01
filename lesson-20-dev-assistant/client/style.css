@@ -1331,6 +1331,42 @@ select {
     margin-bottom: 10px;
 }
 
+.chat-help-hint {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    text-align: left;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.chat-help-hint p {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.chat-help-hint code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #667eea;
+    font-weight: bold;
+}
+
+.chat-help-hint ul {
+    margin-top: 10px;
+    margin-left: 20px;
+    color: #555;
+}
+
+.chat-help-hint li {
+    margin-bottom: 8px;
+}
+
 .chat-message {
     display: flex;
     margin-bottom: 10px;

@@ -50,30 +50,56 @@ class ChatService(
         chatRepository.getSession(sessionId)
             ?: throw IllegalArgumentException("Session not found: $sessionId")
         
-        // 2. Получаем историю диалога
+        // 2. Проверяем, является ли сообщение командой /help
+        val isHelpCommand = userMessage.trim().startsWith("/help", ignoreCase = true)
+        val actualQuestion = if (isHelpCommand) {
+            // Извлекаем вопрос из команды /help [вопрос]
+            val questionPart = userMessage.trim().removePrefix("/help").trim()
+            if (questionPart.isBlank()) {
+                "Что такое этот проект и как он работает?"
+            } else {
+                questionPart
+            }
+        } else {
+            userMessage
+        }
+        
+        // 3. Получаем историю диалога
         val history = chatRepository.getHistory(sessionId)
         logger.debug("Retrieved ${history.size} messages from history")
         
-        // 3. Сохраняем сообщение пользователя в историю
+        // 4. Сохраняем сообщение пользователя в историю (сохраняем оригинальное сообщение)
         chatRepository.saveMessage(
             sessionId = sessionId,
             role = MessageRole.USER,
             content = userMessage
         )
         
-        // 4. Выполняем RAG-поиск для текущего вопроса
+        // 5. Выполняем RAG-поиск для текущего вопроса
+        // Если это команда /help, ищем только в документации проекта
         val ragRequest = RAGRequest(
-            question = userMessage,
+            question = actualQuestion,
             topK = topK,
             minSimilarity = minSimilarity
         )
         
-        val ragResponse = ragService.query(
-            request = ragRequest,
-            applyFilter = applyFilter,
-            strategy = strategy,
-            skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
-        )
+        val ragResponse = if (isHelpCommand) {
+            // Для команды /help ищем только в документации проекта
+            ragService.queryProjectDocs(
+                request = ragRequest,
+                applyFilter = applyFilter,
+                strategy = strategy,
+                skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+            )
+        } else {
+            // Обычный поиск во всех документах
+            ragService.query(
+                request = ragRequest,
+                applyFilter = applyFilter,
+                strategy = strategy,
+                skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+            )
+        }
         
         logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations")
         
@@ -95,8 +121,9 @@ class ChatService(
         }
         
         // Формируем промпт с оптимизированной историей и контекстом из RAG
+        // Используем actualQuestion вместо userMessage для формирования промпта
         val promptResult = chatPromptBuilder.buildChatPrompt(
-            question = userMessage,
+            question = actualQuestion,
             history = optimizedHistory,
             chunks = ragResponse.contextChunks,
             strategy = historyStrategy,
