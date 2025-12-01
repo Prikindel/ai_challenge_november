@@ -103,12 +103,14 @@ class PromptBuilder(
      * @param question текущий вопрос пользователя
      * @param history история диалога (последние N сообщений)
      * @param chunks релевантные чанки из RAG-поиска
+     * @param gitBranch текущая ветка git (опционально)
      * @return массив messages для отправки в LLM
      */
     fun buildChatPrompt(
         question: String,
         history: List<ChatMessage> = emptyList(),
-        chunks: List<RetrievedChunk> = emptyList()
+        chunks: List<RetrievedChunk> = emptyList(),
+        gitBranch: String? = null
     ): ChatPromptResult {
         val contextSection = if (chunks.isNotEmpty()) {
             buildContextSection(chunks)
@@ -128,6 +130,12 @@ class PromptBuilder(
         val systemPrompt = buildString {
             appendLine(systemMessage)
             appendLine()
+            
+            // Добавляем информацию о git-ветке, если доступна
+            if (gitBranch != null && gitBranch != "unknown") {
+                appendLine("Текущая ветка git репозитория: $gitBranch")
+                appendLine()
+            }
             
             if (documentsList != null) {
                 appendLine("Доступные документы:")

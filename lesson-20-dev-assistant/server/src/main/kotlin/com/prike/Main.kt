@@ -30,13 +30,14 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.callloging.*
+import io.ktor.server.plugins.calllogging.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.routing.*
 import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -166,12 +167,35 @@ fun Application.module(config: com.prike.config.AppConfig) {
         basePromptBuilder = promptBuilder
     )
     
-    // 18. Chat Service для обработки сообщений с RAG и историей
+    // 18. Git MCP Service (опционально, если включен в конфигурации)
+    val gitMCPService = if (config.git.mcp.enabled) {
+        val gitMCPClient = com.prike.data.client.GitMCPClient()
+        val service = com.prike.domain.service.GitMCPService(
+            gitMCPClient = gitMCPClient,
+            lessonRoot = lessonRoot,
+            gitMCPJarPath = config.git.mcp.jarPath
+        )
+        // Подключаемся к Git MCP серверу асинхронно
+        launch {
+            try {
+                service.connect()
+                logger.info("Git MCP service connected successfully")
+            } catch (e: Exception) {
+                logger.warn("Failed to connect to Git MCP server: ${e.message}. Git branch information will not be available.")
+            }
+        }
+        service
+    } else {
+        null
+    }
+    
+    // 19. Chat Service для обработки сообщений с RAG и историей
     val chatService = ChatService(
         chatRepository = chatRepository,
         ragService = ragService,
         chatPromptBuilder = chatPromptBuilder,
-        llmService = llmService
+        llmService = llmService,
+        gitMCPService = gitMCPService
     )
     
     // Регистрация контроллеров
@@ -219,6 +243,9 @@ fun Application.module(config: com.prike.config.AppConfig) {
         ollamaClient.close()
         llmService.close()
         ragService.close()
+        runBlocking {
+            gitMCPService?.disconnect()
+        }
     }
     
     logger.info("Server started on ${config.server.host}:${config.server.port}")

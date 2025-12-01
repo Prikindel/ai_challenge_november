@@ -18,7 +18,8 @@ class ChatService(
     private val ragService: RAGService,
     private val chatPromptBuilder: ChatPromptBuilder,
     private val llmService: LLMService,
-    private val citationParser: CitationParser = CitationParser()
+    private val citationParser: CitationParser = CitationParser(),
+    private val gitMCPService: com.prike.domain.service.GitMCPService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
     
@@ -85,12 +86,21 @@ class ChatService(
         val stats = chatPromptBuilder.getOptimizationStats(history, optimizedHistory)
         logger.debug("Built chat prompt (strategy: ${historyStrategy ?: "default"}): ${stats.originalMessagesCount} -> ${stats.optimizedMessagesCount} messages, ${stats.originalTokens} -> ${stats.optimizedTokens} tokens (saved: ${stats.tokensSaved})")
         
+        // Получаем текущую ветку git (если доступен GitMCPService)
+        val gitBranch = try {
+            gitMCPService?.getCurrentBranch()
+        } catch (e: Exception) {
+            logger.warn("Failed to get git branch: ${e.message}")
+            null
+        }
+        
         // Формируем промпт с оптимизированной историей и контекстом из RAG
         val promptResult = chatPromptBuilder.buildChatPrompt(
             question = userMessage,
             history = optimizedHistory,
             chunks = ragResponse.contextChunks,
-            strategy = historyStrategy
+            strategy = historyStrategy,
+            gitBranch = gitBranch
         )
         
         // Генерируем ответ через LLM с историей в формате messages

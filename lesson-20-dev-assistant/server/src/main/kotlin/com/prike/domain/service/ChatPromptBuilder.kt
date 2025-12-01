@@ -105,7 +105,8 @@ class ChatPromptBuilder(
         question: String,
         history: List<ChatMessage> = emptyList(),
         chunks: List<RetrievedChunk> = emptyList(),
-        strategy: String? = null
+        strategy: String? = null,
+        gitBranch: String? = null
     ): PromptBuilder.ChatPromptResult {
         // Оптимизируем историю с учетом переданной стратегии
         val optimizedHistory = optimizeHistory(history, strategy = strategy)
@@ -114,7 +115,8 @@ class ChatPromptBuilder(
         return basePromptBuilder.buildChatPrompt(
             question = question,
             history = optimizedHistory,
-            chunks = chunks
+            chunks = chunks,
+            gitBranch = gitBranch
         )
     }
     

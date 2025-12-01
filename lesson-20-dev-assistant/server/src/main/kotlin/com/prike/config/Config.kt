@@ -111,6 +111,21 @@ data class ChatConfig(
 )
 
 /**
+ * Конфигурация Git MCP
+ */
+data class GitMCPConfig(
+    val enabled: Boolean = true,
+    val jarPath: String? = null
+)
+
+/**
+ * Конфигурация Git
+ */
+data class GitConfig(
+    val mcp: GitMCPConfig = GitMCPConfig()
+)
+
+/**
  * Главная конфигурация приложения
  */
 data class AppConfig(
@@ -120,7 +135,8 @@ data class AppConfig(
     val indexing: IndexingConfig,
     val ai: AIConfig,
     val rag: RAGConfig = RAGConfig(),
-    val chat: ChatConfig = ChatConfig()
+    val chat: ChatConfig = ChatConfig(),
+    val git: GitConfig = GitConfig()
 )
 
 object Config {
@@ -240,6 +256,15 @@ object Config {
         )
         val chat = ChatConfig(history = history)
         
+        // Конфигурация Git
+        val gitMap = serverConfigMap["git"] as? Map<String, Any> ?: emptyMap()
+        val gitMCPMap = gitMap["mcp"] as? Map<String, Any> ?: emptyMap()
+        val gitMCP = GitMCPConfig(
+            enabled = (gitMCPMap["enabled"] as? Boolean) ?: true,
+            jarPath = gitMCPMap["jarPath"] as? String
+        )
+        val git = GitConfig(mcp = gitMCP)
+        
         return AppConfig(
             server = server,
             ollama = ollama,
@@ -247,7 +272,8 @@ object Config {
             indexing = indexing,
             ai = ai,
             rag = rag,
-            chat = chat
+            chat = chat,
+            git = git
         )
     }
     

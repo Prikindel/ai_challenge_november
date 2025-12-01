@@ -2,8 +2,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     application
-    kotlin("jvm") version "1.9.22"
-    kotlin("plugin.serialization") version "1.9.22"
+    kotlin("jvm") version "2.2.21"
+    kotlin("plugin.serialization") version "2.2.21"
 }
 
 group = "com.prike"
@@ -18,24 +18,28 @@ repositories {
 }
 
 dependencies {
-    // Ktor Server
-    implementation("io.ktor:ktor-server-core:2.3.7")
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.7")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
-    implementation("io.ktor:ktor-server-cors:2.3.7")
-    implementation("io.ktor:ktor-server-call-logging:2.3.7")
+    // Ktor Server (версия 3.2.3 для совместимости с MCP SDK)
+    implementation("io.ktor:ktor-server-core:3.2.3")
+    implementation("io.ktor:ktor-server-netty:3.2.3")
+    implementation("io.ktor:ktor-server-content-negotiation:3.2.3")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.3")
+    implementation("io.ktor:ktor-server-cors:3.2.3")
+    implementation("io.ktor:ktor-server-call-logging:3.2.3")
+    implementation("io.ktor:ktor-server-sse:3.2.3") // Требуется для MCP SDK
     
-    // Ktor Client
-    implementation("io.ktor:ktor-client-core:2.3.7")
-    implementation("io.ktor:ktor-client-cio:2.3.7")
-    implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+    // Ktor Client (версия 3.2.3 для совместимости с MCP SDK)
+    implementation("io.ktor:ktor-client-core:3.2.3")
+    implementation("io.ktor:ktor-client-cio:3.2.3")
+    implementation("io.ktor:ktor-client-content-negotiation:3.2.3")
     
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.14")
     
     // Kotlin Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    
+    // Kotlin Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     
     // YAML parsing для конфигурации
     implementation("org.yaml:snakeyaml:2.2")
@@ -45,6 +49,12 @@ dependencies {
     
     // SQLite для базы знаний
     implementation("org.xerial:sqlite-jdbc:3.44.1.0")
+    
+    // Kotlinx IO (требуется для MCP SDK транспорта)
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
+    
+    // MCP Kotlin SDK
+    implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
     
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
@@ -56,7 +66,9 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "17"
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 tasks.named<JavaExec>("run") {

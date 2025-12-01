@@ -45,3 +45,8 @@ chat:
     maxTokens: 2000       # Максимальное количество токенов для истории диалога
     strategy: "sliding"    # Стратегия оптимизации: "sliding" | "token_limit" | "none"
 
+git:
+  mcp:
+    enabled: true        # Включить Git MCP сервер
+    jarPath: "git-mcp-server/build/libs/git-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
+
