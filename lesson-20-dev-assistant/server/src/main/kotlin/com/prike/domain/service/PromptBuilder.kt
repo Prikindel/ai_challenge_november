@@ -161,7 +161,7 @@ class PromptBuilder(
             if (history.isNotEmpty()) {
                 appendLine("История диалога: доступна (${history.size} сообщений)")
             }
-            appendLine()
+                appendLine()
             
             if (contextSection != null) {
                 appendLine("🔍 Контекст из базы знаний:")

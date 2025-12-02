@@ -127,11 +127,21 @@ class RerankerService(
             }
             
             val shouldUseCount = decisions.count { it.shouldUse }
-            logger.info("Reranker result: ${chunksToRerank.size} → ${filteredByShouldUse.size} chunks (shouldUse: $shouldUseCount/${decisions.size}${if (tokensUsed != null) ", tokens: $tokensUsed" else ""})")
+            
+            // Fallback: если реранкер отфильтровал все чанки, используем топ-3 по rerankScore
+            // Это предотвращает ситуацию, когда все чанки отфильтровываются, но некоторые могут быть полезны
+            val finalChunks = if (filteredByShouldUse.isEmpty() && rerankedChunks.isNotEmpty()) {
+                logger.warn("Reranker filtered out all chunks, using top ${minOf(3, rerankedChunks.size)} chunks by rerankScore as fallback")
+                rerankedChunks.take(minOf(3, rerankedChunks.size))
+            } else {
+                filteredByShouldUse
+            }
+            
+            logger.info("Reranker result: ${chunksToRerank.size} → ${finalChunks.size} chunks (shouldUse: $shouldUseCount/${decisions.size}${if (tokensUsed != null) ", tokens: $tokensUsed" else ""})")
             
             return RerankResult(
                 decisions = decisions,
-                rerankedChunks = filteredByShouldUse
+                rerankedChunks = finalChunks
             )
             
         } catch (e: Exception) {

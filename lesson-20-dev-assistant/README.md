@@ -286,14 +286,14 @@ http://localhost:8080
     "sessionId": "550e8400-e29b-41d4-a716-446655440000",
     "role": "ASSISTANT",
     "content": "API работает через следующие endpoints... [Источник: API Документация](project/docs/api.md)",
-    "citations": [
-      {
+  "citations": [
+    {
         "text": "[Источник: API Документация](project/docs/api.md)",
         "documentPath": "project/docs/api.md",
         "documentTitle": "API Документация",
         "chunkId": null
-      }
-    ],
+    }
+  ],
     "createdAt": 1705320610000
   },
   "sessionId": "550e8400-e29b-41d4-a716-446655440000"

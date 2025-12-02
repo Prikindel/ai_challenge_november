@@ -77,10 +77,31 @@ class ChatService(
         
         // 5. Выполняем RAG-поиск для текущего вопроса
         // Если это команда /help, ищем только в документации проекта
+        // Для /help снижаем minSimilarity до 0.0 и увеличиваем topK, чтобы гарантировать результаты
+        // (семантический поиск может не находить релевантные чанки из-за формулировки вопроса)
+        val helpMinSimilarity = if (isHelpCommand) {
+            0.0f  // Для /help используем 0.0, чтобы найти любые чанки из документации проекта
+        } else {
+            minSimilarity
+        }
+        
+        val helpTopK = if (isHelpCommand) {
+            maxOf(topK, 10)  // Для /help увеличиваем topK до минимум 10, чтобы больше чанков попало в выборку
+        } else {
+            topK
+        }
+        
+        // Для /help отключаем реранкер по умолчанию, так как он может отфильтровать все чанки
+        val helpStrategy = if (isHelpCommand && strategy == null) {
+            "none"  // Для /help без явной стратегии отключаем фильтрацию
+        } else {
+            strategy
+        }
+        
         val ragRequest = RAGRequest(
             question = actualQuestion,
-            topK = topK,
-            minSimilarity = minSimilarity
+            topK = helpTopK,
+            minSimilarity = helpMinSimilarity
         )
         
         val ragResponse = if (isHelpCommand) {
@@ -88,7 +109,7 @@ class ChatService(
             ragService.queryProjectDocs(
                 request = ragRequest,
                 applyFilter = applyFilter,
-                strategy = strategy,
+                strategy = helpStrategy,
                 skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
             )
         } else {
