@@ -63,17 +63,83 @@ class ChatService(
         } else {
             userMessage
         }
-        
+
         // 3. Получаем историю диалога
         val history = chatRepository.getHistory(sessionId)
         logger.debug("Retrieved ${history.size} messages from history")
-        
+
         // 4. Сохраняем сообщение пользователя в историю (сохраняем оригинальное сообщение)
         chatRepository.saveMessage(
             sessionId = sessionId,
             role = MessageRole.USER,
             content = userMessage
         )
+
+        // 5. Умная логика определения типа запроса ПЕРЕД RAG
+        // Определяем тип запроса для всех вопросов (не только /help)
+        val requestType = determineRequestType(actualQuestion)
+        logger.info("Request type determined: $requestType for question: $actualQuestion")
+        
+        var additionalContext: String? = null
+        var shouldSkipRAG = false
+        
+        // Если запрос требует MCP инструментов, используем их сразу, пропуская RAG
+        if (gitMCPService != null) {
+            when (requestType) {
+                RequestType.LIST_DIRECTORY -> {
+                    // Запрос на список файлов в директории - используем MCP, пропускаем RAG
+                    shouldSkipRAG = true
+                    val dirPath = extractDirectoryPathFromQuestion(actualQuestion) ?: "project/docs"
+                    val listing = gitMCPService.listDirectory(dirPath)
+                    if (listing != null && !listing.startsWith("Ошибка")) {
+                        additionalContext = "Список файлов в директории $dirPath:\n\n$listing"
+                        logger.info("Successfully listed directory $dirPath via MCP")
+                    } else {
+                        logger.warn("Failed to list directory $dirPath via MCP")
+                    }
+                }
+                
+                RequestType.READ_FILE -> {
+                    // Запрос на чтение файла - используем MCP, пропускаем RAG
+                    shouldSkipRAG = true
+                    val filePath = extractFilePathFromQuestion(actualQuestion)
+                    
+                    if (filePath != null) {
+                        // Пытаемся прочитать указанный файл
+                        val fileContent = gitMCPService.readFile(filePath)
+                        if (fileContent != null && !fileContent.startsWith("Ошибка")) {
+                            additionalContext = "Содержимое файла $filePath:\n\n$fileContent"
+                            logger.info("Successfully read $filePath via MCP (${fileContent.length} chars)")
+                        } else {
+                            logger.warn("Failed to read file $filePath via MCP")
+                        }
+                    } else {
+                        // Пытаемся прочитать api.md, если вопрос про API
+                        if (actualQuestion.contains("API", ignoreCase = true) || actualQuestion.contains("api", ignoreCase = true)) {
+                            val apiContent = gitMCPService.readFile("project/docs/api.md")
+                            if (apiContent != null && !apiContent.startsWith("Ошибка")) {
+                                additionalContext = "Содержимое файла project/docs/api.md:\n\n$apiContent"
+                                logger.info("Successfully read api.md via MCP (${apiContent.length} chars)")
+                            }
+                        }
+                        
+                        // Если не нашли специфичный файл, пробуем README
+                        if (additionalContext == null) {
+                            val readmeContent = gitMCPService.readFile("project/README.md")
+                            if (readmeContent != null && !readmeContent.startsWith("Ошибка")) {
+                                additionalContext = "Содержимое файла project/README.md:\n\n$readmeContent"
+                                logger.info("Successfully read README.md via MCP (${readmeContent.length} chars)")
+                            }
+                        }
+                    }
+                }
+                
+                RequestType.RAG -> {
+                    // Обычный RAG-запрос - выполняем RAG как обычно
+                    shouldSkipRAG = false
+                }
+            }
+        }
         
         // 5. Выполняем RAG-поиск для текущего вопроса
         // Если это команда /help, ищем только в документации проекта
@@ -98,33 +164,57 @@ class ChatService(
             strategy
         }
         
-        val ragRequest = RAGRequest(
-            question = actualQuestion,
-            topK = helpTopK,
-            minSimilarity = helpMinSimilarity
-        )
-        
-        val ragResponse = if (isHelpCommand) {
-            // Для команды /help ищем только в документации проекта
-            ragService.queryProjectDocs(
-                request = ragRequest,
-                applyFilter = applyFilter,
-                strategy = helpStrategy,
-                skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+        // 6. Выполняем RAG-поиск только если не пропустили его
+        val ragResponse = if (shouldSkipRAG) {
+            // Пропускаем RAG, создаем пустой ответ
+            logger.info("Skipping RAG search due to request type: $requestType")
+            RAGResponse(
+                question = actualQuestion,
+                answer = "",
+                contextChunks = emptyList(),
+                tokensUsed = null,
+                citations = emptyList()
             )
         } else {
-            // Обычный поиск во всех документах
-            ragService.query(
-                request = ragRequest,
-                applyFilter = applyFilter,
-                strategy = strategy,
-                skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+            // Выполняем RAG-поиск для текущего вопроса
+            val ragRequest = RAGRequest(
+                question = actualQuestion,
+                topK = helpTopK,
+                minSimilarity = helpMinSimilarity
             )
+            
+            if (isHelpCommand) {
+                // Для команды /help ищем только в документации проекта
+                ragService.queryProjectDocs(
+                    request = ragRequest,
+                    applyFilter = applyFilter,
+                    strategy = helpStrategy,
+                    skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+                )
+            } else {
+                // Обычный поиск во всех документах
+                ragService.query(
+                    request = ragRequest,
+                    applyFilter = applyFilter,
+                    strategy = strategy,
+                    skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+                )
+            }
         }
         
-        logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations")
+        logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations (skipped: $shouldSkipRAG)")
         
-        // 5. Всегда генерируем ответ один раз с учетом истории и контекста из RAG
+        // 7. Fallback для RAG: если не нашли чанки и не использовали MCP, пробуем MCP
+        if (!shouldSkipRAG && ragResponse.contextChunks.isEmpty() && gitMCPService != null && isHelpCommand) {
+            logger.info("RAG found no chunks for /help, using MCP fallback")
+            val readmeContent = gitMCPService.readFile("project/README.md")
+            if (readmeContent != null && !readmeContent.startsWith("Ошибка")) {
+                additionalContext = "Содержимое файла project/README.md:\n\n$readmeContent"
+                logger.info("Successfully read README.md via MCP fallback (${readmeContent.length} chars)")
+            }
+        }
+        
+        // 6. Всегда генерируем ответ один раз с учетом истории и контекста из RAG
         // Оптимизируем историю
         val optimizedHistory = chatPromptBuilder.optimizeHistory(history, strategy = historyStrategy)
         
@@ -143,13 +233,27 @@ class ChatService(
         
         // Формируем промпт с оптимизированной историей и контекстом из RAG
         // Используем actualQuestion вместо userMessage для формирования промпта
-        val promptResult = chatPromptBuilder.buildChatPrompt(
+        var promptResult = chatPromptBuilder.buildChatPrompt(
             question = actualQuestion,
             history = optimizedHistory,
             chunks = ragResponse.contextChunks,
             strategy = historyStrategy,
             gitBranch = gitBranch
         )
+        
+        // Если есть дополнительный контекст из MCP, добавляем его в системный промпт
+        if (additionalContext != null) {
+            val systemMessage = promptResult.messages.firstOrNull { it.role == "system" }
+            if (systemMessage != null) {
+                val updatedSystemMessage = systemMessage.copy(
+                    content = systemMessage.content + "\n\n📄 Дополнительный контекст из файлов проекта:\n\n$additionalContext"
+                )
+                val updatedMessages = promptResult.messages.map { message ->
+                    if (message.role == "system") updatedSystemMessage else message
+                }
+                promptResult = PromptBuilder.ChatPromptResult(messages = updatedMessages)
+            }
+        }
         
         // Генерируем ответ через LLM с историей в формате messages
         val llmResponse = llmService.generateAnswerWithMessages(promptResult.messages)
@@ -198,6 +302,155 @@ class ChatService(
         logger.info("Message processed successfully: session=$sessionId, answerLength=${finalAnswer.length}, citations=${finalCitations.size}")
         
         return assistantMessage
+    }
+    
+    /**
+     * Тип запроса пользователя
+     */
+    private enum class RequestType {
+        LIST_DIRECTORY,  // Запрос на список файлов в директории
+        READ_FILE,       // Запрос на чтение файла
+        RAG              // Обычный RAG-запрос
+    }
+    
+    /**
+     * Определяет тип запроса на основе вопроса пользователя
+     * 
+     * @param question вопрос пользователя
+     * @return тип запроса
+     */
+    private fun determineRequestType(question: String): RequestType {
+        val lowerQuestion = question.lowercase()
+        
+        // Проверяем, является ли запрос запросом на список файлов/директорий
+        val listDirectoryKeywords = listOf(
+            "какие файлы",
+            "список файлов",
+            "что в директории",
+            "что в папке",
+            "какие файлы есть",
+            "какие файлы в",  // Добавлено для "какие файлы в project/src"
+            "покажи файлы",
+            "покажи список",
+            "перечисли файлы",
+            "list files",
+            "show files",
+            "what files",
+            "directory listing",
+            "структура директории",
+            "структура папки",
+            "файлы в",  // Добавлено для "файлы в project/src"
+            "файлы есть в"  // Добавлено для "файлы есть в project/src"
+        )
+        
+        if (listDirectoryKeywords.any { lowerQuestion.contains(it) }) {
+            return RequestType.LIST_DIRECTORY
+        }
+        
+        // Проверяем, является ли запрос запросом на чтение файла
+        val readFileKeywords = listOf(
+            "покажи содержимое",
+            "прочитай файл",
+            "содержимое файла",
+            "покажи файл",
+            "прочитай",
+            "покажи",
+            "read file",
+            "show content",
+            "file content",
+            "содержимое"
+        )
+        
+        // Проверяем наличие .md в вопросе вместе с ключевыми словами
+        val hasFileExtension = question.contains(".md", ignoreCase = true) ||
+                question.contains("файл", ignoreCase = true) ||
+                question.contains("file", ignoreCase = true)
+        
+        if (readFileKeywords.any { lowerQuestion.contains(it) } && hasFileExtension) {
+            return RequestType.READ_FILE
+        }
+        
+        // Если есть явное упоминание файла с расширением
+        if (hasFileExtension && (lowerQuestion.contains("покажи") || lowerQuestion.contains("прочитай"))) {
+            return RequestType.READ_FILE
+        }
+        
+        // По умолчанию используем RAG
+        return RequestType.RAG
+    }
+    
+    /**
+     * Извлекает путь к директории из вопроса пользователя
+     * 
+     * @param question вопрос пользователя
+     * @return путь к директории или null, если не удалось извлечь
+     */
+    private fun extractDirectoryPathFromQuestion(question: String): String? {
+        val lowerQuestion = question.lowercase()
+        
+        // Паттерны для поиска пути к директории
+        // Более гибкие паттерны для извлечения пути после "в", "in", "директории" и т.д.
+        val patterns = listOf(
+            // "какие файлы в project/src" или "файлы в project/docs"
+            Regex("""(?:в|in)\s+(project/[a-zA-Z0-9_/-]+|project|docs?)""", RegexOption.IGNORE_CASE),
+            // "project/src" или "project/docs" напрямую
+            Regex("""(project/[a-zA-Z0-9_/-]+)""", RegexOption.IGNORE_CASE),
+            // "директории project/src" или "папке project/docs"
+            Regex("""(?:директории|папке|directory|folder)\s+(project/[a-zA-Z0-9_/-]+|project|docs?)""", RegexOption.IGNORE_CASE),
+            // Просто "project" или "docs"
+            Regex("""\b(project|docs?)\b""", RegexOption.IGNORE_CASE)
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(question)
+            if (match != null) {
+                val dirPath = match.groupValues.lastOrNull()
+                if (dirPath != null) {
+                    // Нормализуем путь
+                    return when {
+                        dirPath.startsWith("project/") -> dirPath
+                        dirPath == "project" -> "project"
+                        dirPath == "docs" -> "project/docs"
+                        dirPath == "doc" -> "project/docs"
+                        else -> dirPath  // Возвращаем как есть, если это уже полный путь
+                    }
+                }
+            }
+        }
+        
+        return null
+    }
+    
+    /**
+     * Извлекает путь к файлу из вопроса пользователя
+     * 
+     * @param question вопрос пользователя
+     * @return путь к файлу или null, если не удалось извлечь
+     */
+    private fun extractFilePathFromQuestion(question: String): String? {
+        // Паттерны для поиска имени файла
+        val patterns = listOf(
+            Regex("""(?:покажи|прочитай|содержимое|файл|file)\s+(?:файла\s+)?([a-zA-Z0-9_-]+\.md)""", RegexOption.IGNORE_CASE),
+            Regex("""([a-zA-Z0-9_-]+\.md)""", RegexOption.IGNORE_CASE),
+            Regex("""project/docs/([a-zA-Z0-9_-]+\.md)""", RegexOption.IGNORE_CASE)
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(question)
+            if (match != null) {
+                val fileName = match.groupValues.lastOrNull()
+                if (fileName != null) {
+                    // Если файл уже содержит путь, возвращаем как есть
+                    if (fileName.startsWith("project/")) {
+                        return fileName
+                    }
+                    // Иначе добавляем путь к документации проекта
+                    return "project/docs/$fileName"
+                }
+            }
+        }
+        
+        return null
     }
     
     /**

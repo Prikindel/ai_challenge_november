@@ -1,18 +1,29 @@
 package com.prike.gitmcpserver.tools
 
 import com.prike.gitmcpserver.tools.handlers.GetCurrentBranchHandler
+import com.prike.gitmcpserver.tools.handlers.ReadFileHandler
+import com.prike.gitmcpserver.tools.handlers.ListDirectoryHandler
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import org.slf4j.LoggerFactory
+import java.io.File
 
 /**
  * Реестр инструментов MCP сервера
  * Регистрирует все доступные инструменты
  */
-class ToolRegistry {
+class ToolRegistry(
+    private val projectRoot: File
+) {
     private val logger = LoggerFactory.getLogger(ToolRegistry::class.java)
     
     private val getCurrentBranchHandler = GetCurrentBranchHandler()
     private val getCurrentBranchTool = GetCurrentBranchTool(getCurrentBranchHandler)
+    
+    private val readFileHandler = ReadFileHandler(projectRoot)
+    private val readFileTool = ReadFileTool(readFileHandler)
+    
+    private val listDirectoryHandler = ListDirectoryHandler(projectRoot)
+    private val listDirectoryTool = ListDirectoryTool(listDirectoryHandler)
     
     /**
      * Регистрация всех инструментов на сервере
@@ -22,6 +33,12 @@ class ToolRegistry {
         
         // Регистрация инструмента get_current_branch
         getCurrentBranchTool.register(server)
+        
+        // Регистрация инструмента read_file
+        readFileTool.register(server)
+        
+        // Регистрация инструмента list_directory
+        listDirectoryTool.register(server)
         
         logger.info("Все инструменты зарегистрированы")
     }

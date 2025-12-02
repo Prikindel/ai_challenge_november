@@ -90,6 +90,58 @@ class GitMCPService(
     }
     
     /**
+     * Читает содержимое файла проекта
+     * 
+     * @param filePath путь к файлу относительно корня проекта
+     * @return содержимое файла или null при ошибке
+     */
+    suspend fun readFile(filePath: String): String? {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            
+            val arguments = kotlinx.serialization.json.buildJsonObject {
+                put("path", kotlinx.serialization.json.JsonPrimitive(filePath))
+            }
+            
+            val content = gitMCPClient.callTool("read_file", arguments)
+            logger.debug("File read successfully: $filePath (${content.length} chars)")
+            content
+        } catch (e: Exception) {
+            logger.error("Failed to read file $filePath: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
+     * Возвращает список файлов в директории
+     * 
+     * @param dirPath путь к директории относительно корня проекта (по умолчанию ".")
+     * @return список файлов и директорий или null при ошибке
+     */
+    suspend fun listDirectory(dirPath: String = "."): String? {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            
+            val arguments = kotlinx.serialization.json.buildJsonObject {
+                put("path", kotlinx.serialization.json.JsonPrimitive(dirPath))
+            }
+            
+            val listing = gitMCPClient.callTool("list_directory", arguments)
+            logger.debug("Directory listed successfully: $dirPath")
+            listing
+        } catch (e: Exception) {
+            logger.error("Failed to list directory $dirPath: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
      * Проверка подключения к Git MCP серверу
      */
     fun isConnected(): Boolean {

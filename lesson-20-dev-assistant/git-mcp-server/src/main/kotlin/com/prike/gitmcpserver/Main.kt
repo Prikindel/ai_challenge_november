@@ -4,13 +4,18 @@ import com.prike.gitmcpserver.server.GitMCPServer
 import com.prike.gitmcpserver.tools.ToolRegistry
 import io.modelcontextprotocol.kotlin.sdk.Implementation
 import org.slf4j.LoggerFactory
+import java.io.File
 
 fun main() {
     val logger = LoggerFactory.getLogger("GitMCPServerMain")
     
     try {
-        // Создание реестра инструментов
-        val toolRegistry = ToolRegistry()
+        // Определяем корень проекта (текущая рабочая директория)
+        val projectRoot = File(System.getProperty("user.dir"))
+        logger.info("Project root: ${projectRoot.absolutePath}")
+        
+        // Создание реестра инструментов с projectRoot
+        val toolRegistry = ToolRegistry(projectRoot = projectRoot)
         
         // Создание и запуск MCP сервера
         val server = GitMCPServer(
