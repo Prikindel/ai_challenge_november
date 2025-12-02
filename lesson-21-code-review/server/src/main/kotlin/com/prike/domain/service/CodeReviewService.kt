@@ -15,7 +15,8 @@ import java.util.UUID
 class CodeReviewService(
     private val gitMCPService: GitMCPService,
     private val ragMCPService: RagMCPService?,
-    private val llmService: LLMService
+    private val llmService: LLMService,
+    private val promptBuilder: CodeReviewPromptBuilder = CodeReviewPromptBuilder()
 ) {
     private val logger = LoggerFactory.getLogger(CodeReviewService::class.java)
     
@@ -169,14 +170,19 @@ class CodeReviewService(
     ): CodeReview {
         logger.debug("Generating review via LLM")
         
-        // Формируем промпт для LLM
-        val systemPrompt = buildSystemPrompt()
-        val userPrompt = buildUserPrompt(diff, changedFiles, analysisResult, ragContext)
+        // Формируем промпт для LLM через CodeReviewPromptBuilder
+        val promptResult = promptBuilder.buildReviewPrompt(
+            diff = diff,
+            changedFiles = changedFiles,
+            analysisResult = analysisResult,
+            ragContext = ragContext,
+            maxDiffLength = 8000
+        )
         
         // Генерируем ответ через LLM
         val llmResponse = llmService.generateAnswer(
-            question = userPrompt,
-            systemPrompt = systemPrompt,
+            question = promptResult.userPrompt,
+            systemPrompt = promptResult.systemPrompt,
             temperature = 0.3  // Низкая температура для более детерминированных результатов
         )
         
@@ -189,95 +195,6 @@ class CodeReviewService(
         )
         
         return review
-    }
-    
-    /**
-     * Формирование системного промпта для ревью кода
-     */
-    private fun buildSystemPrompt(): String {
-        return """
-            Ты — опытный code reviewer, который анализирует изменения в коде и выдаёт структурированное ревью.
-            
-            Твоя задача:
-            1. Найти потенциальные баги и проблемы безопасности
-            2. Проверить соответствие стилю кода и best practices
-            3. Выявить проблемы производительности
-            4. Предложить улучшения кода
-            
-            Формат ответа (строго JSON):
-            {
-                "summary": "Краткое резюме ревью",
-                "overallScore": "approve" | "request_changes" | "comment",
-                "issues": [
-                    {
-                        "type": "BUG" | "SECURITY" | "PERFORMANCE" | "STYLE" | "LOGIC" | "DOCUMENTATION",
-                        "severity": "critical" | "high" | "medium" | "low",
-                        "file": "путь/к/файлу",
-                        "line": номер_строки или null,
-                        "message": "Описание проблемы",
-                        "suggestion": "Предложение по исправлению" или null
-                    }
-                ],
-                "suggestions": [
-                    {
-                        "file": "путь/к/файлу",
-                        "line": номер_строки или null,
-                        "message": "Описание предложения",
-                        "priority": "high" | "medium" | "low"
-                    }
-                ]
-            }
-            
-            Важно:
-            - Будь конкретным и конструктивным
-            - Указывай точные номера строк, если возможно
-            - Предлагай конкретные исправления
-            - Не критикуй без предложения решения
-        """.trimIndent()
-    }
-    
-    /**
-     * Формирование пользовательского промпта с контекстом
-     */
-    private fun buildUserPrompt(
-        diff: String,
-        changedFiles: List<String>,
-        analysisResult: Map<String, Any>,
-        ragContext: String?
-    ): String {
-        val sb = StringBuilder()
-        
-        sb.appendLine("Проанализируй следующие изменения в коде:")
-        sb.appendLine()
-        
-        sb.appendLine("Изменённые файлы (${changedFiles.size}):")
-        changedFiles.forEach { file ->
-            sb.appendLine("  - $file")
-        }
-        sb.appendLine()
-        
-        sb.appendLine("Статистика изменений:")
-        sb.appendLine("  - Добавлено строк: ${analysisResult["addedLines"]}")
-        sb.appendLine("  - Удалено строк: ${analysisResult["removedLines"]}")
-        sb.appendLine("  - Типы файлов: ${analysisResult["fileTypes"]}")
-        sb.appendLine()
-        
-        if (ragContext != null) {
-            sb.appendLine("Контекст из документации проекта:")
-            sb.appendLine(ragContext)
-            sb.appendLine()
-        }
-        
-        sb.appendLine("Diff изменений:")
-        // Ограничиваем размер diff (первые 8000 символов)
-        val diffPreview = if (diff.length > 8000) {
-            diff.take(8000) + "\n\n... (diff обрезан, показаны первые 8000 символов)"
-        } else {
-            diff
-        }
-        sb.appendLine(diffPreview)
-        
-        return sb.toString()
     }
     
     /**
