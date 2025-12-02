@@ -174,6 +174,99 @@ class GitMCPService(
     }
     
     /**
+     * Получить diff между двумя ветками
+     * 
+     * @param base базовая ветка (например, "main" или "origin/main")
+     * @param head целевая ветка (например, "feature-branch" или "HEAD")
+     * @return diff между ветками или null при ошибке
+     */
+    suspend fun getDiff(base: String, head: String): String? {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            
+            val arguments = kotlinx.serialization.json.buildJsonObject {
+                put("base", kotlinx.serialization.json.JsonPrimitive(base))
+                put("head", kotlinx.serialization.json.JsonPrimitive(head))
+            }
+            
+            val diff = gitMCPClient.callTool("get_diff", arguments)
+            logger.debug("Diff retrieved successfully: ${base}..${head} (${diff.length} chars)")
+            diff
+        } catch (e: Exception) {
+            logger.error("Failed to get diff between $base and $head: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
+     * Получить список изменённых файлов между двумя ветками
+     * 
+     * @param base базовая ветка
+     * @param head целевая ветка
+     * @return список изменённых файлов (по одному на строку) или null при ошибке
+     */
+    suspend fun getChangedFiles(base: String, head: String): List<String>? {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            
+            val arguments = kotlinx.serialization.json.buildJsonObject {
+                put("base", kotlinx.serialization.json.JsonPrimitive(base))
+                put("head", kotlinx.serialization.json.JsonPrimitive(head))
+            }
+            
+            val result = gitMCPClient.callTool("get_changed_files", arguments)
+            logger.debug("Changed files retrieved successfully: ${base}..${head}")
+            
+            // Парсим результат: каждая строка содержит статус и путь к файлу
+            // Формат: "M\tpath/to/file.kt" или "A\tpath/to/file.kt"
+            val files = result.lines()
+                .filter { it.isNotBlank() }
+                .map { line ->
+                    // Убираем статус (первый символ и табуляцию)
+                    val parts = line.split("\t")
+                    if (parts.size > 1) parts[1] else parts[0]
+                }
+            
+            files
+        } catch (e: Exception) {
+            logger.error("Failed to get changed files between $base and $head: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
+     * Получить содержимое файла (алиас для readFile с явным названием)
+     * 
+     * @param filePath путь к файлу относительно корня проекта
+     * @return содержимое файла или null при ошибке
+     */
+    suspend fun getFileContent(filePath: String): String? {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            
+            val arguments = kotlinx.serialization.json.buildJsonObject {
+                put("filePath", kotlinx.serialization.json.JsonPrimitive(filePath))
+            }
+            
+            val content = gitMCPClient.callTool("get_file_content", arguments)
+            logger.debug("File content retrieved successfully: $filePath (${content.length} chars)")
+            content
+        } catch (e: Exception) {
+            logger.error("Failed to get file content $filePath: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
      * Проверка подключения к Git MCP серверу
      */
     fun isConnected(): Boolean {
