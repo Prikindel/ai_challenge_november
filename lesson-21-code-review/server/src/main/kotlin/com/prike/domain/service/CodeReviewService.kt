@@ -264,8 +264,24 @@ class CodeReviewService(
                 return createFallbackReview(llmAnswer, baseBranch, headBranch, changedFiles)
             }
             
-            val jsonString = llmAnswer.substring(jsonStart, jsonEnd)
-            val json = Json.parseToJsonElement(jsonString).jsonObject
+            var jsonString = llmAnswer.substring(jsonStart, jsonEnd)
+            // Исправляем неэкранированные кавычки в JSON строках
+            jsonString = fixUnescapedQuotesInJson(jsonString)
+            
+            // Пытаемся распарсить JSON
+            var json = try {
+                Json.parseToJsonElement(jsonString).jsonObject
+            } catch (e: Exception) {
+                // Если не удалось, пробуем более агрессивное исправление
+                logger.warn("First JSON parse attempt failed, trying aggressive fix: ${e.message}")
+                val fixedJson = fixUnescapedQuotesAggressively(jsonString)
+                try {
+                    Json.parseToJsonElement(fixedJson).jsonObject
+                } catch (e2: Exception) {
+                    logger.error("Failed to parse JSON even after aggressive fix: ${e2.message}")
+                    throw e2
+                }
+            }
             
             val summary = json["summary"]?.jsonPrimitive?.content ?: "Ревью завершено"
             val overallScore = json["overallScore"]?.jsonPrimitive?.content
@@ -316,6 +332,81 @@ class CodeReviewService(
             logger.error("Failed to parse LLM response: ${e.message}", e)
             createFallbackReview(llmAnswer, baseBranch, headBranch, changedFiles)
         }
+    }
+    
+    /**
+     * Более агрессивное исправление неэкранированных кавычек
+     * Используется как fallback, если обычное исправление не помогло
+     */
+    private fun fixUnescapedQuotesAggressively(json: String): String {
+        // Заменяем все неэкранированные двойные кавычки внутри строк на экранированные
+        // Используем простую эвристику: кавычка внутри строки обычно идет после буквы/цифры/символа
+        return json.replace(Regex("""([^\\])"([^",:}\]]+)"""")) { matchResult ->
+            val before = matchResult.groupValues[1]
+            val content = matchResult.groupValues[2]
+            // Если это похоже на содержимое строки (не ключ и не закрывающая кавычка), экранируем
+            if (content.isNotBlank() && !content.trim().matches(Regex("""^\s*[,\]}]\s*$"""))) {
+                "$before\\\"$content\\\""
+            } else {
+                matchResult.value
+            }
+        }
+    }
+    
+    /**
+     * Исправляет неэкранированные кавычки в JSON строках
+     * Заменяет двойные кавычки внутри строковых значений на экранированные
+     */
+    private fun fixUnescapedQuotesInJson(json: String): String {
+        val result = StringBuilder()
+        var i = 0
+        var inString = false
+        var escapeNext = false
+        
+        while (i < json.length) {
+            val char = json[i]
+            
+            when {
+                escapeNext -> {
+                    // Следующий символ после обратного слеша - пропускаем как есть
+                    result.append(char)
+                    escapeNext = false
+                }
+                char == '\\' -> {
+                    // Обратный слеш - следующий символ экранирован
+                    result.append(char)
+                    escapeNext = true
+                }
+                char == '"' && !inString -> {
+                    // Открывающая кавычка строки
+                    result.append(char)
+                    inString = true
+                }
+                char == '"' && inString -> {
+                    // Проверяем, является ли это закрывающей кавычкой строки
+                    // Смотрим на следующие символы после кавычки
+                    val remaining = json.substring(i + 1).trimStart()
+                    val nextChar = remaining.firstOrNull()
+                    
+                    // Если после кавычки идет : , } ] или конец строки - это закрывающая кавычка
+                    if (nextChar == null || nextChar == ':' || nextChar == ',' || 
+                        nextChar == '}' || nextChar == ']' || nextChar == '\n') {
+                        // Это закрывающая кавычка строки
+                        result.append(char)
+                        inString = false
+                    } else {
+                        // Это неэкранированная кавычка внутри строки - экранируем
+                        result.append("\\\"")
+                    }
+                }
+                else -> {
+                    result.append(char)
+                }
+            }
+            i++
+        }
+        
+        return result.toString()
     }
     
     /**
