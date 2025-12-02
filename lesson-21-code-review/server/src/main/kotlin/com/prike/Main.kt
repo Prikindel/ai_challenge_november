@@ -124,6 +124,17 @@ fun main(args: Array<String>) {
         requestRouter = requestRouter
     )
     
+    // 9. Code Review Service для автоматического ревью кода
+    val codeReviewService = if (gitMCPService != null) {
+        com.prike.domain.service.CodeReviewService(
+            gitMCPService = gitMCPService,
+            ragMCPService = ragMCPService,
+            llmService = llmService
+        )
+    } else {
+        null
+    }
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
@@ -139,6 +150,11 @@ fun main(args: Array<String>) {
         gitMCPService = gitMCPService,
         lessonRoot = lessonRoot
     )
+    val codeReviewController = if (codeReviewService != null) {
+        com.prike.presentation.controller.CodeReviewController(codeReviewService)
+    } else {
+        null
+    }
     
     embeddedServer(Netty, port = config.server.port, host = config.server.host) {
         install(ContentNegotiation) {
@@ -175,6 +191,7 @@ fun main(args: Array<String>) {
             llmController.registerRoutes(this)
             chatController.registerRoutes(this)
             documentController.registerRoutes(this)
+            codeReviewController?.registerRoutes(this)
         }
         
         // Закрытие ресурсов при остановке

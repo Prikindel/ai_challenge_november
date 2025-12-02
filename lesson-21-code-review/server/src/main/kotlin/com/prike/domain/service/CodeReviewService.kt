@@ -80,6 +80,54 @@ class CodeReviewService(
     }
     
     /**
+     * Выполнить ревью по diff (без доступа к git)
+     * Используется для ревью diff, переданного напрямую
+     * 
+     * @param diff diff в формате unified diff
+     * @param changedFiles список изменённых файлов
+     * @param baseBranch базовая ветка (опционально)
+     * @param headBranch целевая ветка (опционально)
+     * @return результат ревью
+     */
+    suspend fun reviewDiff(
+        diff: String,
+        changedFiles: List<String>,
+        baseBranch: String = "unknown",
+        headBranch: String = "unknown"
+    ): CodeReview {
+        logger.info("Starting code review for diff (${changedFiles.size} files)")
+        
+        if (diff.isBlank()) {
+            throw IllegalArgumentException("Diff cannot be empty")
+        }
+        
+        // 1. Анализируем diff
+        val analysisResult = analyzeDiff(diff, changedFiles)
+        
+        // 2. Проверяем против документации через RAG (если доступен)
+        val ragContext = if (ragMCPService != null && ragMCPService.isConnected()) {
+            checkAgainstDocs(diff, changedFiles)
+        } else {
+            logger.warn("RAG MCP service is not available, skipping documentation check")
+            null
+        }
+        
+        // 3. Генерируем ревью через LLM
+        val review = generateReview(
+            diff = diff,
+            changedFiles = changedFiles,
+            analysisResult = analysisResult,
+            ragContext = ragContext,
+            baseBranch = baseBranch,
+            headBranch = headBranch
+        )
+        
+        logger.info("Diff review completed: ${review.issues.size} issues, ${review.suggestions.size} suggestions")
+        
+        return review
+    }
+    
+    /**
      * Анализ diff для извлечения базовой информации
      * 
      * @param diff diff между ветками
