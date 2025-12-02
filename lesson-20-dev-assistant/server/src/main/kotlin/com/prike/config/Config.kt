@@ -86,13 +86,6 @@ data class RAGFilterConfig(
     val reranker: RerankerConfig = RerankerConfig()
 )
 
-/**
- * Конфигурация RAG
- */
-data class RAGConfig(
-    val retrieval: RAGRetrievalConfig = RAGRetrievalConfig(),
-    val filter: RAGFilterConfig = RAGFilterConfig()
-)
 
 /**
  * Конфигурация истории чата
@@ -115,6 +108,15 @@ data class ChatConfig(
  */
 data class GitMCPConfig(
     val enabled: Boolean = true,
+    val jarPath: String? = null,
+    val cacheDurationMinutes: Int = 5
+)
+
+/**
+ * Конфигурация RAG MCP
+ */
+data class RagMCPConfig(
+    val enabled: Boolean = false,
     val jarPath: String? = null
 )
 
@@ -123,6 +125,15 @@ data class GitMCPConfig(
  */
 data class GitConfig(
     val mcp: GitMCPConfig = GitMCPConfig()
+)
+
+/**
+ * Конфигурация RAG
+ */
+data class RAGConfig(
+    val retrieval: RAGRetrievalConfig = RAGRetrievalConfig(),
+    val filter: RAGFilterConfig = RAGFilterConfig(),
+    val mcp: RagMCPConfig? = null
 )
 
 /**
@@ -241,9 +252,19 @@ object Config {
             reranker = reranker
         )
         
+        // Конфигурация RAG MCP
+        val ragMCPMap = serverConfigMap["rag"]?.let { it as? Map<String, Any> }?.get("mcp") as? Map<String, Any>
+        val ragMCP = ragMCPMap?.let {
+            RagMCPConfig(
+                enabled = (it["enabled"] as? Boolean) ?: false,
+                jarPath = it["jarPath"] as? String
+            )
+        }
+        
         val rag = RAGConfig(
             retrieval = retrieval,
-            filter = filter
+            filter = filter,
+            mcp = ragMCP
         )
         
         // Конфигурация чата
@@ -261,7 +282,8 @@ object Config {
         val gitMCPMap = gitMap["mcp"] as? Map<String, Any> ?: emptyMap()
         val gitMCP = GitMCPConfig(
             enabled = (gitMCPMap["enabled"] as? Boolean) ?: true,
-            jarPath = gitMCPMap["jarPath"] as? String
+            jarPath = gitMCPMap["jarPath"] as? String,
+            cacheDurationMinutes = (gitMCPMap["cacheDurationMinutes"] as? Number)?.toInt() ?: 5
         )
         val git = GitConfig(mcp = gitMCP)
         

@@ -18,6 +18,9 @@ repositories {
 }
 
 dependencies {
+    // MCP Common библиотека
+    implementation(project(":mcp-common"))
+    
     // Ktor Server (версия 3.2.3 для совместимости с MCP SDK)
     implementation("io.ktor:ktor-server-core:3.2.3")
     implementation("io.ktor:ktor-server-netty:3.2.3")

@@ -18,25 +18,25 @@ repositories {
 }
 
 dependencies {
+    // MCP Common библиотека
+    implementation(project(":mcp-common"))
+    
+    // MCP SDK (транзитивно из mcp-common, но явно для надежности)
+    implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
+    
     // Ktor Server (требуется для MCP SDK)
     implementation("io.ktor:ktor-server-core:3.2.3")
-    implementation("io.ktor:ktor-server-sse:3.2.3") // Требуется для MCP SDK
+    implementation("io.ktor:ktor-server-sse:3.2.3")
     
     // Ktor Client (требуется для MCP SDK)
     implementation("io.ktor:ktor-client-core:3.2.3")
     implementation("io.ktor:ktor-client-cio:3.2.3")
     
-    // Logging
-    implementation("ch.qos.logback:logback-classic:1.4.14")
-    
-    // Kotlin Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-    
     // Kotlinx IO (требуется для MCP SDK транспорта)
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
     
-    // MCP Kotlin SDK
-    implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
+    // Logging
+    implementation("ch.qos.logback:logback-classic:1.4.14")
 }
 
 tasks.withType<KotlinCompile> {

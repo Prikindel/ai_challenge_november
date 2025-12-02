@@ -1,8 +1,8 @@
 package com.prike.data.repository
 
-import com.prike.data.client.OpenAIClient
-import com.prike.data.dto.MessageDto
-import com.prike.data.dto.OpenAIResponse
+import com.prike.mcpcommon.client.OpenAIClient
+import com.prike.mcpcommon.dto.MessageDto
+import com.prike.mcpcommon.dto.OpenAIResponse
 import com.prike.domain.service.LLMException
 
 /**

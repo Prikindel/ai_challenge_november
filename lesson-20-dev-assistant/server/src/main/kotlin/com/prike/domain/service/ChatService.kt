@@ -5,9 +5,9 @@ import com.prike.config.AIConfig
 import com.prike.data.repository.ChatRepository
 import com.prike.domain.model.ChatMessage
 import com.prike.domain.model.MessageRole
-import com.prike.domain.model.RAGRequest
 import com.prike.domain.model.RAGResponse
 import com.prike.domain.model.Citation
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 
 /**
@@ -15,13 +15,15 @@ import org.slf4j.LoggerFactory
  */
 class ChatService(
     private val chatRepository: ChatRepository,
-    private val ragService: RAGService,
     private val chatPromptBuilder: ChatPromptBuilder,
     private val llmService: LLMService,
     private val citationParser: CitationParser = CitationParser(),
-    private val gitMCPService: com.prike.domain.service.GitMCPService? = null
+    private val gitMCPService: GitMCPService? = null,
+    private val ragMCPService: RagMCPService? = null,
+    private val requestRouter: RequestRouterService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
+    private val ragResultParser = RagResultParser()
     
     /**
      * Обрабатывает сообщение пользователя в контексте сессии
@@ -75,144 +77,207 @@ class ChatService(
             content = userMessage
         )
 
-        // 5. Умная логика определения типа запроса ПЕРЕД RAG
-        // Определяем тип запроса для всех вопросов (не только /help)
-        val requestType = determineRequestType(actualQuestion)
-        logger.info("Request type determined: $requestType for question: $actualQuestion")
-        
+        // 5. Динамический роутинг через LLM (если доступен RequestRouterService)
         var additionalContext: String? = null
-        var shouldSkipRAG = false
+        var ragResponse: RAGResponse
         
-        // Если запрос требует MCP инструментов, используем их сразу, пропуская RAG
-        if (gitMCPService != null) {
-            when (requestType) {
-                RequestType.LIST_DIRECTORY -> {
-                    // Запрос на список файлов в директории - используем MCP, пропускаем RAG
-                    shouldSkipRAG = true
-                    val dirPath = extractDirectoryPathFromQuestion(actualQuestion) ?: "project/docs"
-                    val listing = gitMCPService.listDirectory(dirPath)
-                    if (listing != null && !listing.startsWith("Ошибка")) {
-                        additionalContext = "Список файлов в директории $dirPath:\n\n$listing"
-                        logger.info("Successfully listed directory $dirPath via MCP")
+        if (requestRouter != null) {
+            // Используем LLM для определения, что делать
+            val routingDecision = requestRouter.route(actualQuestion)
+            logger.info("Routing decision: ${routingDecision.action} (tool: ${routingDecision.toolName}, reasoning: ${routingDecision.reasoning})")
+            
+            when (routingDecision.action) {
+                com.prike.domain.service.ActionType.RAG_SEARCH -> {
+                    // Обычный RAG поиск по всем документам через MCP
+                    if (ragMCPService == null) {
+                        logger.error("RAG MCP service is not available for RAG_SEARCH")
+                        ragResponse = RAGResponse(
+                            question = actualQuestion,
+                            answer = "",
+                            contextChunks = emptyList(),
+                            tokensUsed = null,
+                            citations = emptyList()
+                        )
                     } else {
-                        logger.warn("Failed to list directory $dirPath via MCP")
+                        val arguments = kotlinx.serialization.json.buildJsonObject {
+                            put("query", JsonPrimitive(actualQuestion))
+                            put("topK", JsonPrimitive(topK))
+                            put("minSimilarity", JsonPrimitive(minSimilarity))
+                        }
+                        val toolResult = ragMCPService.callTool("rag_search", arguments)
+                        
+                        // Парсим результат в структурированные чанки
+                        val chunks = ragResultParser.parseRagSearchResult(toolResult)
+                        logger.debug("Parsed ${chunks.size} chunks from RAG search result")
+                        
+                        additionalContext = "Результат поиска:\n\n$toolResult"
+                        ragResponse = RAGResponse(
+                            question = actualQuestion,
+                            answer = "",
+                            contextChunks = chunks,
+                            tokensUsed = null,
+                            citations = emptyList()
+                        )
                     }
                 }
                 
-                RequestType.READ_FILE -> {
-                    // Запрос на чтение файла - используем MCP, пропускаем RAG
-                    shouldSkipRAG = true
-                    val filePath = extractFilePathFromQuestion(actualQuestion)
-                    
-                    if (filePath != null) {
-                        // Пытаемся прочитать указанный файл
-                        val fileContent = gitMCPService.readFile(filePath)
-                        if (fileContent != null && !fileContent.startsWith("Ошибка")) {
-                            additionalContext = "Содержимое файла $filePath:\n\n$fileContent"
-                            logger.info("Successfully read $filePath via MCP (${fileContent.length} chars)")
-                        } else {
-                            logger.warn("Failed to read file $filePath via MCP")
-                        }
+                com.prike.domain.service.ActionType.RAG_SEARCH_PROJECT -> {
+                    // RAG поиск только в документации проекта через MCP
+                    if (ragMCPService == null) {
+                        logger.error("RAG MCP service is not available for RAG_SEARCH_PROJECT")
+                        ragResponse = RAGResponse(
+                            question = actualQuestion,
+                            answer = "",
+                            contextChunks = emptyList(),
+                            tokensUsed = null,
+                            citations = emptyList()
+                        )
                     } else {
-                        // Пытаемся прочитать api.md, если вопрос про API
-                        if (actualQuestion.contains("API", ignoreCase = true) || actualQuestion.contains("api", ignoreCase = true)) {
-                            val apiContent = gitMCPService.readFile("project/docs/api.md")
-                            if (apiContent != null && !apiContent.startsWith("Ошибка")) {
-                                additionalContext = "Содержимое файла project/docs/api.md:\n\n$apiContent"
-                                logger.info("Successfully read api.md via MCP (${apiContent.length} chars)")
+                        val arguments = kotlinx.serialization.json.buildJsonObject {
+                            put("query", JsonPrimitive(actualQuestion))
+                            put("topK", JsonPrimitive(maxOf(topK, 10)))
+                            put("minSimilarity", JsonPrimitive(0.0f))
+                        }
+                        val toolResult = ragMCPService.callTool("rag_search_project_docs", arguments)
+                        
+                        // Парсим результат в структурированные чанки
+                        val chunks = ragResultParser.parseRagSearchResult(toolResult)
+                        logger.debug("Parsed ${chunks.size} chunks from RAG search project docs result")
+                        
+                        additionalContext = "Результат поиска в документации проекта:\n\n$toolResult"
+                        ragResponse = RAGResponse(
+                            question = actualQuestion,
+                            answer = "",
+                            contextChunks = chunks,
+                            tokensUsed = null,
+                            citations = emptyList()
+                        )
+                    }
+                }
+                
+                com.prike.domain.service.ActionType.MCP_TOOL -> {
+                    // Используем MCP инструмент
+                    val toolName = routingDecision.toolName
+                        ?: throw IllegalStateException("MCP_TOOL action without toolName")
+                    val toolArguments = routingDecision.toolArguments
+                        ?: kotlinx.serialization.json.buildJsonObject {}
+                    
+                    logger.info("Calling MCP tool: $toolName with arguments: $toolArguments")
+                    
+                    // Определяем, какой MCP сервис использовать
+                    val toolResult = when {
+                        toolName.startsWith("rag_") && ragMCPService != null -> {
+                            ragMCPService.callTool(toolName, toolArguments)
+                        }
+                        gitMCPService != null -> {
+                            gitMCPService.callTool(toolName, toolArguments)
+                        }
+                        else -> {
+                            throw IllegalStateException("No MCP service available for tool: $toolName")
+                        }
+                    }
+                    
+                    additionalContext = "Результат выполнения инструмента $toolName:\n\n$toolResult"
+                    
+                    // Создаем пустой RAG ответ, так как использовали MCP инструмент
+                    ragResponse = RAGResponse(
+                        question = actualQuestion,
+                        answer = "",
+                        contextChunks = emptyList(),
+                        tokensUsed = null,
+                        citations = emptyList()
+                    )
+                }
+                
+                com.prike.domain.service.ActionType.DIRECT_ANSWER -> {
+                    // Прямой ответ, но если указан toolName, используем инструмент
+                    if (routingDecision.toolName != null) {
+                        // Используем MCP инструмент, даже если action = DIRECT_ANSWER
+                        val toolName = routingDecision.toolName
+                        var toolArguments = routingDecision.toolArguments
+                            ?: kotlinx.serialization.json.buildJsonObject {}
+                        
+                        // Исправляем неправильные параметры (например, "param" -> "path")
+                        toolArguments = fixToolArguments(toolName, toolArguments)
+                        
+                        logger.info("Using MCP tool for DIRECT_ANSWER: $toolName with arguments: $toolArguments")
+                        
+                        // Определяем, какой MCP сервис использовать
+                        val toolResult = when {
+                            toolName.startsWith("rag_") && ragMCPService != null -> {
+                                ragMCPService.callTool(toolName, toolArguments)
+                            }
+                            gitMCPService != null -> {
+                                gitMCPService.callTool(toolName, toolArguments)
+                            }
+                            else -> {
+                                throw IllegalStateException("No MCP service available for tool: $toolName")
                             }
                         }
                         
-                        // Если не нашли специфичный файл, пробуем README
-                        if (additionalContext == null) {
-                            val readmeContent = gitMCPService.readFile("project/README.md")
-                            if (readmeContent != null && !readmeContent.startsWith("Ошибка")) {
-                                additionalContext = "Содержимое файла project/README.md:\n\n$readmeContent"
-                                logger.info("Successfully read README.md via MCP (${readmeContent.length} chars)")
-                            }
-                        }
+                        additionalContext = "Результат выполнения инструмента $toolName:\n\n$toolResult"
+                        
+                        ragResponse = RAGResponse(
+                            question = actualQuestion,
+                            answer = "",
+                            contextChunks = emptyList(),
+                            tokensUsed = null,
+                            citations = emptyList()
+                        )
+                    } else {
+                        // Прямой ответ без инструментов
+                        ragResponse = RAGResponse(
+                            question = actualQuestion,
+                            answer = "",
+                            contextChunks = emptyList(),
+                            tokensUsed = null,
+                            citations = emptyList()
+                        )
                     }
                 }
-                
-                RequestType.RAG -> {
-                    // Обычный RAG-запрос - выполняем RAG как обычно
-                    shouldSkipRAG = false
-                }
             }
-        }
-        
-        // 5. Выполняем RAG-поиск для текущего вопроса
-        // Если это команда /help, ищем только в документации проекта
-        // Для /help снижаем minSimilarity до 0.0 и увеличиваем topK, чтобы гарантировать результаты
-        // (семантический поиск может не находить релевантные чанки из-за формулировки вопроса)
-        val helpMinSimilarity = if (isHelpCommand) {
-            0.0f  // Для /help используем 0.0, чтобы найти любые чанки из документации проекта
         } else {
-            minSimilarity
-        }
-        
-        val helpTopK = if (isHelpCommand) {
-            maxOf(topK, 10)  // Для /help увеличиваем topK до минимум 10, чтобы больше чанков попало в выборку
-        } else {
-            topK
-        }
-        
-        // Для /help отключаем реранкер по умолчанию, так как он может отфильтровать все чанки
-        val helpStrategy = if (isHelpCommand && strategy == null) {
-            "none"  // Для /help без явной стратегии отключаем фильтрацию
-        } else {
-            strategy
-        }
-        
-        // 6. Выполняем RAG-поиск только если не пропустили его
-        val ragResponse = if (shouldSkipRAG) {
-            // Пропускаем RAG, создаем пустой ответ
-            logger.info("Skipping RAG search due to request type: $requestType")
-            RAGResponse(
-                question = actualQuestion,
-                answer = "",
-                contextChunks = emptyList(),
-                tokensUsed = null,
-                citations = emptyList()
-            )
-        } else {
-            // Выполняем RAG-поиск для текущего вопроса
-            val ragRequest = RAGRequest(
-                question = actualQuestion,
-                topK = helpTopK,
-                minSimilarity = helpMinSimilarity
-            )
+            // Fallback: если RequestRouterService недоступен, используем MCP инструменты напрямую
+            logger.warn("RequestRouterService not available, using direct MCP tool calls")
             
-            if (isHelpCommand) {
-                // Для команды /help ищем только в документации проекта
-                ragService.queryProjectDocs(
-                    request = ragRequest,
-                    applyFilter = applyFilter,
-                    strategy = helpStrategy,
-                    skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+            if (ragMCPService == null) {
+                // Если RAG MCP недоступен, возвращаем пустой ответ
+                logger.error("RAG MCP service is not available and RequestRouterService is null")
+                ragResponse = RAGResponse(
+                    question = actualQuestion,
+                    answer = "",
+                    contextChunks = emptyList(),
+                    tokensUsed = null,
+                    citations = emptyList()
                 )
             } else {
-                // Обычный поиск во всех документах
-                ragService.query(
-                    request = ragRequest,
-                    applyFilter = applyFilter,
-                    strategy = strategy,
-                    skipGeneration = true  // ChatService сам генерирует ответ с учетом истории
+                // Используем MCP инструмент напрямую
+                val toolName = if (isHelpCommand) "rag_search_project_docs" else "rag_search"
+                val arguments = kotlinx.serialization.json.buildJsonObject {
+                    put("query", JsonPrimitive(actualQuestion))
+                    put("topK", JsonPrimitive(if (isHelpCommand) maxOf(topK, 10) else topK))
+                    put("minSimilarity", JsonPrimitive(if (isHelpCommand) 0.0f else minSimilarity))
+                }
+                
+                val toolResult = ragMCPService.callTool(toolName, arguments)
+                
+                // Парсим результат в структурированные чанки
+                val chunks = ragResultParser.parseRagSearchResult(toolResult)
+                logger.debug("Parsed ${chunks.size} chunks from RAG search result")
+                
+                additionalContext = "Результат поиска:\n\n$toolResult"
+                
+                ragResponse = RAGResponse(
+                    question = actualQuestion,
+                    answer = "",
+                    contextChunks = chunks,
+                    tokensUsed = null,
+                    citations = emptyList()
                 )
             }
         }
         
-        logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations (skipped: $shouldSkipRAG)")
-        
-        // 7. Fallback для RAG: если не нашли чанки и не использовали MCP, пробуем MCP
-        if (!shouldSkipRAG && ragResponse.contextChunks.isEmpty() && gitMCPService != null && isHelpCommand) {
-            logger.info("RAG found no chunks for /help, using MCP fallback")
-            val readmeContent = gitMCPService.readFile("project/README.md")
-            if (readmeContent != null && !readmeContent.startsWith("Ошибка")) {
-                additionalContext = "Содержимое файла project/README.md:\n\n$readmeContent"
-                logger.info("Successfully read README.md via MCP fallback (${readmeContent.length} chars)")
-            }
-        }
+        logger.debug("RAG search completed: found ${ragResponse.contextChunks.size} chunks, ${ragResponse.citations.size} citations")
         
         // 6. Всегда генерируем ответ один раз с учетом истории и контекста из RAG
         // Оптимизируем историю
@@ -264,13 +329,23 @@ class ChatService(
         val availableDocumentsMap = ragResponse.contextChunks
             .mapNotNull { chunk ->
                 chunk.documentPath?.let { path ->
-                    path to (chunk.documentTitle ?: path)
+                    // Нормализуем путь для более гибкого сравнения
+                    val normalizedPath = normalizePathForComparison(path)
+                    normalizedPath to (chunk.documentTitle ?: extractFileName(path))
                 }
             }
             .distinctBy { it.first }
             .toMap()
         
-        val availableDocumentsPaths = availableDocumentsMap.keys.toSet()
+        // Создаем набор путей для валидации (включая оригинальные и нормализованные)
+        val availableDocumentsPaths = mutableSetOf<String>()
+        ragResponse.contextChunks.forEach { chunk ->
+            chunk.documentPath?.let { path ->
+                availableDocumentsPaths.add(path)
+                availableDocumentsPaths.add(normalizePathForComparison(path))
+                availableDocumentsPaths.add(extractFileName(path))
+            }
+        }
         
         val answerWithCitations = citationParser.parseCitations(
             rawAnswer = llmResponse.answer,
@@ -305,152 +380,38 @@ class ChatService(
     }
     
     /**
-     * Тип запроса пользователя
+     * Нормализует путь для сравнения
      */
-    private enum class RequestType {
-        LIST_DIRECTORY,  // Запрос на список файлов в директории
-        READ_FILE,       // Запрос на чтение файла
-        RAG              // Обычный RAG-запрос
+    private fun normalizePathForComparison(path: String): String {
+        return path
+            .replace("\\", "/")
+            .replace(Regex("/+"), "/")
+            .trim('/')
+            .lowercase()
     }
     
     /**
-     * Определяет тип запроса на основе вопроса пользователя
-     * 
-     * @param question вопрос пользователя
-     * @return тип запроса
+     * Извлекает имя файла из пути
      */
-    private fun determineRequestType(question: String): RequestType {
-        val lowerQuestion = question.lowercase()
-        
-        // Проверяем, является ли запрос запросом на список файлов/директорий
-        val listDirectoryKeywords = listOf(
-            "какие файлы",
-            "список файлов",
-            "что в директории",
-            "что в папке",
-            "какие файлы есть",
-            "какие файлы в",  // Добавлено для "какие файлы в project/src"
-            "покажи файлы",
-            "покажи список",
-            "перечисли файлы",
-            "list files",
-            "show files",
-            "what files",
-            "directory listing",
-            "структура директории",
-            "структура папки",
-            "файлы в",  // Добавлено для "файлы в project/src"
-            "файлы есть в"  // Добавлено для "файлы есть в project/src"
-        )
-        
-        if (listDirectoryKeywords.any { lowerQuestion.contains(it) }) {
-            return RequestType.LIST_DIRECTORY
-        }
-        
-        // Проверяем, является ли запрос запросом на чтение файла
-        val readFileKeywords = listOf(
-            "покажи содержимое",
-            "прочитай файл",
-            "содержимое файла",
-            "покажи файл",
-            "прочитай",
-            "покажи",
-            "read file",
-            "show content",
-            "file content",
-            "содержимое"
-        )
-        
-        // Проверяем наличие .md в вопросе вместе с ключевыми словами
-        val hasFileExtension = question.contains(".md", ignoreCase = true) ||
-                question.contains("файл", ignoreCase = true) ||
-                question.contains("file", ignoreCase = true)
-        
-        if (readFileKeywords.any { lowerQuestion.contains(it) } && hasFileExtension) {
-            return RequestType.READ_FILE
-        }
-        
-        // Если есть явное упоминание файла с расширением
-        if (hasFileExtension && (lowerQuestion.contains("покажи") || lowerQuestion.contains("прочитай"))) {
-            return RequestType.READ_FILE
-        }
-        
-        // По умолчанию используем RAG
-        return RequestType.RAG
+    private fun extractFileName(path: String): String {
+        return path.split("/").lastOrNull() ?: path
     }
     
     /**
-     * Извлекает путь к директории из вопроса пользователя
-     * 
-     * @param question вопрос пользователя
-     * @return путь к директории или null, если не удалось извлечь
+     * Исправляет неправильные параметры инструментов
      */
-    private fun extractDirectoryPathFromQuestion(question: String): String? {
-        val lowerQuestion = question.lowercase()
-        
-        // Паттерны для поиска пути к директории
-        // Более гибкие паттерны для извлечения пути после "в", "in", "директории" и т.д.
-        val patterns = listOf(
-            // "какие файлы в project/src" или "файлы в project/docs"
-            Regex("""(?:в|in)\s+(project/[a-zA-Z0-9_/-]+|project|docs?)""", RegexOption.IGNORE_CASE),
-            // "project/src" или "project/docs" напрямую
-            Regex("""(project/[a-zA-Z0-9_/-]+)""", RegexOption.IGNORE_CASE),
-            // "директории project/src" или "папке project/docs"
-            Regex("""(?:директории|папке|directory|folder)\s+(project/[a-zA-Z0-9_/-]+|project|docs?)""", RegexOption.IGNORE_CASE),
-            // Просто "project" или "docs"
-            Regex("""\b(project|docs?)\b""", RegexOption.IGNORE_CASE)
-        )
-        
-        for (pattern in patterns) {
-            val match = pattern.find(question)
-            if (match != null) {
-                val dirPath = match.groupValues.lastOrNull()
-                if (dirPath != null) {
-                    // Нормализуем путь
-                    return when {
-                        dirPath.startsWith("project/") -> dirPath
-                        dirPath == "project" -> "project"
-                        dirPath == "docs" -> "project/docs"
-                        dirPath == "doc" -> "project/docs"
-                        else -> dirPath  // Возвращаем как есть, если это уже полный путь
-                    }
+    private fun fixToolArguments(toolName: String, arguments: kotlinx.serialization.json.JsonObject): kotlinx.serialization.json.JsonObject {
+        // Если инструмент list_directory или read_file, проверяем параметр "path"
+        if (toolName == "list_directory" || toolName == "read_file") {
+            // Если есть параметр "param", переименовываем в "path"
+            val paramValue = arguments["param"]?.jsonPrimitive?.content
+            if (paramValue != null && arguments["path"] == null) {
+                return kotlinx.serialization.json.buildJsonObject {
+                    put("path", kotlinx.serialization.json.JsonPrimitive(paramValue))
                 }
             }
         }
-        
-        return null
-    }
-    
-    /**
-     * Извлекает путь к файлу из вопроса пользователя
-     * 
-     * @param question вопрос пользователя
-     * @return путь к файлу или null, если не удалось извлечь
-     */
-    private fun extractFilePathFromQuestion(question: String): String? {
-        // Паттерны для поиска имени файла
-        val patterns = listOf(
-            Regex("""(?:покажи|прочитай|содержимое|файл|file)\s+(?:файла\s+)?([a-zA-Z0-9_-]+\.md)""", RegexOption.IGNORE_CASE),
-            Regex("""([a-zA-Z0-9_-]+\.md)""", RegexOption.IGNORE_CASE),
-            Regex("""project/docs/([a-zA-Z0-9_-]+\.md)""", RegexOption.IGNORE_CASE)
-        )
-        
-        for (pattern in patterns) {
-            val match = pattern.find(question)
-            if (match != null) {
-                val fileName = match.groupValues.lastOrNull()
-                if (fileName != null) {
-                    // Если файл уже содержит путь, возвращаем как есть
-                    if (fileName.startsWith("project/")) {
-                        return fileName
-                    }
-                    // Иначе добавляем путь к документации проекта
-                    return "project/docs/$fileName"
-                }
-            }
-        }
-        
-        return null
+        return arguments
     }
     
     /**

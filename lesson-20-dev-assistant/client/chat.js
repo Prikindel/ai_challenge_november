@@ -43,7 +43,8 @@ async function loadSessions() {
         const response = await fetch(`${API_BASE}/chat/sessions`);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
         }
         
         const sessions = await response.json();
@@ -51,7 +52,12 @@ async function loadSessions() {
     } catch (error) {
         console.error('Failed to load sessions:', error);
         const sessionsList = document.getElementById('sessionsList');
-        sessionsList.innerHTML = '<div class="sessions-error">Ошибка загрузки сессий</div>';
+        const errorMessage = error.message || 'Failed to fetch';
+        sessionsList.innerHTML = `<div class="sessions-error">Ошибка загрузки сессий: ${errorMessage}</div>`;
+        
+        if (errorMessage.includes('Failed to fetch')) {
+            console.error('Проверьте, что сервер запущен на', API_BASE);
+        }
     }
 }
 
@@ -198,7 +204,17 @@ async function createNewSession() {
         console.log('Session created:', currentSessionId);
     } catch (error) {
         console.error('Failed to create session:', error);
-        showStatus('Ошибка создания сессии: ' + error.message, 'error');
+        const errorMessage = error.message || 'Failed to fetch';
+        showStatus('Ошибка создания сессии: ' + errorMessage, 'error');
+        
+        // Показываем более подробную информацию в консоли
+        if (errorMessage.includes('Failed to fetch')) {
+            console.error('Возможные причины:');
+            console.error('1. Сервер не запущен или недоступен');
+            console.error('2. Проблема с CORS');
+            console.error('3. Неправильный URL API:', API_BASE);
+            console.error('Проверьте, что сервер запущен на', API_BASE);
+        }
     }
 }
 

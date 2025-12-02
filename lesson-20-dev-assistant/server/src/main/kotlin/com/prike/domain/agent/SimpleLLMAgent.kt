@@ -1,6 +1,6 @@
 package com.prike.domain.agent
 
-import com.prike.data.dto.MessageDto
+import com.prike.mcpcommon.dto.MessageDto
 import com.prike.data.repository.AIRepository
 import org.slf4j.LoggerFactory
 

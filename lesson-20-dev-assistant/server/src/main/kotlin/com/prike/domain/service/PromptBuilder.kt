@@ -43,7 +43,7 @@ class PromptBuilder(
      * Результат построения промпта для чата (с массивом messages)
      */
     data class ChatPromptResult(
-        val messages: List<com.prike.data.dto.MessageDto>
+        val messages: List<com.prike.mcpcommon.dto.MessageDto>
     )
     
     /**
@@ -136,7 +136,7 @@ class PromptBuilder(
             null
         }
         
-        val messages = mutableListOf<com.prike.data.dto.MessageDto>()
+        val messages = mutableListOf<com.prike.mcpcommon.dto.MessageDto>()
         
         // Формируем системный промпт (только инструкции и контекст из RAG, БЕЗ истории)
         val systemPrompt = buildString {
@@ -186,7 +186,7 @@ class PromptBuilder(
         }
         
         // Добавляем системный промпт
-        messages.add(com.prike.data.dto.MessageDto(role = "system", content = systemPrompt))
+        messages.add(com.prike.mcpcommon.dto.MessageDto(role = "system", content = systemPrompt))
         
         // Добавляем историю диалога в формате messages (role: user, role: assistant, ...)
         history.forEach { message ->
@@ -195,11 +195,11 @@ class PromptBuilder(
                 MessageRole.ASSISTANT -> "assistant"
             }
             // Не включаем цитаты в историю - они уже были обработаны ранее
-            messages.add(com.prike.data.dto.MessageDto(role = role, content = message.content))
+            messages.add(com.prike.mcpcommon.dto.MessageDto(role = role, content = message.content))
         }
         
         // Добавляем текущий вопрос пользователя
-        messages.add(com.prike.data.dto.MessageDto(role = "user", content = question))
+        messages.add(com.prike.mcpcommon.dto.MessageDto(role = "user", content = question))
         
         return ChatPromptResult(messages = messages)
     }

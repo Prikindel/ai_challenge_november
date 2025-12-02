@@ -142,6 +142,38 @@ class GitMCPService(
     }
     
     /**
+     * Вызвать инструмент Git MCP сервера
+     */
+    suspend fun callTool(toolName: String, arguments: kotlinx.serialization.json.JsonObject): String {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            gitMCPClient.callTool(toolName, arguments)
+        } catch (e: Exception) {
+            logger.error("Failed to call Git MCP tool $toolName: ${e.message}", e)
+            throw e
+        }
+    }
+    
+    /**
+     * Получить список доступных инструментов
+     */
+    suspend fun listTools(): List<com.prike.data.client.MCPTool> {
+        return try {
+            if (!gitMCPClient.isConnected()) {
+                logger.warn("Git MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            gitMCPClient.listTools()
+        } catch (e: Exception) {
+            logger.error("Failed to list Git MCP tools: ${e.message}", e)
+            emptyList()
+        }
+    }
+    
+    /**
      * Проверка подключения к Git MCP серверу
      */
     fun isConnected(): Boolean {

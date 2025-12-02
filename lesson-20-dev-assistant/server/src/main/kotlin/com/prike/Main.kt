@@ -1,173 +1,65 @@
 package com.prike
 
 import com.prike.config.Config
-import com.prike.data.client.OllamaClient
-import com.prike.data.repository.KnowledgeBaseRepository
-import com.prike.domain.indexing.CosineSimilarityCalculator
-import com.prike.domain.indexing.TextChunker
-import com.prike.domain.indexing.VectorNormalizer
-import com.prike.domain.service.DocumentIndexer
-import com.prike.domain.service.DocumentLoader
-import com.prike.domain.service.EmbeddingService
-import com.prike.domain.service.KnowledgeBaseSearchService
+import com.prike.data.repository.ChatRepository
+import com.prike.domain.service.ChatPromptBuilder
+import com.prike.domain.service.ChatService
 import com.prike.domain.service.LLMService
 import com.prike.domain.service.PromptBuilder
-import com.prike.domain.service.ChatPromptBuilder
-import com.prike.domain.service.RAGService
-import com.prike.domain.service.ComparisonService
-import com.prike.presentation.controller.ClientController
-import com.prike.presentation.controller.IndexingController
-import com.prike.presentation.controller.SearchController
-import com.prike.presentation.controller.LLMController
-import com.prike.presentation.controller.RAGController
+import com.prike.domain.service.RequestRouterService
 import com.prike.presentation.controller.ChatController
-import com.prike.data.repository.ChatRepository
-import com.prike.domain.service.ChatService
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
+import com.prike.presentation.controller.ClientController
+import com.prike.presentation.controller.DocumentController
+import com.prike.presentation.controller.IndexingController
+import com.prike.presentation.controller.LLMController
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.calllogging.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.routing.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.response.*
-import org.slf4j.LoggerFactory
-import org.slf4j.event.Level
-import kotlinx.coroutines.runBlocking
+import io.ktor.http.*
+import io.ktor.server.plugins.cors.routing.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import java.io.File
 
-/**
- * Точка входа приложения
- */
-fun main() {
+fun main(args: Array<String>) {
+    val logger = LoggerFactory.getLogger("Main")
+    
     val config = Config.load()
-    
-    embeddedServer(Netty, port = config.server.port, host = config.server.host) {
-        module(config)
-    }.start(wait = true)
-}
-
-/**
- * Настройка Ktor приложения
- */
-fun Application.module(config: com.prike.config.AppConfig) {
-    install(CORS) {
-        allowMethod(HttpMethod.Options)
-        allowMethod(HttpMethod.Post)
-        allowMethod(HttpMethod.Get)
-        allowMethod(HttpMethod.Delete)
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader(HttpHeaders.Authorization)
-        anyHost()
-    }
-
-    install(ContentNegotiation) {
-        json()
-    }
-
-    install(CallLogging) {
-        level = Level.INFO
-    }
-
-    val logger = LoggerFactory.getLogger("Application")
-    
-    // Находим корень урока
     val lessonRoot = findLessonRoot()
+    
+    logger.info("Starting lesson-20-dev-assistant server...")
     logger.info("Lesson root: ${lessonRoot.absolutePath}")
     
     // Инициализация компонентов
     
-    // 1. Ollama клиент
-    val ollamaClient = OllamaClient(config.ollama)
-    
-    // 2. Сервис эмбеддингов
-    val embeddingService = EmbeddingService(ollamaClient)
-    
-    // 3. Нормализатор векторов
-    val vectorNormalizer = VectorNormalizer()
-    
-    // 4. База знаний
-    val dbPath = File(lessonRoot, config.knowledgeBase.databasePath).absolutePath
-    val knowledgeBaseRepository = KnowledgeBaseRepository(dbPath)
-    
-    // 5. Разбивка на чанки
-    val textChunker = TextChunker(
-        chunkSize = config.indexing.chunkSize,
-        overlapSize = config.indexing.overlapSize
-    )
-    
-    // 6. Загрузчик документов (с базовым путём относительно корня урока)
-    val documentLoader = DocumentLoader(lessonRoot)
-    
-    // 7. Индексатор документов
-    val documentIndexer = DocumentIndexer(
-        documentLoader = documentLoader,
-        textChunker = textChunker,
-        embeddingService = embeddingService,
-        vectorNormalizer = vectorNormalizer,
-        knowledgeBaseRepository = knowledgeBaseRepository
-    )
-    
-    // 8. Калькулятор косинусного сходства
-    val similarityCalculator = CosineSimilarityCalculator()
-    
-    // 9. Сервис поиска
-    val searchService = KnowledgeBaseSearchService(
-        embeddingService = embeddingService,
-        vectorNormalizer = vectorNormalizer,
-        knowledgeBaseRepository = knowledgeBaseRepository,
-        similarityCalculator = similarityCalculator
-    )
-    
-    // 10. LLM сервис (OpenRouter)
+    // 1. LLM сервис (OpenRouter)
     val llmService = LLMService(
         aiConfig = config.ai,
         defaultTemperature = config.ai.temperature,
         defaultMaxTokens = config.ai.maxTokens
     )
     
-    // 11. PromptBuilder для формирования промптов с контекстом
+    // 2. PromptBuilder для формирования промптов с контекстом
     val promptBuilder = PromptBuilder()
     
-    // 12. Конфигурация фильтрации (если включена)
-    val filterConfig = if (config.rag.filter.enabled) {
-        config.rag.filter
-    } else {
-        null
-    }
+    // 3. Chat Repository для истории диалога
+    val dbPath = File(lessonRoot, config.knowledgeBase.databasePath).absolutePath
+    val chatRepository = ChatRepository(dbPath)
     
-    // 13. RAG сервис
-    val ragService = RAGService(
-        searchService = searchService,
-        llmService = llmService,
-        promptBuilder = promptBuilder,
-        filterConfig = filterConfig,
-        aiConfig = config.ai
-    )
-    
-    // 14. Comparison сервис
-    val comparisonService = ComparisonService(
-        ragService = ragService,
-        llmService = llmService
-    )
-    
-    // 15. Citation Analyzer для тестирования цитат
-    val citationAnalyzer = com.prike.domain.service.CitationAnalyzer(ragService)
-    
-    // 16. Chat Repository для истории диалога
-    val chatRepository = ChatRepository(dbPath)  // Используем ту же базу данных
-    
-    // 17. ChatPromptBuilder для оптимизации истории диалога
+    // 4. ChatPromptBuilder для оптимизации истории диалога
     val chatPromptBuilder = ChatPromptBuilder(
         historyConfig = config.chat.history,
         basePromptBuilder = promptBuilder
     )
     
-    // 18. Git MCP Service (опционально, если включен в конфигурации)
+    // 5. Git MCP Service (опционально, если включен в конфигурации)
     val gitMCPService = if (config.git.mcp.enabled) {
         val gitMCPClient = com.prike.data.client.GitMCPClient()
         val service = com.prike.domain.service.GitMCPService(
@@ -176,7 +68,7 @@ fun Application.module(config: com.prike.config.AppConfig) {
             gitMCPJarPath = config.git.mcp.jarPath
         )
         // Подключаемся к Git MCP серверу асинхронно
-        launch {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
             try {
                 service.connect()
                 logger.info("Git MCP service connected successfully")
@@ -189,67 +81,115 @@ fun Application.module(config: com.prike.config.AppConfig) {
         null
     }
     
-    // 19. Chat Service для обработки сообщений с RAG и историей
+    // 6. RAG MCP Service (опционально, если включен в конфигурации)
+    val ragMCPService = if (config.rag.mcp?.enabled == true) {
+        val ragMCPClient = com.prike.data.client.RagMCPClient()
+        val service = com.prike.domain.service.RagMCPService(
+            ragMCPClient = ragMCPClient,
+            lessonRoot = lessonRoot,
+            ragMCPJarPath = config.rag.mcp.jarPath
+        )
+        // Подключаемся к RAG MCP серверу асинхронно
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                service.connect()
+                logger.info("RAG MCP service connected successfully")
+            } catch (e: Exception) {
+                logger.warn("Failed to connect to RAG MCP server: ${e.message}. RAG MCP tools will not be available.")
+            }
+        }
+        service
+    } else {
+        null
+    }
+    
+    // 7. Request Router Service для динамического роутинга через LLM
+    val requestRouter = if (gitMCPService != null || ragMCPService != null) {
+        RequestRouterService(
+            llmService = llmService,
+            gitMCPService = gitMCPService,
+            ragMCPService = ragMCPService
+        )
+    } else {
+        null
+    }
+    
+    // 8. Chat Service для обработки сообщений с RAG и историей
     val chatService = ChatService(
         chatRepository = chatRepository,
-        ragService = ragService,
         chatPromptBuilder = chatPromptBuilder,
         llmService = llmService,
-        gitMCPService = gitMCPService
+        gitMCPService = gitMCPService,
+        ragMCPService = ragMCPService,
+        requestRouter = requestRouter
     )
     
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
     val indexingController = IndexingController(
-        documentIndexer, 
-        knowledgeBaseRepository,
+        ragMCPService = ragMCPService,
+        lessonRoot = lessonRoot,
         projectDocsPath = config.indexing.projectDocsPath,
         projectReadmePath = config.indexing.projectReadmePath
     )
-    val searchController = SearchController(searchService, knowledgeBaseRepository)
     val llmController = LLMController(llmService)
-    val ragController = RAGController(ragService, llmService, comparisonService, citationAnalyzer, filterConfig)
-    val documentController = com.prike.presentation.controller.DocumentController(knowledgeBaseRepository)
     val chatController = ChatController(chatService, chatRepository, gitMCPService)
+    val documentController = DocumentController(
+        gitMCPService = gitMCPService,
+        lessonRoot = lessonRoot
+    )
     
-    routing {
-        // Статические файлы для UI
-        clientController.registerRoutes(this)
+    embeddedServer(Netty, port = config.server.port, host = config.server.host) {
+        install(ContentNegotiation) {
+            json(Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                prettyPrint = false
+            })
+        }
         
-        // Health check API
-        get("/api/health") {
-            val ollamaHealthy = runBlocking {
-                ollamaClient.checkHealth()
+        // Настройка CORS для работы с фронтендом
+        install(CORS) {
+            allowMethod(HttpMethod.Options)
+            allowMethod(HttpMethod.Get)
+            allowMethod(HttpMethod.Post)
+            allowMethod(HttpMethod.Put)
+            allowMethod(HttpMethod.Delete)
+            allowHeader(HttpHeaders.ContentType)
+            allowHeader(HttpHeaders.Authorization)
+            anyHost()
+        }
+        
+        routing {
+            // Статические файлы для UI
+            clientController.registerRoutes(this)
+            
+            // Health check API
+            get("/api/health") {
+                call.respond(HttpStatusCode.OK, HealthResponse("ok", "lesson-20-dev-assistant-server"))
             }
-            call.respond(mapOf(
-                "status" to "ok",
-                "service" to "lesson-20-dev-assistant-server",
-                "ollama" to ollamaHealthy
-            ))
+            
+            // API маршруты
+            indexingController.registerRoutes(this)
+            llmController.registerRoutes(this)
+            chatController.registerRoutes(this)
+            documentController.registerRoutes(this)
         }
         
-        // API маршруты
-        indexingController.registerRoutes(this)
-        searchController.registerRoutes(this)
-        llmController.registerRoutes(this)
-        ragController.registerRoutes(this)
-        documentController.registerRoutes(this)
-        chatController.registerRoutes(this)
-    }
-    
-    // Закрытие ресурсов при остановке
-    environment.monitor.subscribe(ApplicationStopped) {
-        ollamaClient.close()
-        llmService.close()
-        ragService.close()
-        runBlocking {
-            gitMCPService?.disconnect()
+        // Закрытие ресурсов при остановке
+        environment.monitor.subscribe(ApplicationStopped) {
+            llmService.close()
+            runBlocking {
+                gitMCPService?.disconnect()
+                ragMCPService?.disconnect()
+            }
         }
-    }
-    
-    logger.info("Server started on ${config.server.host}:${config.server.port}")
+    }.start(wait = true)
 }
+
+@Serializable
+data class HealthResponse(val status: String, val service: String)
 
 /**
  * Находит корень урока (lesson-20-dev-assistant)
@@ -279,4 +219,3 @@ private fun findLessonRoot(): File {
     // Если не нашли, возвращаем текущую директорию
     return currentDir
 }
-

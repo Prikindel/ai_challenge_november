@@ -172,6 +172,23 @@ class GitMCPClient {
         return resultText
     }
     
+    suspend fun listTools(): List<MCPTool> {
+        if (!isConnected) {
+            throw IllegalStateException("Git MCP client is not connected")
+        }
+        
+        logger.debug("Listing Git MCP tools...")
+        val response = client.listTools()
+        
+        return response.tools.map { tool ->
+            MCPTool(
+                name = tool.name,
+                description = tool.description ?: "",
+                inputSchema = tool.inputSchema
+            )
+        }
+    }
+    
     fun isConnected(): Boolean {
         return isConnected && mcpServerProcess?.isAlive == true
     }

@@ -1,14 +1,17 @@
 package com.prike.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
- * Извлечённый чанк из базы знаний для использования в RAG
+ * Извлеченный чанк из базы знаний
  */
+@Serializable
 data class RetrievedChunk(
     val chunkId: String,
-    val documentId: String,
     val documentPath: String?,
     val documentTitle: String?,
     val content: String,
-    val similarity: Float,
-    val chunkIndex: Int
+    val similarity: Float = 0.0f,
+    val chunkIndex: Int = 0
 )
+

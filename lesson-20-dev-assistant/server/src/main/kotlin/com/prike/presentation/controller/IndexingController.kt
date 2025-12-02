@@ -1,23 +1,23 @@
 package com.prike.presentation.controller
 
-import com.prike.domain.service.DocumentIndexer
-import com.prike.data.repository.KnowledgeBaseRepository
+import com.prike.domain.service.RagMCPService
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import com.prike.presentation.dto.DocumentInfo
-import com.prike.presentation.dto.DocumentsListResponse
 import com.prike.presentation.dto.ErrorResponse
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+import java.io.File
 
 /**
  * Контроллер для API индексации документов
+ * Использует RAG MCP сервер для индексации
  */
 class IndexingController(
-    private val documentIndexer: DocumentIndexer,
-    private val knowledgeBaseRepository: KnowledgeBaseRepository,
+    private val ragMCPService: RagMCPService?,
+    private val lessonRoot: File,
     private val projectDocsPath: String? = null,
     private val projectReadmePath: String? = null
 ) {
@@ -25,41 +25,17 @@ class IndexingController(
     
     fun registerRoutes(routing: Routing) {
         routing.apply {
-            // Индексировать документ
-            post("/api/indexing/index") {
+            // Индексировать директорию
+            post("/api/indexing/index-directory") {
                 try {
-                    val request = call.receive<IndexDocumentRequest>()
-                    
-                    // Валидация входных данных
-                    if (request.filePath.isBlank()) {
+                    if (ragMCPService == null) {
                         call.respond(
-                            io.ktor.http.HttpStatusCode.BadRequest,
-                            ErrorResponse("filePath cannot be blank")
+                            io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                            ErrorResponse("RAG MCP service is not available")
                         )
                         return@post
                     }
                     
-                    val result = documentIndexer.indexDocument(request.filePath)
-                    
-                    call.respond(IndexDocumentResponse(
-                        success = result.success,
-                        documentId = result.documentId,
-                        chunksCount = result.chunksCount,
-                        error = result.error,
-                        errorsCount = result.errorsCount
-                    ))
-                } catch (e: Exception) {
-                    logger.error("Indexing error", e)
-                    call.respond(
-                        io.ktor.http.HttpStatusCode.InternalServerError,
-                        ErrorResponse("Failed to index document: ${e.message}")
-                    )
-                }
-            }
-            
-            // Индексировать директорию
-            post("/api/indexing/index-directory") {
-                try {
                     val request = call.receive<IndexDirectoryRequest>()
                     
                     // Валидация входных данных
@@ -71,25 +47,16 @@ class IndexingController(
                         return@post
                     }
                     
-                    val results = documentIndexer.indexDirectory(request.directoryPath)
+                    // Вызываем MCP инструмент rag_index_documents
+                    val arguments = buildJsonObject {
+                        put("documentsPath", JsonPrimitive(request.directoryPath))
+                    }
                     
-                    val successCount = results.count { it.success }
-                    val totalChunks = results.sumOf { it.chunksCount }
+                    val result = ragMCPService.callTool("rag_index_documents", arguments)
                     
                     call.respond(IndexDirectoryResponse(
                         success = true,
-                        documentsProcessed = results.size,
-                        documentsSucceeded = successCount,
-                        totalChunks = totalChunks,
-                        results = results.map { result ->
-                            IndexDocumentResponse(
-                                success = result.success,
-                                documentId = result.documentId,
-                                chunksCount = result.chunksCount,
-                                error = result.error,
-                                errorsCount = result.errorsCount
-                            )
-                        }
+                        message = result
                     ))
                 } catch (e: Exception) {
                     logger.error("Directory indexing error", e)
@@ -100,56 +67,32 @@ class IndexingController(
                 }
             }
             
-            // Статус индексации (статистика)
-            get("/api/indexing/status") {
-                val statistics = knowledgeBaseRepository.getStatistics()
-                call.respond(IndexingStatusResponse(
-                    documentsCount = statistics.documentsCount,
-                    chunksCount = statistics.chunksCount
-                ))
-            }
-            
-            // Список индексированных документов
-            get("/api/indexing/documents") {
-                val documents = knowledgeBaseRepository.getAllDocuments()
-                call.respond(DocumentsListResponse(
-                    documents = documents.map { doc ->
-                        DocumentInfo(
-                            id = doc.id,
-                            filePath = doc.filePath,
-                            title = doc.title,
-                            indexedAt = doc.indexedAt,
-                            chunkCount = doc.chunkCount
-                        )
-                    }
-                ))
-            }
-            
             // Индексировать документацию проекта
             post("/api/indexing/index-project-docs") {
                 try {
-                    val results = documentIndexer.indexProjectDocs(
-                        projectDocsPath = projectDocsPath,
-                        projectReadmePath = projectReadmePath
-                    )
+                    if (ragMCPService == null) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                            ErrorResponse("RAG MCP service is not available")
+                        )
+                        return@post
+                    }
                     
-                    val successCount = results.count { it.success }
-                    val totalChunks = results.sumOf { it.chunksCount }
+                    // Вызываем MCP инструмент rag_index_project_docs
+                    val arguments = buildJsonObject {
+                        if (projectDocsPath != null) {
+                            put("projectDocsPath", JsonPrimitive(projectDocsPath))
+                        }
+                        if (projectReadmePath != null) {
+                            put("projectReadmePath", JsonPrimitive(projectReadmePath))
+                        }
+                    }
+                    
+                    val result = ragMCPService.callTool("rag_index_project_docs", arguments)
                     
                     call.respond(IndexProjectDocsResponse(
                         success = true,
-                        documentsProcessed = results.size,
-                        documentsSucceeded = successCount,
-                        totalChunks = totalChunks,
-                        results = results.map { result ->
-                            IndexDocumentResponse(
-                                success = result.success,
-                                documentId = result.documentId,
-                                chunksCount = result.chunksCount,
-                                error = result.error,
-                                errorsCount = result.errorsCount
-                            )
-                        }
+                        message = result
                     ))
                 } catch (e: Exception) {
                     logger.error("Project docs indexing error", e)
@@ -159,23 +102,181 @@ class IndexingController(
                     )
                 }
             }
+            
+            // Получить статистику индексации
+            get("/api/indexing/status") {
+                try {
+                    if (ragMCPService == null) {
+                        logger.warn("RAG MCP service is not available")
+                        call.respond(IndexingStatusResponse(
+                            documentsCount = 0,
+                            chunksCount = 0
+                        ))
+                        return@get
+                    }
+                    
+                    // Вызываем MCP инструмент rag_get_statistics
+                    val result = try {
+                        ragMCPService.callTool("rag_get_statistics", kotlinx.serialization.json.buildJsonObject {})
+                    } catch (e: IllegalStateException) {
+                        if (e.message?.contains("Tool rag_get_statistics not found") == true) {
+                            logger.warn("Tool rag_get_statistics not found in RAG MCP server. Returning empty statistics.")
+                            call.respond(IndexingStatusResponse(
+                                documentsCount = 0,
+                                chunksCount = 0
+                            ))
+                            return@get
+                        } else {
+                            throw e
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Failed to call rag_get_statistics tool: ${e.message}", e)
+                        call.respond(IndexingStatusResponse(
+                            documentsCount = 0,
+                            chunksCount = 0
+                        ))
+                        return@get
+                    }
+                    
+                    // Проверяем, не является ли результат ошибкой
+                    if (result.startsWith("Tool ") && result.contains("not found")) {
+                        logger.warn("Tool rag_get_statistics not found in RAG MCP server. Returning empty statistics.")
+                        call.respond(IndexingStatusResponse(
+                            documentsCount = 0,
+                            chunksCount = 0
+                        ))
+                        return@get
+                    }
+                    
+                    // Парсим результат
+                    try {
+                        val json = Json.parseToJsonElement(result)
+                        if (json is JsonObject) {
+                            val documentsCount = json["documentsCount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                            val chunksCount = json["chunksCount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                            
+                            call.respond(IndexingStatusResponse(
+                                documentsCount = documentsCount,
+                                chunksCount = chunksCount
+                            ))
+                        } else {
+                            logger.warn("Invalid response format from RAG MCP: expected JSON object, got: ${json::class.simpleName}")
+                            call.respond(IndexingStatusResponse(
+                                documentsCount = 0,
+                                chunksCount = 0
+                            ))
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Failed to parse statistics response: $result", e)
+                        // Возвращаем пустую статистику вместо ошибки
+                        call.respond(IndexingStatusResponse(
+                            documentsCount = 0,
+                            chunksCount = 0
+                        ))
+                    }
+                } catch (e: Exception) {
+                    logger.error("Failed to get indexing status", e)
+                    // Вместо 500 ошибки возвращаем пустую статистику
+                    call.respond(IndexingStatusResponse(
+                        documentsCount = 0,
+                        chunksCount = 0
+                    ))
+                }
+            }
+            
+            // Получить список доступных инструментов (для отладки)
+            get("/api/indexing/tools") {
+                try {
+                    if (ragMCPService == null) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                            ErrorResponse("RAG MCP service is not available")
+                        )
+                        return@get
+                    }
+                    
+                    val tools = ragMCPService.listTools()
+                    call.respond(mapOf(
+                        "tools" to tools.map { tool ->
+                            mapOf(
+                                "name" to tool.name,
+                                "description" to tool.description
+                            )
+                        }
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Failed to list tools", e)
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to list tools: ${e.message}")
+                    )
+                }
+            }
+            
+            // Получить список документов
+            get("/api/indexing/documents") {
+                try {
+                    if (ragMCPService == null) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                            ErrorResponse("RAG MCP service is not available")
+                        )
+                        return@get
+                    }
+                    
+                    // Вызываем MCP инструмент rag_get_documents
+                    val result = ragMCPService.callTool("rag_get_documents", buildJsonObject {})
+                    
+                    // Проверяем, не является ли результат ошибкой
+                    if (result.startsWith("Tool ") && result.contains("not found")) {
+                        logger.warn("Tool rag_get_documents not found in RAG MCP server. Returning empty list.")
+                        call.respond(DocumentsListResponse(documents = emptyList()))
+                        return@get
+                    }
+                    
+                    // Парсим результат
+                    try {
+                        val json = Json.parseToJsonElement(result)
+                        if (json is JsonObject) {
+                            val documentsArray = json["documents"]?.jsonArray ?: JsonArray(emptyList())
+                            val documents = documentsArray.mapNotNull { docJson ->
+                                if (docJson is JsonObject) {
+                                    val rawFilePath = docJson["filePath"]?.jsonPrimitive?.content ?: ""
+                                    // Нормализуем путь - убираем полный путь, оставляем только относительный
+                                    val normalizedPath = normalizeDocumentPath(rawFilePath, lessonRoot)
+                                    
+                                    DocumentInfo(
+                                        id = docJson["id"]?.jsonPrimitive?.content ?: "",
+                                        filePath = normalizedPath,
+                                        title = docJson["title"]?.jsonPrimitive?.contentOrNull,
+                                        indexedAt = docJson["indexedAt"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L,
+                                        chunkCount = docJson["chunkCount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                                    )
+                                } else {
+                                    null
+                                }
+                            }
+                            
+                            call.respond(DocumentsListResponse(documents = documents))
+                        } else {
+                            throw IllegalArgumentException("Invalid response format from RAG MCP: expected JSON object")
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Failed to parse documents response: $result", e)
+                        // Возвращаем пустой список вместо ошибки
+                        call.respond(DocumentsListResponse(documents = emptyList()))
+                    }
+                } catch (e: Exception) {
+                    logger.error("Failed to get documents list", e)
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to get documents list: ${e.message}")
+                    )
+                }
+            }
         }
     }
 }
-
-@Serializable
-data class IndexDocumentRequest(
-    val filePath: String
-)
-
-@Serializable
-data class IndexDocumentResponse(
-    val success: Boolean,
-    val documentId: String,
-    val chunksCount: Int,
-    val error: String? = null,
-    val errorsCount: Int = 0
-)
 
 @Serializable
 data class IndexDirectoryRequest(
@@ -185,10 +286,13 @@ data class IndexDirectoryRequest(
 @Serializable
 data class IndexDirectoryResponse(
     val success: Boolean,
-    val documentsProcessed: Int,
-    val documentsSucceeded: Int,
-    val totalChunks: Int,
-    val results: List<IndexDocumentResponse>
+    val message: String
+)
+
+@Serializable
+data class IndexProjectDocsResponse(
+    val success: Boolean,
+    val message: String
 )
 
 @Serializable
@@ -198,11 +302,45 @@ data class IndexingStatusResponse(
 )
 
 @Serializable
-data class IndexProjectDocsResponse(
-    val success: Boolean,
-    val documentsProcessed: Int,
-    val documentsSucceeded: Int,
-    val totalChunks: Int,
-    val results: List<IndexDocumentResponse>
+data class DocumentsListResponse(
+    val documents: List<DocumentInfo>
 )
 
+@Serializable
+data class DocumentInfo(
+    val id: String,
+    val filePath: String,
+    val title: String?,
+    val indexedAt: Long,
+    val chunkCount: Int
+)
+
+/**
+ * Нормализует путь к документу - убирает полный путь, оставляет только относительный
+ */
+private fun normalizeDocumentPath(path: String, lessonRoot: File): String {
+    // Если путь абсолютный и содержит lessonRoot, извлекаем относительный путь
+    if (path.startsWith(lessonRoot.absolutePath)) {
+        val relativePath = path.removePrefix(lessonRoot.absolutePath).trimStart('/')
+        return relativePath
+    }
+    
+    // Если путь начинается с project/, оставляем как есть
+    if (path.startsWith("project/")) {
+        return path
+    }
+    
+    // Если путь не начинается с project/, но должен быть в project/, добавляем префикс
+    // Но только если это не полный путь
+    if (!path.contains("/") || path.startsWith("/")) {
+        // Это может быть просто имя файла или полный путь
+        // Пробуем найти файл в project/
+        val projectFile = File(lessonRoot, "project/$path")
+        if (projectFile.exists()) {
+            return "project/$path"
+        }
+    }
+    
+    // Возвращаем путь как есть, если он уже относительный
+    return path
+}

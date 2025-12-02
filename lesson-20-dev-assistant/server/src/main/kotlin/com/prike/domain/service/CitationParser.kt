@@ -188,8 +188,36 @@ class CitationParser {
         citation: Citation,
         availableDocuments: Set<String>
     ): Boolean {
-        val normalizedPath = normalizePath(citation.documentPath)
-        return availableDocuments.any { normalizePath(it) == normalizedPath }
+        val normalizedCitationPath = normalizePath(citation.documentPath)
+        
+        // Пробуем точное совпадение
+        val exactMatch = availableDocuments.any { normalizePath(it) == normalizedCitationPath }
+        if (exactMatch) return true
+        
+        // Пробуем частичное совпадение (если путь в цитате является частью пути в контексте или наоборот)
+        val partialMatch = availableDocuments.any { availablePath ->
+            val normalizedAvailable = normalizePath(availablePath)
+            // Проверяем, содержит ли один путь другой
+            normalizedAvailable.contains(normalizedCitationPath) || 
+            normalizedCitationPath.contains(normalizedAvailable) ||
+            // Проверяем совпадение по имени файла
+            extractFileName(normalizedAvailable) == extractFileName(normalizedCitationPath)
+        }
+        
+        if (partialMatch) {
+            logger.debug("Citation validated by partial match: ${citation.documentPath}")
+        } else {
+            logger.debug("Citation path not found in context: ${citation.documentPath}. Available: ${availableDocuments.take(3).joinToString(", ")}")
+        }
+        
+        return partialMatch
+    }
+    
+    /**
+     * Извлекает имя файла из пути
+     */
+    private fun extractFileName(path: String): String {
+        return path.split("/").lastOrNull() ?: path
     }
     
     /**
@@ -200,6 +228,7 @@ class CitationParser {
             .replace("\\", "/")
             .replace(Regex("/+"), "/")
             .trim('/')
+            .lowercase() // Добавляем lowercase для более гибкого сравнения
     }
 }
 

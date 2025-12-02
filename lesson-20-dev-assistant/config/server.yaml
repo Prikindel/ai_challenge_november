@@ -38,6 +38,9 @@ rag:
       model: "gpt-4o-mini"
       maxChunks: 6
       systemPrompt: "Ты — reranker. Оцени релевантность каждого чанка вопросу."
+  mcp:
+    enabled: true        # Включить RAG MCP сервер
+    jarPath: "rag-mcp-server/build/libs/rag-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
 
 chat:
   history:
@@ -49,4 +52,5 @@ git:
   mcp:
     enabled: true        # Включить Git MCP сервер
     jarPath: "git-mcp-server/build/libs/git-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
+    cacheDurationMinutes: 5  # Время жизни кэша для git branch
 

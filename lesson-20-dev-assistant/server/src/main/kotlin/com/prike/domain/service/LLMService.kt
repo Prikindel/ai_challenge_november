@@ -1,11 +1,12 @@
 package com.prike.domain.service
 
 import com.prike.config.AIConfig
-import com.prike.data.client.OpenAIClient
-import com.prike.data.dto.MessageDto
+import com.prike.mcpcommon.client.OpenAIClient
+import com.prike.mcpcommon.dto.MessageDto
 import com.prike.data.repository.AIRepository
 import com.prike.domain.agent.SimpleLLMAgent
 import org.slf4j.LoggerFactory
+import kotlinx.serialization.json.*
 
 /**
  * Сервис для работы с LLM через OpenRouter
@@ -90,6 +91,47 @@ class LLMService(
         } catch (e: Exception) {
             logger.error("Failed to generate answer: ${e.message}", e)
             throw LLMException("Не удалось получить ответ от LLM: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Генерирует структурированный JSON ответ через LLM (использует JSON mode)
+     * 
+     * @param messages массив сообщений
+     * @param temperature температура генерации
+     * @return ответ от LLM в виде JSON строки и количество использованных токенов
+     */
+    suspend fun generateStructuredJsonAnswer(
+        messages: List<MessageDto>,
+        temperature: Double = defaultTemperature
+    ): LLMResponse {
+        if (messages.isEmpty()) {
+            throw IllegalArgumentException("Messages cannot be empty")
+        }
+        
+        logger.debug("Generating structured JSON answer with ${messages.size} messages")
+        
+        return try {
+            // Используем JSON mode для структурированного ответа
+            val responseFormat = kotlinx.serialization.json.buildJsonObject {
+                put("type", "json_object")
+            }
+            
+            val response = openAIClient.chatCompletion(
+                messages = messages,
+                temperature = temperature,
+                responseFormat = responseFormat
+            )
+            val answer = response.choices.firstOrNull()?.message?.content ?: ""
+            val tokensUsed = response.usage?.totalTokens ?: 0
+            
+            LLMResponse(
+                answer = answer,
+                tokensUsed = tokensUsed
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to generate structured JSON answer: ${e.message}", e)
+            throw LLMException("Не удалось получить структурированный ответ от LLM: ${e.message}", e)
         }
     }
     
