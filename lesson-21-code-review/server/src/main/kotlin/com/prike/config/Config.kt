@@ -30,6 +30,16 @@ data class KnowledgeBaseConfig(
 )
 
 /**
+ * Конфигурация индексации кода
+ */
+data class CodeFilesConfig(
+    val enabled: Boolean = false,
+    val paths: List<String> = emptyList(),  // Пути к директориям с кодом
+    val extensions: List<String> = listOf(".kt", ".java", ".js", ".ts", ".py"),  // Расширения файлов
+    val excludePatterns: List<String> = listOf("**/build/**", "**/node_modules/**", "**/.git/**")  // Паттерны исключения
+)
+
+/**
  * Конфигурация индексации
  */
 data class IndexingConfig(
@@ -37,7 +47,8 @@ data class IndexingConfig(
     val overlapSize: Int,
     val documentsPath: String,
     val projectDocsPath: String? = null,
-    val projectReadmePath: String? = null
+    val projectReadmePath: String? = null,
+    val codeFiles: CodeFilesConfig = CodeFilesConfig()
 )
 
 /**
@@ -201,12 +212,25 @@ object Config {
         
         // Конфигурация индексации
         val indexingMap = serverConfigMap["indexing"] as? Map<String, Any> ?: emptyMap()
+        
+        // Конфигурация индексации кода
+        val codeFilesMap = indexingMap["codeFiles"] as? Map<String, Any> ?: emptyMap()
+        val codeFiles = CodeFilesConfig(
+            enabled = (codeFilesMap["enabled"] as? Boolean) ?: false,
+            paths = (codeFilesMap["paths"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+            extensions = (codeFilesMap["extensions"] as? List<*>)?.mapNotNull { it as? String } 
+                ?: listOf(".kt", ".java", ".js", ".ts", ".py"),
+            excludePatterns = (codeFilesMap["excludePatterns"] as? List<*>)?.mapNotNull { it as? String }
+                ?: listOf("**/build/**", "**/node_modules/**", "**/.git/**")
+        )
+        
         val indexing = IndexingConfig(
             chunkSize = (indexingMap["chunkSize"] as? Number)?.toInt() ?: 800,
             overlapSize = (indexingMap["overlapSize"] as? Number)?.toInt() ?: 100,
             documentsPath = resolveEnvVar(indexingMap["documentsPath"] as? String ?: "documents"),
             projectDocsPath = indexingMap["projectDocsPath"] as? String,
-            projectReadmePath = indexingMap["projectReadmePath"] as? String
+            projectReadmePath = indexingMap["projectReadmePath"] as? String,
+            codeFiles = codeFiles
         )
         
         // Конфигурация AI (OpenRouter)

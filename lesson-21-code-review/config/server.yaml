@@ -16,6 +16,11 @@ indexing:
   documentsPath: "documents"  # Папка с документами для индексации
   projectDocsPath: "project/docs"  # Папка с документацией проекта
   projectReadmePath: "project/README.md"  # Путь к корневому README проекта
+  codeFiles:
+    enabled: false    # Включить индексацию кода
+    paths: []         # Пути к директориям с кодом (например, ["server/src", "client"])
+    extensions: [".kt", ".java", ".js", ".ts", ".py"]  # Расширения файлов для индексации
+    excludePatterns: ["**/build/**", "**/node_modules/**", "**/.git/**"]  # Паттерны исключения
 
 ai:
   provider: "openrouter"

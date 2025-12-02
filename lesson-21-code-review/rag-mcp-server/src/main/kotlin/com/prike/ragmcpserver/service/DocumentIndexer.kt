@@ -212,6 +212,145 @@ class DocumentIndexer(
         
         return results
     }
+    
+    /**
+     * Индексирует файлы кода из указанных путей
+     * 
+     * @param paths список путей к директориям с кодом
+     * @param extensions список расширений файлов для индексации
+     * @param excludePatterns паттерны для исключения файлов/директорий
+     * @return список результатов индексации
+     */
+    suspend fun indexCodeFiles(
+        paths: List<String>,
+        extensions: List<String> = listOf(".kt", ".java", ".js", ".ts", ".py"),
+        excludePatterns: List<String> = listOf("**/build/**", "**/node_modules/**", "**/.git/**")
+    ): List<IndexingResult> {
+        logger.info("Starting code files indexing: ${paths.size} paths, extensions: ${extensions.joinToString()}")
+        val results = mutableListOf<IndexingResult>()
+        
+        paths.forEach { path ->
+            try {
+                val directory = java.io.File(path)
+                if (!directory.exists() || !directory.isDirectory) {
+                    logger.warn("Path does not exist or is not a directory: $path")
+                    results.add(IndexingResult(
+                        documentId = "",
+                        chunksCount = 0,
+                        success = false,
+                        error = "Path does not exist or is not a directory: $path"
+                    ))
+                    return@forEach
+                }
+                
+                // Загружаем файлы с указанными расширениями
+                val codeFiles = findCodeFiles(directory, extensions, excludePatterns)
+                logger.info("Found ${codeFiles.size} code files in $path")
+                
+                codeFiles.forEach { file ->
+                    val result = indexDocument(file.absolutePath)
+                    results.add(result)
+                }
+                
+            } catch (e: Exception) {
+                logger.error("Failed to index code files from $path", e)
+                results.add(IndexingResult(
+                    documentId = "",
+                    chunksCount = 0,
+                    success = false,
+                    error = "Failed to index code files from $path: ${e.message}"
+                ))
+            }
+        }
+        
+        val successCount = results.count { it.success }
+        logger.info("Code files indexing completed: ${results.size} files processed, $successCount succeeded")
+        
+        return results
+    }
+    
+    /**
+     * Находит файлы кода в директории с учётом расширений и паттернов исключения
+     */
+    private fun findCodeFiles(
+        directory: java.io.File,
+        extensions: List<String>,
+        excludePatterns: List<String>
+    ): List<java.io.File> {
+        val files = mutableListOf<java.io.File>()
+        
+        fun shouldExclude(file: java.io.File): Boolean {
+            val path = file.absolutePath.replace("\\", "/")
+            return excludePatterns.any { pattern ->
+                // Простая проверка паттерна (можно улучшить с помощью glob)
+                when {
+                    pattern.contains("**") -> {
+                        val parts = pattern.split("**")
+                        parts.any { part -> path.contains(part.trim('/')) }
+                    }
+                    pattern.startsWith("**/") -> {
+                        path.endsWith(pattern.substring(3))
+                    }
+                    else -> {
+                        path.contains(pattern)
+                    }
+                }
+            }
+        }
+        
+        fun traverseDir(dir: java.io.File) {
+            if (shouldExclude(dir)) {
+                return
+            }
+            
+            dir.listFiles()?.forEach { file ->
+                if (file.isDirectory) {
+                    traverseDir(file)
+                } else if (file.isFile) {
+                    if (!shouldExclude(file)) {
+                        val extension = file.extension
+                        if (extensions.any { ext -> file.name.endsWith(ext, ignoreCase = true) }) {
+                            files.add(file)
+                        }
+                    }
+                }
+            }
+        }
+        
+        traverseDir(directory)
+        return files
+    }
+    
+    /**
+     * Индексирует список конкретных файлов кода (для ревью)
+     * 
+     * @param filePaths список путей к файлам для индексации
+     * @return список результатов индексации
+     */
+    suspend fun indexCodeFilesList(filePaths: List<String>): List<IndexingResult> {
+        logger.info("Starting code files list indexing: ${filePaths.size} files")
+        val results = mutableListOf<IndexingResult>()
+        
+        filePaths.forEach { filePath ->
+            try {
+                val result = indexDocument(filePath)
+                results.add(result)
+            } catch (e: Exception) {
+                logger.error("Failed to index code file: $filePath", e)
+                results.add(IndexingResult(
+                    documentId = "",
+                    chunksCount = 0,
+                    success = false,
+                    error = "Failed to index code file: $filePath - ${e.message}"
+                ))
+            }
+        }
+        
+        val successCount = results.count { it.success }
+        logger.info("Code files list indexing completed: ${results.size} files processed, $successCount succeeded")
+        
+        return results
+    }
 }
 
 /**
