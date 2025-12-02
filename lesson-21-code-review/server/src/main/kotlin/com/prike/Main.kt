@@ -44,6 +44,7 @@ fun main(args: Array<String>) {
         aiConfig = config.ai,
         defaultTemperature = config.ai.temperature,
         defaultMaxTokens = config.ai.maxTokens
+    )
     
     // 2. PromptBuilder для формирования промптов с контекстом
     val promptBuilder = PromptBuilder()
