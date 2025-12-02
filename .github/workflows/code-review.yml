@@ -1,0 +1,71 @@
+name: Code Review
+
+# Примечание: Этот workflow требует настройки сервера и может быть сложным для запуска.
+# Рекомендуется использовать UI для ревью кода вместо GitHub Action.
+# Для работы необходимо:
+# 1. Добавить OPENAI_API_KEY в secrets
+# 2. Настроить сервер для работы в CI/CD окружении
+# 3. Убедиться, что все зависимости установлены
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:  # Позволяет запускать вручную
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    if: false  # Отключено по умолчанию, включите установив if: true
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Полная история для diff
+      
+      - name: Get diff
+        id: get-diff
+        run: |
+          git diff ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} > diff.txt
+          echo "Diff saved to diff.txt"
+      
+      - name: Get changed files
+        id: get-changed-files
+        run: |
+          git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} > changed-files.txt
+          echo "Changed files saved to changed-files.txt"
+      
+      - name: Upload diff and changed files
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-diff
+          path: |
+            diff.txt
+            changed-files.txt
+      
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Простой комментарий с информацией о diff
+            const fs = require('fs');
+            const diff = fs.readFileSync('diff.txt', 'utf8');
+            const changedFiles = fs.readFileSync('changed-files.txt', 'utf8').split('\n').filter(f => f);
+            
+            let comment = `## 🤖 Информация о PR для ревью кода\n\n`;
+            comment += `**Изменённых файлов:** ${changedFiles.length}\n\n`;
+            comment += `**Файлы:**\n`;
+            changedFiles.forEach(file => {
+              comment += `- \`${file}\`\n`;
+            });
+            comment += `\n\n`;
+            comment += `💡 Для полного автоматического ревью используйте UI: http://localhost:8080/code-review.html\n`;
+            comment += `Или загрузите diff файл через UI для ревью.\n`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
