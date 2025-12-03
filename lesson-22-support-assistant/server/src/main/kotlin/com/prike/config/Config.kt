@@ -125,6 +125,14 @@ data class GitMCPConfig(
 )
 
 /**
+ * Конфигурация CRM MCP
+ */
+data class CRMMCPConfig(
+    val enabled: Boolean = true,
+    val jarPath: String? = null
+)
+
+/**
  * Конфигурация RAG MCP
  */
 data class RagMCPConfig(
@@ -137,6 +145,13 @@ data class RagMCPConfig(
  */
 data class GitConfig(
     val mcp: GitMCPConfig = GitMCPConfig()
+)
+
+/**
+ * Конфигурация CRM
+ */
+data class CrmConfig(
+    val mcp: CRMMCPConfig = CRMMCPConfig()
 )
 
 /**
@@ -159,7 +174,8 @@ data class AppConfig(
     val ai: AIConfig,
     val rag: RAGConfig = RAGConfig(),
     val chat: ChatConfig = ChatConfig(),
-    val git: GitConfig = GitConfig()
+    val git: GitConfig = GitConfig(),
+    val crm: CrmConfig = CrmConfig()
 )
 
 object Config {
@@ -313,6 +329,15 @@ object Config {
         )
         val git = GitConfig(mcp = gitMCP)
         
+        // Конфигурация CRM
+        val crmMap = serverConfigMap["crm"] as? Map<String, Any> ?: emptyMap()
+        val crmMCPMap = crmMap["mcp"] as? Map<String, Any> ?: emptyMap()
+        val crmMCP = CRMMCPConfig(
+            enabled = (crmMCPMap["enabled"] as? Boolean) ?: true,
+            jarPath = crmMCPMap["jarPath"] as? String
+        )
+        val crm = CrmConfig(mcp = crmMCP)
+        
         return AppConfig(
             server = server,
             ollama = ollama,
@@ -321,7 +346,8 @@ object Config {
             ai = ai,
             rag = rag,
             chat = chat,
-            git = git
+            git = git,
+            crm = crm
         )
     }
     

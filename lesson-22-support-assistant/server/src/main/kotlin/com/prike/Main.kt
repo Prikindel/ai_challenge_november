@@ -103,6 +103,28 @@ fun main(args: Array<String>) {
         null
     }
     
+    // 6.5. CRM MCP Service (опционально, если включен в конфигурации)
+    val crmMCPService = if (config.crm.mcp.enabled) {
+        val crmMCPClient = com.prike.data.client.CRMMCPClient()
+        val service = com.prike.domain.service.CRMMCPService(
+            crmMCPClient = crmMCPClient,
+            lessonRoot = lessonRoot,
+            crmMCPJarPath = config.crm.mcp.jarPath
+        )
+        // Подключаемся к CRM MCP серверу асинхронно
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                service.connect()
+                logger.info("CRM MCP service connected successfully")
+            } catch (e: Exception) {
+                logger.warn("Failed to connect to CRM MCP server: ${e.message}. CRM MCP tools will not be available.")
+            }
+        }
+        service
+    } else {
+        null
+    }
+    
     // 7. Request Router Service для динамического роутинга через LLM
     val requestRouter = if (gitMCPService != null || ragMCPService != null) {
         RequestRouterService(
@@ -135,6 +157,17 @@ fun main(args: Array<String>) {
         null
     }
     
+    // 10. Support Service для обработки вопросов поддержки
+    val supportService = if (crmMCPService != null && ragMCPService != null) {
+        com.prike.domain.service.SupportService(
+            crmMCPService = crmMCPService,
+            ragMCPService = ragMCPService,
+            llmService = llmService
+        )
+    } else {
+        null
+    }
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
@@ -156,6 +189,10 @@ fun main(args: Array<String>) {
     } else {
         null
     }
+    val supportController = com.prike.presentation.controller.SupportController(
+        supportService = supportService,
+        crmMCPService = crmMCPService
+    )
     
     embeddedServer(Netty, port = config.server.port, host = config.server.host) {
         install(ContentNegotiation) {
@@ -193,6 +230,7 @@ fun main(args: Array<String>) {
             chatController.registerRoutes(this)
             documentController.registerRoutes(this)
             codeReviewController?.registerRoutes(this)
+            supportController.registerRoutes(this)
         }
         
         // Закрытие ресурсов при остановке
@@ -201,6 +239,7 @@ fun main(args: Array<String>) {
             runBlocking {
                 gitMCPService?.disconnect()
                 ragMCPService?.disconnect()
+                crmMCPService?.disconnect()
             }
         }
     }.start(wait = true)

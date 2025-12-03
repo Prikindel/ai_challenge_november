@@ -60,3 +60,8 @@ git:
     jarPath: "git-mcp-server/build/libs/git-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
     cacheDurationMinutes: 5  # Время жизни кэша для git branch
 
+crm:
+  mcp:
+    enabled: true        # Включить CRM MCP сервер
+    jarPath: "crm-mcp-server/build/libs/crm-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
+
