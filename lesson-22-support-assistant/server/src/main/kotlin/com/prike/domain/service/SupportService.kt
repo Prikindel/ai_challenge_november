@@ -14,6 +14,7 @@ class SupportService(
     private val llmService: LLMService
 ) {
     private val logger = LoggerFactory.getLogger(SupportService::class.java)
+    private val promptBuilder = SupportPromptBuilder()
     
     /**
      * Ответить на вопрос пользователя
@@ -115,14 +116,13 @@ class SupportService(
      * Генерация ответа через LLM
      */
     private suspend fun generateAnswer(question: String, context: SupportContext): String {
-        // Формируем промпт с контекстом
-        val systemPrompt = buildSystemPrompt()
-        val userPrompt = buildUserPrompt(question, context)
+        // Формируем промпт с контекстом через SupportPromptBuilder
+        val promptResult = promptBuilder.buildSupportPrompt(question, context)
         
         return try {
             val response = llmService.generateAnswer(
-                question = userPrompt,
-                systemPrompt = systemPrompt,
+                question = promptResult.userPrompt,
+                systemPrompt = promptResult.systemPrompt,
                 temperature = 0.7
             )
             response.answer
@@ -161,70 +161,6 @@ class SupportService(
         return suggestions
     }
     
-    /**
-     * Построение системного промпта
-     */
-    private fun buildSystemPrompt(): String {
-        return """
-            Ты — опытный агент поддержки, который помогает пользователям решать проблемы.
-            
-            Твоя задача:
-            - Отвечать на вопросы пользователей о продукте
-            - Использовать документацию и FAQ для точных ответов
-            - Учитывать контекст тикета (история обращений, статус пользователя)
-            - Предлагать конкретные шаги для решения проблемы
-            - Быть вежливым и профессиональным
-            
-            Отвечай на русском языке, кратко и по делу.
-        """.trimIndent()
-    }
-    
-    /**
-     * Построение пользовательского промпта
-     */
-    private fun buildUserPrompt(question: String, context: SupportContext): String {
-        val prompt = StringBuilder()
-        
-        prompt.append("Вопрос пользователя: $question\n\n")
-        
-        // Контекст пользователя
-        if (context.user != null) {
-            prompt.append("Контекст пользователя:\n")
-            prompt.append("- Имя: ${context.user.name ?: "Не указано"}\n")
-            prompt.append("- Email: ${context.user.email}\n")
-            prompt.append("- Статус аккаунта: ${context.user.status}\n")
-            if (context.user.subscription != null) {
-                prompt.append("- Подписка: ${context.user.subscription.plan}\n")
-            }
-            prompt.append("\n")
-        }
-        
-        // Контекст тикета
-        if (context.ticket != null) {
-            prompt.append("Контекст тикета:\n")
-            prompt.append("- Тема: ${context.ticket.subject}\n")
-            prompt.append("- Статус: ${context.ticket.status}\n")
-            prompt.append("- Приоритет: ${context.ticket.priority}\n")
-            if (context.ticket.messages.isNotEmpty()) {
-                prompt.append("- История сообщений:\n")
-                context.ticket.messages.takeLast(5).forEach { message ->
-                    prompt.append("  [${message.author}]: ${message.content.take(200)}\n")
-                }
-            }
-            prompt.append("\n")
-        }
-        
-        // RAG-контекст
-        if (context.ragContext != null && context.ragContext.isNotBlank()) {
-            prompt.append("Информация из документации:\n")
-            prompt.append(context.ragContext)
-            prompt.append("\n\n")
-        }
-        
-        prompt.append("Ответь на вопрос пользователя, учитывая контекст тикета и информацию из документации.")
-        
-        return prompt.toString()
-    }
     
     /**
      * Парсинг результатов RAG поиска
