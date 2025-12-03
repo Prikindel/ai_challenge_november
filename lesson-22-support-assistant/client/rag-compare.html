@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>День 22. Ассистент для поддержки пользователей</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 22. Ассистент для поддержки пользователей</h1>
+            <p>Ассистент разработчика с RAG и MCP интеграцией. Кликните на ссылку, чтобы просмотреть документ.</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="indexing.html" class="tab">Индексация</a>
+                <a href="search.html" class="tab">Поиск</a>
+                <a href="rag-compare.html" class="tab active">Сравнение RAG</a>
+                <a href="citation-test.html" class="tab">Тест цитат</a>
+                <a href="chat.html" class="tab">Чат</a>
+            </nav>
+            
+            <section class="compare-section">
+                <h2>Задайте вопрос</h2>
+                
+                <div class="form-group">
+                    <label for="questionInput">Вопрос:</label>
+                    <textarea id="questionInput" rows="3" placeholder="Введите ваш вопрос..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="topK">Количество чанков для контекста:</label>
+                    <input type="number" id="topK" value="5" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label for="minSimilarity">Минимальное сходство (для поиска):</label>
+                    <input type="number" id="minSimilarity" value="0.4" min="0" max="1" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="filterStrategy">Стратегия фильтрации:</label>
+                    <select id="filterStrategy">
+                        <option value="none">Без фильтра</option>
+                        <option value="threshold" selected>Пороговый фильтр</option>
+                        <option value="reranker">LLM Реранкер</option>
+                        <option value="hybrid">Гибридная (порог + реранкер)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="thresholdGroup">
+                    <label for="thresholdMinSimilarity">Порог сходства для фильтра:</label>
+                    <input type="number" id="thresholdMinSimilarity" value="0.6" min="0" max="1" step="0.05">
+                    <small>Чанки с сходством ниже этого значения будут отброшены</small>
+                </div>
+                
+                <div class="form-group" id="keepTopGroup">
+                    <label for="keepTop">Оставить только top-N чанков:</label>
+                    <input type="number" id="keepTop" value="3" min="1" max="10">
+                    <small>Оставьте пустым для отключения ограничения</small>
+                </div>
+                
+                <button onclick="performComparison()" id="compareButton">Сравнить</button>
+                
+                <div id="compareStatus" class="status"></div>
+            </section>
+            
+            <section class="comparison-results" id="comparisonResults" style="display: none;">
+                <h2>Результаты сравнения</h2>
+                
+                <!-- Метрики сравнения -->
+                <div class="metrics-panel" id="metricsPanel" style="display: none;">
+                    <h3>📊 Метрики сравнения</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-item">
+                            <span class="metric-label">Чанков до фильтрации:</span>
+                            <span class="metric-value" id="baselineChunks">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Чанков после фильтрации:</span>
+                            <span class="metric-value" id="filteredChunks">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Среднее сходство до:</span>
+                            <span class="metric-value" id="avgSimilarityBefore">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Среднее сходство после:</span>
+                            <span class="metric-value" id="avgSimilarityAfter">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Экономия токенов:</span>
+                            <span class="metric-value" id="tokensSaved">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-container">
+                    <!-- Baseline (без фильтра) -->
+                    <div class="response-card baseline-response" id="baselineCard" style="display: none;">
+                        <div class="response-header">
+                            <h3>📋 Baseline (без фильтра)</h3>
+                            <span class="token-badge" id="baselineTokens">Токены: -</span>
+                        </div>
+                        <div class="response-content markdown-content" id="baselineAnswer">
+                            <p class="placeholder">Ответ появится здесь...</p>
+                        </div>
+                        <div class="context-chunks" id="baselineChunksList">
+                            <h4>Использованные чанки:</h4>
+                            <div class="chunks-list" id="baselineChunksListContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtered (с фильтром) -->
+                    <div class="response-card filtered-response">
+                        <div class="response-header">
+                            <h3>🎯 С фильтром</h3>
+                            <span class="token-badge" id="filteredTokens">Токены: -</span>
+                        </div>
+                        <div class="response-content markdown-content" id="filteredAnswer">
+                            <p class="placeholder">Ответ появится здесь...</p>
+                        </div>
+                        
+                        <!-- Статистика фильтрации -->
+                        <div class="filter-stats" id="filterStats" style="display: none;">
+                            <h4>📈 Статистика фильтрации</h4>
+                            <div class="stats-info">
+                                <p>Найдено: <strong id="statsRetrieved">-</strong> чанков</p>
+                                <p>Оставлено: <strong id="statsKept">-</strong> чанков</p>
+                                <p>Отброшено: <strong id="statsDropped">-</strong> чанков</p>
+                            </div>
+                            <div class="dropped-chunks" id="droppedChunksList"></div>
+                        </div>
+                        
+                        <!-- Решения реранкера -->
+                        <div class="rerank-insights" id="rerankInsights" style="display: none;">
+                            <h4>🤖 Решения реранкера</h4>
+                            <div class="rerank-decisions" id="rerankDecisionsList"></div>
+                        </div>
+                        
+                        <div class="context-chunks" id="filteredChunksList">
+                            <h4>Использованные чанки:</h4>
+                            <div class="chunks-list" id="filteredChunksListContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Marked.js для рендеринга Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+    <script src="citations.js"></script>
+    <script src="document-viewer.js"></script>
+    <script src="rag-compare.js"></script>
+</body>
+</html>
+

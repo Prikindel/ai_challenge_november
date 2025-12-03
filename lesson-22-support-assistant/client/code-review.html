@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ревью кода</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .review-form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .review-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .review-status.pending {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+        
+        .review-status.error {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .review-status.completed {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
+        }
+        
+        .review-results {
+            display: none;
+        }
+        
+        .review-summary {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .review-summary h3 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .review-summary .score {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .score.approve {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .score.request_changes {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .score.comment {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .issues-list, .suggestions-list {
+            margin-top: 20px;
+        }
+        
+        .issue-item, .suggestion-item {
+            background: white;
+            border-left: 4px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .issue-item.critical {
+            border-left-color: #dc3545;
+        }
+        
+        .issue-item.high {
+            border-left-color: #fd7e14;
+        }
+        
+        .issue-item.medium {
+            border-left-color: #ffc107;
+        }
+        
+        .issue-item.low {
+            border-left-color: #17a2b8;
+        }
+        
+        .issue-header, .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .issue-type {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .issue-type.BUG {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .issue-type.SECURITY {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .issue-type.PERFORMANCE {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .issue-type.STYLE {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .issue-type.LOGIC {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .issue-type.DOCUMENTATION {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .issue-file {
+            font-family: monospace;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .issue-line {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .issue-message {
+            margin-top: 10px;
+            line-height: 1.6;
+        }
+        
+        .issue-suggestion {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-style: italic;
+        }
+        
+        .changed-files {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .changed-files h4 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .changed-files ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .changed-files li {
+            padding: 5px 0;
+            font-family: monospace;
+            color: #666;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tabs-inline {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #667eea;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .tab-btn.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .export-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .export-btn {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .export-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        .examples {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .examples h4 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .examples code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 22. Ассистент для поддержки пользователей</h1>
+            <p>Автоматическое ревью кода с использованием RAG и MCP</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="indexing.html" class="tab">Индексация</a>
+                <a href="search.html" class="tab">Поиск</a>
+                <a href="chat.html" class="tab">Чат</a>
+                <a href="dev-assistant.html" class="tab">Ассистент</a>
+                <a href="code-review.html" class="tab active">Ревью кода</a>
+            </nav>
+            
+            <div class="review-form">
+                <h2>Запустить ревью кода</h2>
+                
+                <!-- Табы для выбора способа ревью -->
+                <div class="tabs-inline">
+                    <button class="tab-btn active" onclick="switchTab('branches')">По веткам</button>
+                    <button class="tab-btn" onclick="switchTab('diff')">По diff файлу</button>
+                </div>
+                
+                <!-- Форма для ревью по веткам -->
+                <form id="reviewForm" style="display: block;">
+                    <div class="form-group">
+                        <label for="baseBranch">Базовая ветка:</label>
+                        <input type="text" id="baseBranch" name="base" value="main" required>
+                        <small>Например: main, develop, origin/main</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="headBranch">Целевая ветка:</label>
+                        <input type="text" id="headBranch" name="head" value="HEAD" required>
+                        <small>Например: feature-branch, HEAD, origin/feature-branch</small>
+                    </div>
+                    <button type="submit" id="submitBtn">
+                        Запустить ревью
+                    </button>
+                </form>
+                
+                <!-- Форма для ревью по diff -->
+                <form id="diffForm" style="display: none;">
+                    <div class="form-group">
+                        <label for="diffFile">Загрузить diff файл:</label>
+                        <input type="file" id="diffFile" accept=".diff,.patch,.txt" onchange="handleDiffFileSelect(event)">
+                        <small>Поддерживаются файлы .diff, .patch, .txt</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="diffText">Или вставьте diff напрямую:</label>
+                        <textarea id="diffText" rows="10" placeholder="Вставьте diff здесь..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="diffBaseBranch">Базовая ветка (опционально):</label>
+                        <input type="text" id="diffBaseBranch" name="base" placeholder="main">
+                    </div>
+                    <div class="form-group">
+                        <label for="diffHeadBranch">Целевая ветка (опционально):</label>
+                        <input type="text" id="diffHeadBranch" name="head" placeholder="feature-branch">
+                    </div>
+                    <button type="button" id="submitDiffBtn" onclick="handleDiffSubmit()">
+                        Запустить ревью по diff
+                    </button>
+                </form>
+            </div>
+            
+            <div id="reviewStatus" class="review-status"></div>
+            
+            <div id="reviewResults" class="review-results">
+                <div class="review-summary" id="reviewSummary"></div>
+                
+                <div class="export-buttons" id="exportButtons" style="display: none; margin-top: 20px;">
+                    <button class="export-btn" onclick="exportReview('json')">Экспорт JSON</button>
+                    <button class="export-btn" onclick="exportReview('markdown')">Экспорт Markdown</button>
+                    <button class="export-btn" onclick="exportReview('text')">Экспорт текста</button>
+                </div>
+                
+                <div class="changed-files" id="changedFiles"></div>
+                
+                <div class="issues-list" id="issuesList"></div>
+                
+                <div class="suggestions-list" id="suggestionsList"></div>
+            </div>
+            
+            <div class="examples">
+                <h4>Примеры использования:</h4>
+                <ul>
+                    <li><strong>Ревью между ветками:</strong> <code>main</code> → <code>feature-branch</code></li>
+                    <li><strong>Ревью текущих изменений:</strong> <code>main</code> → <code>HEAD</code></li>
+                    <li><strong>Ревью по diff:</strong> Загрузите файл diff или вставьте diff напрямую</li>
+                    <li><strong>Получить diff:</strong> <code>git diff main..feature-branch > changes.diff</code></li>
+                </ul>
+            </div>
+        </main>
+    </div>
+    
+    <script src="code-review.js"></script>
+</body>
+</html>
+
