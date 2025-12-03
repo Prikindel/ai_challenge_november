@@ -77,7 +77,7 @@ async function handleQuestionSubmit(e) {
     const question = document.getElementById('question').value.trim();
     
     if (!question) {
-        showStatus('error', 'Пожалуйста, введите ваш вопрос');
+        showStatus('error', '❌ Пожалуйста, введите ваш вопрос');
         return;
     }
     
@@ -85,12 +85,12 @@ async function handleQuestionSubmit(e) {
     clearResults();
     
     // Показываем статус загрузки
-    showStatus('loading', 'Обработка вопроса...');
+    showStatus('loading', '⏳ Обработка вопроса...');
     
     // Отключаем кнопку отправки
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Обработка...';
+    submitBtn.innerHTML = '<span>⏳</span> <span>Обработка...</span>';
     
     try {
         const response = await fetch(`${API_BASE}/support/ask`, {
@@ -118,6 +118,14 @@ async function handleQuestionSubmit(e) {
         // Отображаем ответ
         displayAnswer(data);
         
+        // Прокручиваем к ответу
+        setTimeout(() => {
+            document.getElementById('answerSection').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }, 100);
+        
         // Отображаем источники
         if (data.sources && data.sources.length > 0) {
             displaySources(data.sources);
@@ -143,7 +151,7 @@ async function handleQuestionSubmit(e) {
     } finally {
         // Включаем кнопку отправки
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Отправить вопрос';
+        submitBtn.innerHTML = '<span>📤</span> <span>Отправить вопрос</span>';
     }
 }
 
@@ -250,7 +258,7 @@ function displayTicketHistory(ticket) {
     historyList.innerHTML = '';
     
     if (!ticket.messages || ticket.messages.length === 0) {
-        historyList.innerHTML = '<p style="color: #666;">История сообщений пуста</p>';
+        historyList.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><div style="font-size: 48px; margin-bottom: 16px;">💬</div><p style="font-size: 16px;">История сообщений пуста</p></div>';
         ticketHistory.style.display = 'block';
         return;
     }
@@ -334,7 +342,7 @@ async function loadUserTickets() {
     const userId = document.getElementById('ticketsUserId').value.trim();
     
     if (!userId) {
-        showStatus('error', 'Пожалуйста, укажите User ID');
+        showStatus('error', '❌ Пожалуйста, укажите User ID');
         return;
     }
     
@@ -362,7 +370,7 @@ function displayTickets(tickets) {
     ticketsList.innerHTML = '';
     
     if (tickets.length === 0) {
-        ticketsList.innerHTML = '<p style="color: #666;">Тикеты не найдены</p>';
+        ticketsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><div style="font-size: 48px; margin-bottom: 16px;">📭</div><p style="font-size: 16px;">Тикеты не найдены</p></div>';
         return;
     }
     
@@ -452,7 +460,7 @@ function filterTickets() {
     });
     
     if (filteredTickets.length === 0) {
-        ticketsList.innerHTML = '<p style="color: #666;">Тикеты не найдены</p>';
+        ticketsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><div style="font-size: 48px; margin-bottom: 16px;">🔍</div><p style="font-size: 16px;">Тикеты не найдены по заданным критериям</p></div>';
     }
 }
 
@@ -467,11 +475,11 @@ async function handleCreateTicket(e) {
     const description = document.getElementById('createTicketDescription').value.trim();
     
     if (!userId || !subject || !description) {
-        showStatus('error', 'Пожалуйста, заполните все поля');
+        showStatus('error', '❌ Пожалуйста, заполните все поля');
         return;
     }
     
-    showStatus('loading', 'Создание тикета...');
+    showStatus('loading', '⏳ Создание тикета...');
     
     try {
         const response = await fetch(`${API_BASE}/support/ticket`, {
@@ -505,7 +513,7 @@ async function handleCreateTicket(e) {
         // Загружаем историю нового тикета
         loadTicketHistory(ticket.id);
         
-        showStatus('completed', 'Тикет успешно создан!');
+        showStatus('completed', '✅ Тикет успешно создан!');
         setTimeout(hideStatus, 3000);
         
     } catch (error) {
@@ -519,7 +527,7 @@ async function handleCreateTicket(e) {
  */
 function exportTicketJson() {
     if (!currentTicket) {
-        showStatus('error', 'Нет данных для экспорта. Загрузите историю тикета.');
+        showStatus('error', '❌ Нет данных для экспорта. Загрузите историю тикета.');
         return;
     }
     
@@ -538,7 +546,7 @@ function exportTicketJson() {
  */
 function exportTicketText() {
     if (!currentTicket) {
-        showStatus('error', 'Нет данных для экспорта. Загрузите историю тикета.');
+        showStatus('error', '❌ Нет данных для экспорта. Загрузите историю тикета.');
         return;
     }
     
