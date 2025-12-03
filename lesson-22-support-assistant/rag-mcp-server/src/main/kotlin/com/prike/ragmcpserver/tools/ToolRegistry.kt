@@ -8,6 +8,7 @@ import com.prike.ragmcpserver.tools.handlers.RagSearchHandler
 import com.prike.ragmcpserver.tools.handlers.RagSearchProjectDocsHandler
 import com.prike.ragmcpserver.tools.handlers.RagIndexDocumentsHandler
 import com.prike.ragmcpserver.tools.handlers.RagIndexProjectDocsHandler
+import com.prike.ragmcpserver.tools.handlers.RagIndexSupportDocsHandler
 import com.prike.ragmcpserver.tools.handlers.RagGetStatisticsHandler
 import com.prike.ragmcpserver.tools.handlers.RagGetDocumentsHandler
 import com.prike.mcpcommon.server.ToolRegistry
@@ -41,6 +42,9 @@ class ToolRegistry(
     private val ragIndexProjectDocsHandler = RagIndexProjectDocsHandler(documentIndexer, lessonRoot, config)
     private val ragIndexProjectDocsTool = RagIndexProjectDocsTool(ragIndexProjectDocsHandler)
     
+    private val ragIndexSupportDocsHandler = RagIndexSupportDocsHandler(documentIndexer, lessonRoot, config)
+    private val ragIndexSupportDocsTool = RagIndexSupportDocsTool(ragIndexSupportDocsHandler)
+    
     // Инструменты для получения информации
     private val ragGetStatisticsHandler = RagGetStatisticsHandler(knowledgeBaseRepository)
     private val ragGetStatisticsTool = RagGetStatisticsTool(ragGetStatisticsHandler)
@@ -58,11 +62,12 @@ class ToolRegistry(
         // Инструменты индексации
         ragIndexDocumentsTool.register(server)
         ragIndexProjectDocsTool.register(server)
+        ragIndexSupportDocsTool.register(server)
         
         // Инструменты для получения информации
         ragGetStatisticsTool.register(server)
         ragGetDocumentsTool.register(server)
         
-        logger.info("Все инструменты RAG MCP сервера зарегистрированы (6 инструментов)")
+        logger.info("Все инструменты RAG MCP сервера зарегистрированы (7 инструментов)")
     }
 }

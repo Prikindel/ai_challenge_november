@@ -48,6 +48,7 @@ data class IndexingConfig(
     val documentsPath: String,
     val projectDocsPath: String? = null,
     val projectReadmePath: String? = null,
+    val supportDocsPath: String? = null,
     val codeFiles: CodeFilesConfig = CodeFilesConfig()
 )
 
@@ -230,6 +231,7 @@ object Config {
             documentsPath = resolveEnvVar(indexingMap["documentsPath"] as? String ?: "documents"),
             projectDocsPath = indexingMap["projectDocsPath"] as? String,
             projectReadmePath = indexingMap["projectReadmePath"] as? String,
+            supportDocsPath = indexingMap["supportDocsPath"] as? String,
             codeFiles = codeFiles
         )
         

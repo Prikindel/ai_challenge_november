@@ -142,7 +142,8 @@ fun main(args: Array<String>) {
         ragMCPService = ragMCPService,
         lessonRoot = lessonRoot,
         projectDocsPath = config.indexing.projectDocsPath,
-        projectReadmePath = config.indexing.projectReadmePath
+        projectReadmePath = config.indexing.projectReadmePath,
+        supportDocsPath = config.indexing.supportDocsPath
     )
     val llmController = LLMController(llmService)
     val chatController = ChatController(chatService, chatRepository, gitMCPService)

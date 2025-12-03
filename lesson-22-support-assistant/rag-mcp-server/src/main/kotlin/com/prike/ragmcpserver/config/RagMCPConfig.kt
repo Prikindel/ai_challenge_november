@@ -24,7 +24,8 @@ data class IndexingConfig(
     val overlapSize: Int,
     val documentsPath: String,
     val projectDocsPath: String? = null,
-    val projectReadmePath: String? = null
+    val projectReadmePath: String? = null,
+    val supportDocsPath: String? = null
 )
 
 /**
@@ -91,6 +92,7 @@ data class RagMCPConfig(
             val documentsPath = System.getenv("DOCUMENTS_PATH") ?: "documents"
             val projectDocsPath = System.getenv("PROJECT_DOCS_PATH")
             val projectReadmePath = System.getenv("PROJECT_README_PATH")
+            val supportDocsPath = System.getenv("SUPPORT_DOCS_PATH")
             
             val topK = System.getenv("RAG_TOP_K")?.toIntOrNull() ?: 5
             val minSimilarity = System.getenv("RAG_MIN_SIMILARITY")?.toFloatOrNull() ?: 0.4f
@@ -120,7 +122,8 @@ data class RagMCPConfig(
                     overlapSize = overlapSize,
                     documentsPath = documentsPath,
                     projectDocsPath = projectDocsPath,
-                    projectReadmePath = projectReadmePath
+                    projectReadmePath = projectReadmePath,
+                    supportDocsPath = supportDocsPath
                 ),
                 rag = RAGConfig(
                     topK = topK,

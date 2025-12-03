@@ -19,7 +19,8 @@ class IndexingController(
     private val ragMCPService: RagMCPService?,
     private val lessonRoot: File,
     private val projectDocsPath: String? = null,
-    private val projectReadmePath: String? = null
+    private val projectReadmePath: String? = null,
+    private val supportDocsPath: String? = null
 ) {
     private val logger = LoggerFactory.getLogger(IndexingController::class.java)
     
@@ -99,6 +100,39 @@ class IndexingController(
                     call.respond(
                         io.ktor.http.HttpStatusCode.InternalServerError,
                         ErrorResponse("Failed to index project documentation: ${e.message}")
+                    )
+                }
+            }
+            
+            // Индексировать документацию поддержки
+            post("/api/indexing/index-support-docs") {
+                try {
+                    if (ragMCPService == null) {
+                        call.respond(
+                            io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                            ErrorResponse("RAG MCP service is not available")
+                        )
+                        return@post
+                    }
+                    
+                    // Вызываем MCP инструмент rag_index_support_docs
+                    val arguments = buildJsonObject {
+                        if (supportDocsPath != null) {
+                            put("supportDocsPath", JsonPrimitive(supportDocsPath))
+                        }
+                    }
+                    
+                    val result = ragMCPService.callTool("rag_index_support_docs", arguments)
+                    
+                    call.respond(IndexSupportDocsResponse(
+                        success = true,
+                        message = result
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Support docs indexing error", e)
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to index support documentation: ${e.message}")
                     )
                 }
             }
@@ -291,6 +325,12 @@ data class IndexDirectoryResponse(
 
 @Serializable
 data class IndexProjectDocsResponse(
+    val success: Boolean,
+    val message: String
+)
+
+@Serializable
+data class IndexSupportDocsResponse(
     val success: Boolean,
     val message: String
 )

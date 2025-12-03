@@ -214,6 +214,41 @@ class DocumentIndexer(
     }
     
     /**
+     * Индексирует документацию поддержки (FAQ, troubleshooting, user guide, auth guide)
+     * 
+     * @param supportDocsPath путь к папке с документацией поддержки (например, project/docs/support)
+     * @return список результатов индексации
+     */
+    suspend fun indexSupportDocs(
+        supportDocsPath: String?
+    ): List<IndexingResult> {
+        logger.info("Starting support documentation indexing")
+        val results = mutableListOf<IndexingResult>()
+        
+        // Индексируем документацию поддержки из project/docs/support/
+        if (!supportDocsPath.isNullOrBlank()) {
+            try {
+                val docsResults = indexDirectory(supportDocsPath)
+                results.addAll(docsResults)
+                logger.info("Indexed ${docsResults.size} support documents from $supportDocsPath")
+            } catch (e: Exception) {
+                logger.error("Failed to index support docs from $supportDocsPath", e)
+                results.add(IndexingResult(
+                    documentId = "",
+                    chunksCount = 0,
+                    success = false,
+                    error = "Failed to index support docs: ${e.message}"
+                ))
+            }
+        }
+        
+        val successCount = results.count { it.success }
+        logger.info("Support documentation indexing completed: ${results.size} documents processed, $successCount succeeded")
+        
+        return results
+    }
+    
+    /**
      * Индексирует файлы кода из указанных путей
      * 
      * @param paths список путей к директориям с кодом
