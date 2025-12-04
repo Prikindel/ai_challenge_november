@@ -46,16 +46,21 @@ class RagIndexSupportDocsHandler(
         return try {
             // Индексируем папку project/docs/support
             if (supportDocsPath != null) {
-                val supportDir = File(lessonRoot, supportDocsPath)
+                // Если путь абсолютный, используем его напрямую, иначе относительно lessonRoot
+                val supportDir = if (File(supportDocsPath).isAbsolute) {
+                    File(supportDocsPath)
+                } else {
+                    File(lessonRoot, supportDocsPath)
+                }
                 if (supportDir.exists() && supportDir.isDirectory) {
                     val results = documentIndexer.indexDirectory(supportDir.absolutePath)
                     val successCount = results.count { it.success }
                     val chunksCount = results.sumOf { it.chunksCount }
                     totalIndexed += successCount
                     totalChunks += chunksCount
-                    messages.add("Папка $supportDocsPath: $successCount документов, $chunksCount чанков")
+                    messages.add("Папка ${supportDir.absolutePath}: $successCount документов, $chunksCount чанков")
                 } else {
-                    messages.add("Папка $supportDocsPath не найдена")
+                    messages.add("Папка ${supportDir.absolutePath} не найдена")
                 }
             } else {
                 messages.add("Путь к документации поддержки не указан в конфигурации")

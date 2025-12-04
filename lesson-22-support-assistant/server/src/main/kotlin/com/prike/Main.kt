@@ -157,12 +157,12 @@ fun main(args: Array<String>) {
         null
     }
     
-    // 10. Support Service для обработки вопросов поддержки
+    // 10. Support Service для обработки вопросов поддержки (использует Koog)
     val supportService = if (crmMCPService != null && ragMCPService != null) {
         com.prike.domain.service.SupportService(
             crmMCPService = crmMCPService,
             ragMCPService = ragMCPService,
-            llmService = llmService
+            apiKey = config.ai.apiKey
         )
     } else {
         null

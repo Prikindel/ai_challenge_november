@@ -59,6 +59,12 @@ dependencies {
     // MCP Kotlin SDK
     implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
     
+    // Koog - Kotlin framework for AI agents
+    implementation("ai.koog:koog-agents:0.5.4")
+    implementation("ai.koog:koog-ktor:0.5.4")
+    // Koog prompt executors
+    implementation("ai.koog:prompt-executor-llms-all:0.5.4")
+    
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:1.9.22")

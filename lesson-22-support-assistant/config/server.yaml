@@ -14,9 +14,9 @@ indexing:
   chunkSize: 300      # Размер чанка в токенах (уменьшено для стабильности Ollama)
   overlapSize: 50     # Перекрытие между чанками в токенах
   documentsPath: "documents"  # Папка с документами для индексации
-  projectDocsPath: "project/docs"  # Папка с документацией проекта
-  projectReadmePath: "project/README.md"  # Путь к корневому README проекта
-  supportDocsPath: "project/docs/support"  # Папка с документацией поддержки (FAQ, troubleshooting, user guide, auth guide)
+  projectDocsPath: "../../project/docs"  # Папка с документацией проекта (в корне репозитория)
+  projectReadmePath: "../../project/README.md"  # Путь к корневому README проекта (в корне репозитория)
+  supportDocsPath: "../../project/docs/support"  # Папка с документацией поддержки (в корне репозитория)
   codeFiles:
     enabled: false    # Включить индексацию кода
     paths: []         # Пути к директориям с кодом (например, ["server/src", "client"])

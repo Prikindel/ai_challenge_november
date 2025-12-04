@@ -48,33 +48,43 @@ class RagIndexProjectDocsHandler(
         return try {
             // Индексируем папку project/docs
             if (projectDocsPath != null) {
-                val docsDir = File(lessonRoot, projectDocsPath)
+                // Если путь абсолютный, используем его напрямую, иначе относительно lessonRoot
+                val docsDir = if (File(projectDocsPath).isAbsolute) {
+                    File(projectDocsPath)
+                } else {
+                    File(lessonRoot, projectDocsPath)
+                }
                 if (docsDir.exists() && docsDir.isDirectory) {
                     val results = documentIndexer.indexDirectory(docsDir.absolutePath)
                     val successCount = results.count { it.success }
                     val chunksCount = results.sumOf { it.chunksCount }
                     totalIndexed += successCount
                     totalChunks += chunksCount
-                    messages.add("Папка $projectDocsPath: $successCount документов, $chunksCount чанков")
+                    messages.add("Папка ${docsDir.absolutePath}: $successCount документов, $chunksCount чанков")
                 } else {
-                    messages.add("Папка $projectDocsPath не найдена")
+                    messages.add("Папка ${docsDir.absolutePath} не найдена")
                 }
             }
             
             // Индексируем project/README.md
             if (projectReadmePath != null) {
-                val readmeFile = File(lessonRoot, projectReadmePath)
+                // Если путь абсолютный, используем его напрямую, иначе относительно lessonRoot
+                val readmeFile = if (File(projectReadmePath).isAbsolute) {
+                    File(projectReadmePath)
+                } else {
+                    File(lessonRoot, projectReadmePath)
+                }
                 if (readmeFile.exists() && readmeFile.isFile) {
                     val result = documentIndexer.indexDocument(readmeFile.absolutePath)
                     if (result.success) {
                         totalIndexed += 1
                         totalChunks += result.chunksCount
-                        messages.add("Файл $projectReadmePath: ${result.chunksCount} чанков")
+                        messages.add("Файл ${readmeFile.absolutePath}: ${result.chunksCount} чанков")
                     } else {
-                        messages.add("Ошибка индексации $projectReadmePath: ${result.error}")
+                        messages.add("Ошибка индексации ${readmeFile.absolutePath}: ${result.error}")
                     }
                 } else {
-                    messages.add("Файл $projectReadmePath не найден")
+                    messages.add("Файл ${readmeFile.absolutePath} не найден")
                 }
             }
             

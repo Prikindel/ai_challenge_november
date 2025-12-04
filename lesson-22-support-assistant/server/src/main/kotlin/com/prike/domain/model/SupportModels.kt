@@ -27,7 +27,8 @@ data class SupportResponse(
     val answer: String,
     val sources: List<Source>,  // источники из RAG
     val suggestions: List<String>? = null,  // дополнительные предложения
-    val ticketId: String? = null  // если создан новый тикет
+    val ticketId: String? = null,  // если создан новый тикет
+    val shouldCreateTicket: Boolean = false  // нужно ли создавать тикет
 )
 
 /**

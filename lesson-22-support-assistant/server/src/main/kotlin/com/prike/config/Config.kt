@@ -245,9 +245,9 @@ object Config {
             chunkSize = (indexingMap["chunkSize"] as? Number)?.toInt() ?: 800,
             overlapSize = (indexingMap["overlapSize"] as? Number)?.toInt() ?: 100,
             documentsPath = resolveEnvVar(indexingMap["documentsPath"] as? String ?: "documents"),
-            projectDocsPath = indexingMap["projectDocsPath"] as? String,
-            projectReadmePath = indexingMap["projectReadmePath"] as? String,
-            supportDocsPath = indexingMap["supportDocsPath"] as? String,
+            projectDocsPath = resolveProjectPath(indexingMap["projectDocsPath"] as? String),
+            projectReadmePath = resolveProjectPath(indexingMap["projectReadmePath"] as? String),
+            supportDocsPath = resolveProjectPath(indexingMap["supportDocsPath"] as? String),
             codeFiles = codeFiles
         )
         
@@ -386,6 +386,61 @@ object Config {
         }
         
         return currentDir.absolutePath
+    }
+    
+    /**
+     * Находит корень репозитория (ai_challenge_november)
+     * Ищет папку project/ в корне репозитория
+     */
+    private fun findRepositoryRoot(): File {
+        var currentDir = File(System.getProperty("user.dir"))
+        
+        if (currentDir.name == "server") {
+            currentDir = currentDir.parentFile
+        }
+        
+        // Ищем папку project/ вверх по дереву
+        var searchDir = currentDir
+        while (searchDir != null && searchDir.parentFile != null) {
+            val projectDir = File(searchDir, "project")
+            if (projectDir.exists() && projectDir.isDirectory) {
+                return searchDir
+            }
+            
+            val parent = searchDir.parentFile
+            if (parent == null || parent == searchDir) {
+                break
+            }
+            searchDir = parent
+        }
+        
+        // Если не нашли, возвращаем корень проекта как fallback
+        return File(findProjectRoot())
+    }
+    
+    /**
+     * Разрешает путь к project относительно корня репозитория
+     */
+    private fun resolveProjectPath(path: String?): String? {
+        if (path.isNullOrBlank()) return null
+        
+        // Если путь уже абсолютный, возвращаем как есть
+        if (File(path).isAbsolute) {
+            return path
+        }
+        
+        // Если путь начинается с ../, разрешаем относительно корня репозитория
+        if (path.startsWith("../")) {
+            val repoRoot = findRepositoryRoot()
+            val normalizedPath = path.removePrefix("../").removePrefix("/")
+            val projectFile = File(repoRoot, normalizedPath)
+            return projectFile.absolutePath
+        }
+        
+        // Иначе разрешаем относительно корня проекта (lesson-22-support-assistant)
+        val projectRoot = File(findProjectRoot())
+        val projectFile = File(projectRoot, path)
+        return projectFile.absolutePath
     }
     
     private fun findConfigDirectory(): String {
