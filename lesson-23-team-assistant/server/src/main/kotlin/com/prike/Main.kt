@@ -125,6 +125,28 @@ fun main(args: Array<String>) {
         null
     }
     
+    // 6.6. Task MCP Service (опционально, если включен в конфигурации)
+    val taskMCPService = if (config.task.mcp.enabled) {
+        val taskMCPClient = com.prike.data.client.TaskMCPClient()
+        val service = com.prike.domain.service.TaskMCPService(
+            taskMCPClient = taskMCPClient,
+            lessonRoot = lessonRoot,
+            taskMCPJarPath = config.task.mcp.jarPath
+        )
+        // Подключаемся к Task MCP серверу асинхронно
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                service.connect()
+                logger.info("Task MCP service connected successfully")
+            } catch (e: Exception) {
+                logger.warn("Failed to connect to Task MCP server: ${e.message}. Task MCP tools will not be available.")
+            }
+        }
+        service
+    } else {
+        null
+    }
+    
     // 7. Request Router Service для динамического роутинга через LLM
     val requestRouter = if (gitMCPService != null || ragMCPService != null) {
         RequestRouterService(
@@ -168,6 +190,17 @@ fun main(args: Array<String>) {
         null
     }
     
+    // 11. Team Assistant Service для обработки вопросов команды
+    val teamAssistantService = if (taskMCPService != null && ragMCPService != null) {
+        com.prike.domain.service.TeamAssistantService(
+            taskMCPService = taskMCPService,
+            ragMCPService = ragMCPService,
+            llmService = llmService
+        )
+    } else {
+        null
+    }
+    
     // Регистрация контроллеров
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
@@ -192,6 +225,10 @@ fun main(args: Array<String>) {
     val supportController = com.prike.presentation.controller.SupportController(
         supportService = supportService,
         crmMCPService = crmMCPService
+    )
+    val teamAssistantController = com.prike.presentation.controller.TeamAssistantController(
+        teamAssistantService = teamAssistantService,
+        taskMCPService = taskMCPService
     )
     
     embeddedServer(Netty, port = config.server.port, host = config.server.host) {
@@ -231,6 +268,7 @@ fun main(args: Array<String>) {
             documentController.registerRoutes(this)
             codeReviewController?.registerRoutes(this)
             supportController.registerRoutes(this)
+            teamAssistantController.registerRoutes(this)
         }
         
         // Закрытие ресурсов при остановке
@@ -240,6 +278,7 @@ fun main(args: Array<String>) {
                 gitMCPService?.disconnect()
                 ragMCPService?.disconnect()
                 crmMCPService?.disconnect()
+                taskMCPService?.disconnect()
             }
         }
     }.start(wait = true)

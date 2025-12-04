@@ -65,3 +65,8 @@ crm:
     enabled: true        # Включить CRM MCP сервер
     jarPath: "crm-mcp-server/build/libs/crm-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
 
+task:
+  mcp:
+    enabled: true        # Включить Task MCP сервер
+    jarPath: "task-mcp-server/build/libs/task-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
+

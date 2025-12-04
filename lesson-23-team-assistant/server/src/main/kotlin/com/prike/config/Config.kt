@@ -133,6 +133,14 @@ data class CRMMCPConfig(
 )
 
 /**
+ * Конфигурация Task MCP
+ */
+data class TaskMCPConfig(
+    val enabled: Boolean = true,
+    val jarPath: String? = null
+)
+
+/**
  * Конфигурация RAG MCP
  */
 data class RagMCPConfig(
@@ -152,6 +160,13 @@ data class GitConfig(
  */
 data class CrmConfig(
     val mcp: CRMMCPConfig = CRMMCPConfig()
+)
+
+/**
+ * Конфигурация Task
+ */
+data class TaskConfig(
+    val mcp: TaskMCPConfig = TaskMCPConfig()
 )
 
 /**
@@ -175,7 +190,8 @@ data class AppConfig(
     val rag: RAGConfig = RAGConfig(),
     val chat: ChatConfig = ChatConfig(),
     val git: GitConfig = GitConfig(),
-    val crm: CrmConfig = CrmConfig()
+    val crm: CrmConfig = CrmConfig(),
+    val task: TaskConfig = TaskConfig()
 )
 
 object Config {
@@ -338,6 +354,15 @@ object Config {
         )
         val crm = CrmConfig(mcp = crmMCP)
         
+        // Конфигурация Task
+        val taskMap = serverConfigMap["task"] as? Map<String, Any> ?: emptyMap()
+        val taskMCPMap = taskMap["mcp"] as? Map<String, Any> ?: emptyMap()
+        val taskMCP = TaskMCPConfig(
+            enabled = (taskMCPMap["enabled"] as? Boolean) ?: true,
+            jarPath = taskMCPMap["jarPath"] as? String
+        )
+        val task = TaskConfig(mcp = taskMCP)
+        
         return AppConfig(
             server = server,
             ollama = ollama,
@@ -347,7 +372,8 @@ object Config {
             rag = rag,
             chat = chat,
             git = git,
-            crm = crm
+            crm = crm,
+            task = task
         )
     }
     
