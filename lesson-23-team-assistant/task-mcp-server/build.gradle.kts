@@ -37,6 +37,9 @@ dependencies {
     
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.14")
+    
+    // SQLite
+    implementation("org.xerial:sqlite-jdbc:3.44.1.0")
 }
 
 tasks.withType<KotlinCompile> {

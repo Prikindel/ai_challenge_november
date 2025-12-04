@@ -1,6 +1,6 @@
 package com.prike.taskmcpserver.tools.handlers
 
-import com.prike.taskmcpserver.storage.InMemoryTaskStorage
+import com.prike.taskmcpserver.storage.TaskStorage
 import io.modelcontextprotocol.kotlin.sdk.TextContent
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
  * Обработчик для инструмента get_project_status
  */
 class GetProjectStatusHandler(
-    private val storage: InMemoryTaskStorage
+    private val storage: TaskStorage
 ) : ToolHandler<Unit, String>() {
     
     override val logger = LoggerFactory.getLogger(GetProjectStatusHandler::class.java)
@@ -18,6 +18,9 @@ class GetProjectStatusHandler(
         logger.info("Получение статуса проекта")
         
         val project = storage.getProjectStatus()
+        
+        val tasksInProgress = project.tasksByStatus[com.prike.taskmcpserver.model.TaskStatus.IN_PROGRESS] ?: 0
+        val tasksDone = project.tasksByStatus[com.prike.taskmcpserver.model.TaskStatus.DONE] ?: 0
         
         return buildJsonObject {
             put("totalTasks", project.totalTasks)
@@ -32,8 +35,8 @@ class GetProjectStatusHandler(
                 }
             })
             put("blockedTasks", project.blockedTasks)
-            put("tasksInProgress", project.tasksInProgress)
-            put("tasksDone", project.tasksDone)
+            put("tasksInProgress", tasksInProgress)
+            put("tasksDone", tasksDone)
         }.toString()
     }
     

@@ -1,6 +1,6 @@
 package com.prike.taskmcpserver.tools.handlers
 
-import com.prike.taskmcpserver.storage.InMemoryTaskStorage
+import com.prike.taskmcpserver.storage.TaskStorage
 import io.modelcontextprotocol.kotlin.sdk.TextContent
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -16,7 +16,7 @@ data class GetTaskParams(
  * Обработчик для инструмента get_task
  */
 class GetTaskHandler(
-    private val storage: InMemoryTaskStorage
+    private val storage: TaskStorage
 ) : ToolHandler<GetTaskParams, String>() {
     
     override val logger = LoggerFactory.getLogger(GetTaskHandler::class.java)

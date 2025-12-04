@@ -17,6 +17,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // Управление модальным окном задач
+    const openTasksModalBtn = document.getElementById('openTasksModalBtn');
+    const closeTasksModalBtn = document.getElementById('closeTasksModalBtn');
+    const tasksModal = document.getElementById('tasksModal');
+    
+    if (openTasksModalBtn) {
+        openTasksModalBtn.addEventListener('click', () => {
+            tasksModal.classList.add('show');
+            document.body.style.overflow = 'hidden'; // Блокируем скролл страницы
+        });
+    }
+    
+    if (closeTasksModalBtn) {
+        closeTasksModalBtn.addEventListener('click', () => {
+            tasksModal.classList.remove('show');
+            document.body.style.overflow = ''; // Восстанавливаем скролл
+        });
+    }
+    
+    // Закрытие модального окна при клике на overlay
+    if (tasksModal) {
+        tasksModal.addEventListener('click', (e) => {
+            if (e.target === tasksModal) {
+                tasksModal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+    
+    // Закрытие модального окна по Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && tasksModal && tasksModal.classList.contains('show')) {
+            tasksModal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    });
+    
     // Управление задачами
     const showTasksBtn = document.getElementById('showTasksBtn');
     const showStatusBtn = document.getElementById('showStatusBtn');
@@ -25,19 +62,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const createTaskFormElement = document.getElementById('createTaskFormElement');
     const applyFiltersBtn = document.getElementById('applyFiltersBtn');
     
+    // Функция для скрытия всех блоков управления задачами
+    function hideAllTaskSections() {
+        document.getElementById('tasksFilters').classList.add('hidden');
+        document.getElementById('tasksManagementList').classList.add('hidden');
+        document.getElementById('projectStatusDashboard').classList.add('hidden');
+        document.getElementById('createTaskForm').classList.add('hidden');
+    }
+    
     if (showTasksBtn) {
         showTasksBtn.addEventListener('click', () => {
+            hideAllTaskSections();
             document.getElementById('tasksFilters').classList.remove('hidden');
             document.getElementById('tasksManagementList').classList.remove('hidden');
-            document.getElementById('projectStatusDashboard').classList.add('hidden');
             loadTasks();
         });
     }
     
     if (showStatusBtn) {
         showStatusBtn.addEventListener('click', () => {
-            document.getElementById('tasksFilters').classList.add('hidden');
-            document.getElementById('tasksManagementList').classList.add('hidden');
+            hideAllTaskSections();
             document.getElementById('projectStatusDashboard').classList.remove('hidden');
             loadProjectStatus();
         });
@@ -45,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (createTaskBtn) {
         createTaskBtn.addEventListener('click', () => {
+            hideAllTaskSections();
             document.getElementById('createTaskForm').classList.remove('hidden');
         });
     }
@@ -129,13 +174,16 @@ function displayAnswer(data) {
     const answerSection = document.getElementById('answerSection');
     answerSection.classList.remove('hidden');
     
-    // Отображаем ответ
-    document.getElementById('answerContent').textContent = data.answer;
+    // Показываем блок чата
+    const chatSection = document.getElementById('chatSection');
+    chatSection.classList.remove('hidden');
     
-    // Отображаем задачи
-    if (data.tasks && data.tasks.length > 0) {
-        displayTasks(data.tasks);
-    }
+    // Отображаем ответ с форматированием markdown
+    const answerContent = document.getElementById('answerContent');
+    answerContent.innerHTML = markdownToHtml(data.answer);
+    
+    // НЕ отображаем задачи в блоке ответа - они только в блоке управления задачами
+    // Задачи можно посмотреть через кнопку "Показать задачи" в блоке управления
     
     // Отображаем рекомендации
     if (data.recommendations && data.recommendations.length > 0) {
@@ -154,38 +202,13 @@ function displayAnswer(data) {
 }
 
 /**
- * Отображение задач
+ * Отображение задач (устаревшая функция - задачи теперь только в блоке управления)
+ * Оставлена для совместимости, но не используется в блоке ответа
  */
 function displayTasks(tasks) {
-    const tasksList = document.getElementById('tasksList');
-    const tasksContent = document.getElementById('tasksContent');
-    
-    tasksList.classList.remove('hidden');
-    tasksContent.innerHTML = '';
-    
-    tasks.forEach(task => {
-        const taskItem = document.createElement('div');
-        taskItem.className = `task-item ${task.status.toLowerCase().replace('_', '-')}`;
-        
-        const statusClass = getStatusClass(task.status);
-        const priorityClass = getPriorityClass(task.priority);
-        
-        taskItem.innerHTML = `
-            <div class="task-header">
-                <div class="task-title">${escapeHtml(task.title)}</div>
-                <div class="task-badges">
-                    <span class="badge badge-status">${formatStatus(task.status)}</span>
-                    <span class="badge badge-priority ${priorityClass}">${formatPriority(task.priority)}</span>
-                </div>
-            </div>
-            <div class="task-description">${escapeHtml(task.description)}</div>
-            ${task.assignee ? `<div style="margin-top: 8px; font-size: 12px; color: #718096;">Исполнитель: ${escapeHtml(task.assignee)}</div>` : ''}
-            ${task.blockedBy && task.blockedBy.length > 0 ? `<div style="margin-top: 8px; font-size: 12px; color: #f5576c;">⚠️ Блокируется: ${task.blockedBy.join(', ')}</div>` : ''}
-            ${task.blocks && task.blocks.length > 0 ? `<div style="margin-top: 8px; font-size: 12px; color: #3494E6;">🔒 Блокирует: ${task.blocks.join(', ')}</div>` : ''}
-        `;
-        
-        tasksContent.appendChild(taskItem);
-    });
+    // Эта функция больше не используется в блоке ответа
+    // Задачи отображаются только через displayTasksManagement в блоке управления задачами
+    console.log('displayTasks вызвана, но задачи теперь отображаются только в блоке управления');
 }
 
 /**
@@ -327,14 +350,20 @@ function displaySources(sources) {
  * Очистка результатов
  */
 function clearResults() {
+    // Скрываем блок чата
+    const chatSection = document.getElementById('chatSection');
+    if (chatSection) {
+        chatSection.classList.add('hidden');
+    }
+    
+    // Скрываем все секции ответа
     document.getElementById('answerSection').classList.add('hidden');
-    document.getElementById('tasksList').classList.add('hidden');
     document.getElementById('recommendationsList').classList.add('hidden');
     document.getElementById('actionsList').classList.add('hidden');
     document.getElementById('sourcesList').classList.add('hidden');
     
-    document.getElementById('answerContent').textContent = '';
-    document.getElementById('tasksContent').innerHTML = '';
+    // Очищаем содержимое
+    document.getElementById('answerContent').innerHTML = '';
     document.getElementById('recommendationsContent').innerHTML = '';
     document.getElementById('actionsContent').innerHTML = '';
     document.getElementById('sourcesContent').innerHTML = '';
@@ -420,6 +449,189 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Конвертация Markdown в HTML (упрощенная версия)
+ */
+function markdownToHtml(markdown) {
+    if (!markdown) return '';
+    
+    // Защищаем блоки кода
+    const codeBlocks = [];
+    let codeBlockIndex = 0;
+    let html = markdown.replace(/```[\s\S]*?```/g, (match) => {
+        const placeholder = `__CODEBLOCK${codeBlockIndex}__`;
+        codeBlocks[codeBlockIndex] = match;
+        codeBlockIndex++;
+        return placeholder;
+    });
+    
+    // Экранируем HTML
+    html = escapeHtml(html);
+    
+    // Восстанавливаем блоки кода
+    codeBlocks.forEach((block, idx) => {
+        const match = block.match(/```(\w+)?\n?([\s\S]*?)```/);
+        if (match) {
+            const lang = match[1] || '';
+            const code = match[2].trim();
+            html = html.replace(`__CODEBLOCK${idx}__`, `<pre><code class="language-${lang}">${code}</code></pre>`);
+        }
+    });
+    
+    // Обрабатываем построчно
+    const lines = html.split('\n');
+    const result = [];
+    let inList = false;
+    let listType = null;
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        const trimmed = line.trim();
+        
+        // Пропускаем блоки кода
+        if (line.includes('__CODEBLOCK')) {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push(line);
+            continue;
+        }
+        
+        // Заголовки
+        if (trimmed.startsWith('#### ')) {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push(`<h4>${trimmed.substring(5)}</h4>`);
+            continue;
+        }
+        if (trimmed.startsWith('### ')) {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push(`<h3>${trimmed.substring(4)}</h3>`);
+            continue;
+        }
+        if (trimmed.startsWith('## ')) {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push(`<h2>${trimmed.substring(3)}</h2>`);
+            continue;
+        }
+        if (trimmed.startsWith('# ')) {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push(`<h1>${trimmed.substring(2)}</h1>`);
+            continue;
+        }
+        
+        // HR
+        if (trimmed === '---' || trimmed === '***') {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push('<hr>');
+            continue;
+        }
+        
+        // Цитаты
+        if (trimmed.startsWith('> ')) {
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                inList = false;
+                listType = null;
+            }
+            result.push(`<blockquote>${trimmed.substring(2)}</blockquote>`);
+            continue;
+        }
+        
+        // Нумерованные списки
+        const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+        if (orderedMatch) {
+            if (!inList || listType !== 'ol') {
+                if (inList) {
+                    result.push(listType === 'ul' ? '</ul>' : '');
+                }
+                result.push('<ol>');
+                inList = true;
+                listType = 'ol';
+            }
+            result.push(`<li>${orderedMatch[1]}</li>`);
+            continue;
+        }
+        
+        // Маркированные списки
+        const unorderedMatch = trimmed.match(/^[-*]\s+(.+)$/);
+        if (unorderedMatch) {
+            if (!inList || listType !== 'ul') {
+                if (inList) {
+                    result.push(listType === 'ol' ? '</ol>' : '');
+                }
+                result.push('<ul>');
+                inList = true;
+                listType = 'ul';
+            }
+            result.push(`<li>${unorderedMatch[1]}</li>`);
+            continue;
+        }
+        
+        // Закрываем список
+        if (inList && trimmed === '') {
+            result.push(listType === 'ol' ? '</ol>' : '</ul>');
+            inList = false;
+            listType = null;
+            continue;
+        }
+        
+        // Обычный текст
+        if (inList) {
+            result.push(listType === 'ol' ? '</ol>' : '</ul>');
+            inList = false;
+            listType = null;
+        }
+        
+        if (trimmed) {
+            result.push(`<p>${trimmed}</p>`);
+        } else {
+            result.push('');
+        }
+    }
+    
+    // Закрываем список если остался открытым
+    if (inList) {
+        result.push(listType === 'ol' ? '</ol>' : '</ul>');
+    }
+    
+    html = result.join('\n');
+    
+    // Inline форматирование
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+?)_/g, '<em>$1</em>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // Убираем пустые параграфы
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    
+    return html;
 }
 
 /**

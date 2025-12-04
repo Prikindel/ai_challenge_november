@@ -53,9 +53,15 @@ class TaskMCPClient {
                 throw IllegalStateException("Task MCP server JAR not found: ${jarFile.absolutePath}")
             }
             
+            // Определяем абсолютный путь к БД относительно lessonRoot
+            val dbPath = File(lessonRoot, "data/tasks.db").absolutePath
             logger.info("Starting Task MCP server from JAR: ${jarFile.absolutePath}")
+            logger.info("Task database path: $dbPath")
+            
             val processBuilder = ProcessBuilder("java", "-jar", jarFile.absolutePath)
             processBuilder.directory(lessonRoot)
+            // Устанавливаем переменную окружения для пути к БД
+            processBuilder.environment()["TASK_DB_PATH"] = dbPath
             process = processBuilder.start()
             workingDir = lessonRoot
         } else {
@@ -66,8 +72,14 @@ class TaskMCPClient {
                 throw IllegalStateException("Task MCP server directory not found: ${taskServerDir.absolutePath}")
             }
             
+            // Определяем абсолютный путь к БД относительно lessonRoot
+            val dbPath = File(lessonRoot, "data/tasks.db").absolutePath
+            logger.info("Task database path: $dbPath")
+            
             val processBuilder = ProcessBuilder("./gradlew", "run", "--no-daemon")
             processBuilder.directory(taskServerDir)
+            // Устанавливаем переменную окружения для пути к БД
+            processBuilder.environment()["TASK_DB_PATH"] = dbPath
             process = processBuilder.start()
             workingDir = taskServerDir
         }

@@ -434,8 +434,8 @@ class TeamAssistantController(
                     call.respond(
                         ProjectStatusDto(
                             totalTasks = projectStatus.totalTasks,
-                            tasksByStatus = projectStatus.tasksByStatus.mapKeys { it.key.name },
-                            tasksByPriority = projectStatus.tasksByPriority.mapKeys { it.key.name },
+                            tasksByStatus = projectStatus.tasksByStatus,
+                            tasksByPriority = projectStatus.tasksByPriority,
                             blockedTasks = projectStatus.blockedTasks,
                             tasksInProgress = projectStatus.tasksInProgress,
                             tasksDone = projectStatus.tasksDone

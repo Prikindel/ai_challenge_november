@@ -32,7 +32,7 @@ class KnowledgeBaseRepository(
     /**
      * Инициализирует схему базы данных
      */
-    private fun initializeDatabase() {
+    fun initializeDatabase() {
         withConnection { connection ->
             // Таблица документов
             connection.createStatement().executeUpdate("""
@@ -346,22 +346,34 @@ class KnowledgeBaseRepository(
      * Получает статистику базы знаний
      */
     fun getStatistics(): KnowledgeBaseStatistics {
-        return withConnection { connection ->
-            val documentsCount = connection.createStatement()
-                .executeQuery("SELECT COUNT(*) FROM documents")
-                .use { rs ->
-                    if (rs.next()) rs.getInt(1) else 0
-                }
-            
-            val chunksCount = connection.createStatement()
-                .executeQuery("SELECT COUNT(*) FROM document_chunks")
-                .use { rs ->
-                    if (rs.next()) rs.getInt(1) else 0
-                }
-            
+        return try {
+            withConnection { connection ->
+                // Убеждаемся, что база данных инициализирована
+                initializeDatabase()
+                
+                val documentsCount = connection.createStatement()
+                    .executeQuery("SELECT COUNT(*) FROM documents")
+                    .use { rs ->
+                        if (rs.next()) rs.getInt(1) else 0
+                    }
+                
+                val chunksCount = connection.createStatement()
+                    .executeQuery("SELECT COUNT(*) FROM document_chunks")
+                    .use { rs ->
+                        if (rs.next()) rs.getInt(1) else 0
+                    }
+                
+                KnowledgeBaseStatistics(
+                    documentsCount = documentsCount,
+                    chunksCount = chunksCount
+                )
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to get statistics, database may not be initialized: ${e.message}")
+            // Возвращаем пустую статистику, если база данных не инициализирована
             KnowledgeBaseStatistics(
-                documentsCount = documentsCount,
-                chunksCount = chunksCount
+                documentsCount = 0,
+                chunksCount = 0
             )
         }
     }

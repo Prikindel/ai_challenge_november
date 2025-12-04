@@ -182,8 +182,28 @@ class IndexingController(
                         return@get
                     }
                     
-                    // Парсим результат
+                    // Проверяем на ошибки SQLite или другие ошибки
+                    if (result.startsWith("Error ") || result.contains("SQLITE_ERROR") || result.contains("no such table")) {
+                        logger.warn("RAG MCP server returned an error: $result. Database may not be initialized. Returning empty statistics.")
+                        call.respond(IndexingStatusResponse(
+                            documentsCount = 0,
+                            chunksCount = 0
+                        ))
+                        return@get
+                    }
+                    
+                    // Парсим результат только если это валидный JSON
                     try {
+                        // Проверяем, что результат начинается с { или [
+                        if (!result.trimStart().startsWith("{") && !result.trimStart().startsWith("[")) {
+                            logger.warn("RAG MCP server returned non-JSON response: ${result.take(100)}")
+                            call.respond(IndexingStatusResponse(
+                                documentsCount = 0,
+                                chunksCount = 0
+                            ))
+                            return@get
+                        }
+                        
                         val json = Json.parseToJsonElement(result)
                         if (json is JsonObject) {
                             val documentsCount = json["documentsCount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
@@ -201,7 +221,7 @@ class IndexingController(
                             ))
                         }
                     } catch (e: Exception) {
-                        logger.error("Failed to parse statistics response: $result", e)
+                        logger.error("Failed to parse statistics response: ${result.take(200)}", e)
                         // Возвращаем пустую статистику вместо ошибки
                         call.respond(IndexingStatusResponse(
                             documentsCount = 0,

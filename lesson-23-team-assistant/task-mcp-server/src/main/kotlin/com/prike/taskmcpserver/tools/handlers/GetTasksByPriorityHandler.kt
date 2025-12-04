@@ -1,7 +1,7 @@
 package com.prike.taskmcpserver.tools.handlers
 
 import com.prike.taskmcpserver.model.Priority
-import com.prike.taskmcpserver.storage.InMemoryTaskStorage
+import com.prike.taskmcpserver.storage.TaskStorage
 import io.modelcontextprotocol.kotlin.sdk.TextContent
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -17,7 +17,7 @@ data class GetTasksByPriorityParams(
  * Обработчик для инструмента get_tasks_by_priority
  */
 class GetTasksByPriorityHandler(
-    private val storage: InMemoryTaskStorage
+    private val storage: TaskStorage
 ) : ToolHandler<GetTasksByPriorityParams, String>() {
     
     override val logger = LoggerFactory.getLogger(GetTasksByPriorityHandler::class.java)

@@ -44,23 +44,45 @@ main {
 
 .tabs {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 30px;
+    padding-bottom: 10px;
     border-bottom: 2px solid #eee;
 }
 
 .tab {
-    padding: 12px 24px;
+    padding: 10px 16px;
     text-decoration: none;
     color: #667eea;
     font-weight: 500;
+    font-size: 14px;
     border-bottom: 3px solid transparent;
     transition: all 0.3s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .tab:hover {
     background: #f5f5f5;
     border-bottom-color: #667eea;
+}
+
+.tab.active {
+    border-bottom-color: #667eea;
+    color: #764ba2;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .tabs {
+        gap: 6px;
+    }
+    
+    .tab {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
 }
 
 .info {

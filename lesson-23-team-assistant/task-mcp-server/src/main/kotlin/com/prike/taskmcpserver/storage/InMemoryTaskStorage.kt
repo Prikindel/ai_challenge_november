@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicLong
  * In-memory хранилище для задач команды
  * Используется для демонстрации работы MCP сервера
  */
-class InMemoryTaskStorage {
+class InMemoryTaskStorage : TaskStorage {
     private val logger = LoggerFactory.getLogger(InMemoryTaskStorage::class.java)
     
     private val tasks = ConcurrentHashMap<String, Task>()
@@ -140,17 +140,17 @@ class InMemoryTaskStorage {
     /**
      * Получить задачу по ID
      */
-    fun getTask(taskId: String): Task? {
+    override fun getTask(taskId: String): Task? {
         return tasks[taskId]
     }
     
     /**
      * Получить все задачи с фильтрами
      */
-    fun getTasks(
-        status: TaskStatus? = null,
-        priority: Priority? = null,
-        assignee: String? = null
+    override fun getTasks(
+        status: TaskStatus?,
+        priority: Priority?,
+        assignee: String?
     ): List<Task> {
         return tasks.values
             .filter { task ->
@@ -164,7 +164,7 @@ class InMemoryTaskStorage {
     /**
      * Получить задачи по приоритету
      */
-    fun getTasksByPriority(priority: Priority): List<Task> {
+    override fun getTasksByPriority(priority: Priority): List<Task> {
         return tasks.values
             .filter { it.priority == priority }
             .sortedByDescending { it.createdAt }
@@ -173,7 +173,7 @@ class InMemoryTaskStorage {
     /**
      * Создать новую задачу
      */
-    fun createTask(
+    override fun createTask(
         title: String,
         description: String,
         priority: Priority,
@@ -205,14 +205,14 @@ class InMemoryTaskStorage {
     /**
      * Обновить задачу
      */
-    fun updateTask(
+    override fun updateTask(
         taskId: String,
-        title: String? = null,
-        description: String? = null,
-        status: TaskStatus? = null,
-        priority: Priority? = null,
-        assignee: String? = null,
-        dueDate: Long? = null
+        title: String?,
+        description: String?,
+        status: TaskStatus?,
+        priority: Priority?,
+        assignee: String?,
+        dueDate: Long?
     ): Task? {
         val task = tasks[taskId] ?: return null
         
@@ -234,21 +234,17 @@ class InMemoryTaskStorage {
     /**
      * Получить статус проекта
      */
-    fun getProjectStatus(): Project {
+    override fun getProjectStatus(): ProjectStatus {
         val allTasks = tasks.values.toList()
         val tasksByStatus = allTasks.groupBy { it.status }.mapValues { it.value.size }
         val tasksByPriority = allTasks.groupBy { it.priority }.mapValues { it.value.size }
         val blockedTasks = allTasks.count { it.status == TaskStatus.BLOCKED }
-        val tasksInProgress = allTasks.count { it.status == TaskStatus.IN_PROGRESS }
-        val tasksDone = allTasks.count { it.status == TaskStatus.DONE }
         
-        return Project(
+        return ProjectStatus(
             totalTasks = allTasks.size,
             tasksByStatus = tasksByStatus,
             tasksByPriority = tasksByPriority,
-            blockedTasks = blockedTasks,
-            tasksInProgress = tasksInProgress,
-            tasksDone = tasksDone
+            blockedTasks = blockedTasks
         )
     }
 }

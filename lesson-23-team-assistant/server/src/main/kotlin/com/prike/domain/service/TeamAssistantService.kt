@@ -1,5 +1,6 @@
 package com.prike.domain.service
 
+import com.prike.domain.model.ActionType
 import com.prike.domain.model.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -40,9 +41,20 @@ class TeamAssistantService(
         val recommendations = generateRecommendations(fullContext)
         
         // 7. Генерируем действия
-        val actions = generateActions(request.question, fullContext)
+        var actions = generateActions(request.question, fullContext)
         
-        // 8. Формируем источники
+        // 8. Автоматически выполняем действия, если они требуют создания задачи
+        val executedActions = executeActions(request.question, answer, actions)
+        actions = executedActions
+        
+        // 9. Обновляем контекст после выполнения действий
+        val updatedContext = if (executedActions.any { it.type == ActionType.CREATE_TASK }) {
+            getTeamContext(request.question)
+        } else {
+            fullContext
+        }
+        
+        // 10. Формируем источники
         val sources = ragResults.map { result ->
             Source(
                 title = result.title ?: "Документация проекта",
@@ -53,7 +65,7 @@ class TeamAssistantService(
         
         return TeamResponse(
             answer = answer,
-            tasks = fullContext.tasks,
+            tasks = updatedContext.tasks,
             recommendations = recommendations,
             actions = actions,
             sources = sources
@@ -243,7 +255,7 @@ class TeamAssistantService(
             lowerQuestion.contains("добавь") || lowerQuestion.contains("добавить")) {
             actions.add(
                 Action(
-                    type = ActionType.CREATE_TASK,
+                    type = com.prike.domain.model.ActionType.CREATE_TASK,
                     description = "Создать новую задачу"
                 )
             )
@@ -256,7 +268,7 @@ class TeamAssistantService(
             .forEach { task ->
                 actions.add(
                     Action(
-                        type = ActionType.UPDATE_TASK,
+                        type = com.prike.domain.model.ActionType.UPDATE_TASK,
                         description = "Обновить статус задачи '${task.title}' на IN_PROGRESS",
                         task = task
                     )
@@ -267,7 +279,7 @@ class TeamAssistantService(
         if (lowerQuestion.contains("статус") || lowerQuestion.contains("статистик")) {
             actions.add(
                 Action(
-                    type = ActionType.VIEW_STATUS,
+                    type = com.prike.domain.model.ActionType.VIEW_STATUS,
                     description = "Просмотреть статус проекта"
                 )
             )
@@ -304,6 +316,117 @@ class TeamAssistantService(
         } catch (e: Exception) {
             logger.error("Failed to parse RAG results: ${e.message}", e)
             emptyList()
+        }
+    }
+    
+    /**
+     * Выполнить действия автоматически
+     */
+    private suspend fun executeActions(question: String, answer: String, actions: List<Action>): List<Action> {
+        val executedActions = actions.toMutableList()
+        val lowerQuestion = question.lowercase()
+        val lowerAnswer = answer.lowercase()
+        
+        // Если вопрос про создание задачи и есть действие CREATE_TASK
+        if ((lowerQuestion.contains("создай") || lowerQuestion.contains("создать") || 
+             lowerQuestion.contains("добавь") || lowerQuestion.contains("добавить")) &&
+            executedActions.any { it.type == ActionType.CREATE_TASK }) {
+            
+            try {
+                // Пытаемся извлечь информацию о задаче из вопроса или ответа
+                val taskTitle = extractTaskTitle(question, answer)
+                val taskDescription = extractTaskDescription(question, answer)
+                val taskPriority = extractTaskPriority(question, answer)
+                
+                if (taskTitle.isNotBlank()) {
+                    // Создаём задачу через Task MCP
+                    val createdTask = taskMCPService?.createTask(
+                        title = taskTitle,
+                        description = taskDescription.ifBlank { "Создано ассистентом команды" },
+                        priority = taskPriority,
+                        assignee = null,
+                        dueDate = null
+                    )
+                    
+                    if (createdTask != null) {
+                        logger.info("Автоматически создана задача: ${createdTask.id} - ${createdTask.title}")
+                        // Обновляем действие, указывая что оно выполнено
+                        val actionIndex = executedActions.indexOfFirst { it.type == ActionType.CREATE_TASK }
+                        if (actionIndex >= 0) {
+                            executedActions[actionIndex] = executedActions[actionIndex].copy(
+                                description = "✅ Задача создана: ${createdTask.title} (ID: ${createdTask.id})"
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("Ошибка при автоматическом создании задачи: ${e.message}", e)
+            }
+        }
+        
+        return executedActions
+    }
+    
+    /**
+     * Извлечь название задачи из вопроса или ответа
+     */
+    private fun extractTaskTitle(question: String, answer: String): String {
+        // Пытаемся найти название задачи в кавычках
+        val quotePattern = """[""«»]([^""«»]+)[""«»]""".toRegex()
+        quotePattern.find(question)?.let { return it.groupValues[1].trim() }
+        quotePattern.find(answer)?.let { return it.groupValues[1].trim() }
+        
+        // Пытаемся найти после ключевых слов
+        val patterns = listOf(
+            """(?:создай|создать|добавь|добавить)\s+(?:задачу|task)\s+[""«»]?([^""«»\n]+)""".toRegex(RegexOption.IGNORE_CASE),
+            """(?:задачу|task)\s+[""«»]?([^""«»\n]+)[""«»]?""".toRegex(RegexOption.IGNORE_CASE),
+            """(?:название|title)[:：]\s*[""«»]?([^""«»\n]+)[""«»]?""".toRegex(RegexOption.IGNORE_CASE)
+        )
+        
+        patterns.forEach { pattern ->
+            pattern.find(question)?.let { return it.groupValues[1].trim() }
+            pattern.find(answer)?.let { return it.groupValues[1].trim() }
+        }
+        
+        // Если ничего не найдено, используем часть вопроса
+        val words = question.split(Regex("""\s+"""))
+        val startIndex = words.indexOfFirst { 
+            it.lowercase() in listOf("создай", "создать", "добавь", "добавить", "задачу", "task")
+        }
+        if (startIndex >= 0 && startIndex < words.size - 1) {
+            return words.subList(startIndex + 1, minOf(startIndex + 6, words.size)).joinToString(" ")
+        }
+        
+        return "Новая задача"
+    }
+    
+    /**
+     * Извлечь описание задачи
+     */
+    private fun extractTaskDescription(question: String, answer: String): String {
+        val patterns = listOf(
+            """(?:описание|description)[:：]\s*[""«»]?([^""«»\n]+)[""«»]?""".toRegex(RegexOption.IGNORE_CASE),
+            """(?:описание|description)[:：]\s*([^\n]+)""".toRegex(RegexOption.IGNORE_CASE)
+        )
+        
+        patterns.forEach { pattern ->
+            pattern.find(question)?.let { return it.groupValues[1].trim() }
+            pattern.find(answer)?.let { return it.groupValues[1].trim() }
+        }
+        
+        return ""
+    }
+    
+    /**
+     * Извлечь приоритет задачи
+     */
+    private fun extractTaskPriority(question: String, answer: String): Priority {
+        val text = (question + " " + answer).lowercase()
+        return when {
+            text.contains("urgent") || text.contains("срочн") -> Priority.URGENT
+            text.contains("high") || text.contains("высок") -> Priority.HIGH
+            text.contains("low") || text.contains("низк") -> Priority.LOW
+            else -> Priority.MEDIUM
         }
     }
     

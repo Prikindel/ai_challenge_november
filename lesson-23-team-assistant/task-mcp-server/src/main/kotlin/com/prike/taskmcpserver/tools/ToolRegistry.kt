@@ -1,6 +1,6 @@
 package com.prike.taskmcpserver.tools
 
-import com.prike.taskmcpserver.storage.InMemoryTaskStorage
+import com.prike.taskmcpserver.storage.TaskStorage
 import com.prike.taskmcpserver.tools.handlers.*
 import com.prike.mcpcommon.server.ToolRegistry
 import io.modelcontextprotocol.kotlin.sdk.server.Server
@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory
  * Регистрирует все доступные инструменты
  */
 class ToolRegistry(
-    private val storage: InMemoryTaskStorage
+    private val storage: TaskStorage
 ) : com.prike.mcpcommon.server.ToolRegistry {
     private val logger = LoggerFactory.getLogger(ToolRegistry::class.java)
     
