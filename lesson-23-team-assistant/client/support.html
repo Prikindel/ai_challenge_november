@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поддержка пользователей</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Современный дизайн с карточками */
+        .support-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 968px) {
+            .support-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f5f5f5;
+        }
+        
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .card-icon.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-icon.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .card-icon.info {
+            background: linear-gradient(135deg, #3494E6 0%, #EC6EAD 100%);
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 0;
+        }
+        
+        .support-form {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 28px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 6px;
+            color: #718096;
+            font-size: 13px;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+        
+        .support-status {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: none;
+            animation: slideIn 0.3s ease;
+            font-weight: 500;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .support-status.loading {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 2px solid #ffc107;
+            color: #856404;
+        }
+        
+        .support-status.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .support-status.completed {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        
+        .support-answer {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: none;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .support-answer h3 {
+            margin-bottom: 16px;
+            color: #667eea;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .support-answer .answer-content {
+            line-height: 1.8;
+            color: #2d3748;
+            white-space: pre-wrap;
+            font-size: 15px;
+            padding: 16px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .sources-section,
+        .suggestions-section,
+        .ticket-history {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: none;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        .sources-section h3,
+        .suggestions-section h3,
+        .ticket-history h3 {
+            margin-bottom: 20px;
+            color: #667eea;
+            font-size: 22px;
+        }
+        
+        .source-item {
+            background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%);
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .source-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+        
+        .source-item h4 {
+            margin: 0 0 10px 0;
+            color: #1a1a1a;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .source-item .source-content {
+            color: #4a5568;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .source-item .source-url {
+            color: #667eea;
+            font-size: 13px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .source-item .source-url:hover {
+            text-decoration: underline;
+        }
+        
+        .suggestion-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .suggestion-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 24px;
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .suggestion-btn:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .message-item {
+            background: #f7fafc;
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .message-item:hover {
+            background: #edf2f7;
+        }
+        
+        .message-item.user {
+            border-left: 4px solid #667eea;
+            background: linear-gradient(90deg, #f0f7ff 0%, #f7fafc 100%);
+        }
+        
+        .message-item.support {
+            border-left: 4px solid #38a169;
+            background: linear-gradient(90deg, #f0fff4 0%, #f7fafc 100%);
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #718096;
+            font-weight: 500;
+        }
+        
+        .message-content {
+            color: #2d3748;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            font-size: 15px;
+        }
+        
+        .tickets-section {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .tickets-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tickets-controls input,
+        .tickets-controls select {
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .tickets-controls input:focus,
+        .tickets-controls select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .tickets-controls input {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .tickets-list {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .ticket-item {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .ticket-item:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .ticket-item.open {
+            border-left-color: #ffc107;
+        }
+        
+        .ticket-item.in_progress {
+            border-left-color: #667eea;
+        }
+        
+        .ticket-item.resolved {
+            border-left-color: #38a169;
+        }
+        
+        .ticket-item.closed {
+            border-left-color: #718096;
+        }
+        
+        .ticket-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+        
+        .ticket-title {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        
+        .ticket-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: #718096;
+            flex-wrap: wrap;
+        }
+        
+        .ticket-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .ticket-status.open {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .ticket-status.in_progress {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .ticket-status.resolved {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .ticket-status.closed {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .example-questions {
+            background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%);
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .example-questions h3 {
+            margin-bottom: 16px;
+            color: #667eea;
+            font-size: 20px;
+        }
+        
+        .example-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .example-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 24px;
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .example-btn:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .export-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .create-ticket-form {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: none;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .create-ticket-form.active {
+            display: block;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 23. Ассистент команды</h1>
+            <p>Система поддержки с RAG и CRM интеграцией</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="indexing.html" class="tab">Индексация</a>
+                <a href="search.html" class="tab">Поиск</a>
+                <a href="rag-compare.html" class="tab">Сравнение RAG</a>
+                <a href="citation-test.html" class="tab">Тест цитат</a>
+                <a href="chat.html" class="tab">Чат</a>
+                <a href="dev-assistant.html" class="tab">Ассистент</a>
+                <a href="code-review.html" class="tab">Ревью кода</a>
+                <a href="support.html" class="tab active">Поддержка</a>
+            </nav>
+            
+            <!-- Примеры вопросов -->
+            <section class="example-questions">
+                <h3>💡 Примеры популярных вопросов</h3>
+                <div class="example-buttons" id="exampleButtons">
+                    <button class="example-btn" data-question="Почему не работает авторизация?">🔐 Почему не работает авторизация?</button>
+                    <button class="example-btn" data-question="Как восстановить пароль?">🔑 Как восстановить пароль?</button>
+                    <button class="example-btn" data-question="Как отменить подписку?">💳 Как отменить подписку?</button>
+                    <button class="example-btn" data-question="Что делать, если сайт не загружается?">🌐 Сайт не загружается</button>
+                    <button class="example-btn" data-question="Как изменить email?">✉️ Как изменить email?</button>
+                    <button class="example-btn" data-question="Как включить двухфакторную аутентификацию?">🔒 Включить 2FA</button>
+                </div>
+            </section>
+            
+            <div class="support-container">
+                <!-- Левая колонка: Форма вопроса -->
+                <div>
+                    <section class="card">
+                        <div class="card-header">
+                            <div class="card-icon primary">💬</div>
+                            <h2 class="card-title">Задать вопрос</h2>
+                        </div>
+                        <form id="supportForm">
+                            <div class="form-group">
+                                <label for="ticketId">🎫 Ticket ID (опционально)</label>
+                                <input type="text" id="ticketId" placeholder="ticket-123">
+                                <small>Если указан, ответ будет добавлен в существующий тикет</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="userId">👤 User ID (опционально)</label>
+                                <input type="text" id="userId" placeholder="user-456">
+                                <small>ID пользователя для получения контекста</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="question">❓ Ваш вопрос *</label>
+                                <textarea id="question" placeholder="Опишите вашу проблему или задайте вопрос..." required></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <span>📤</span>
+                                <span>Отправить вопрос</span>
+                            </button>
+                        </form>
+                    </section>
+                    
+                    <!-- Управление тикетами -->
+                    <section class="card">
+                        <div class="card-header">
+                            <div class="card-icon info">🎫</div>
+                            <h2 class="card-title">Мои тикеты</h2>
+                        </div>
+                        <div class="tickets-controls">
+                            <input type="text" id="ticketsUserId" placeholder="User ID для загрузки тикетов">
+                            <button class="btn btn-primary" id="loadTicketsBtn">Загрузить</button>
+                            <button class="btn btn-secondary" id="createTicketBtn">Создать</button>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                            <select id="statusFilter" style="flex: 1; min-width: 150px;">
+                                <option value="">Все статусы</option>
+                                <option value="OPEN">Открыт</option>
+                                <option value="IN_PROGRESS">В работе</option>
+                                <option value="RESOLVED">Решён</option>
+                                <option value="CLOSED">Закрыт</option>
+                            </select>
+                            <input type="text" id="ticketsSearch" placeholder="Поиск по теме..." style="flex: 1; min-width: 200px;">
+                        </div>
+                        <div class="tickets-list" id="ticketsList"></div>
+                    </section>
+                </div>
+                
+                <!-- Правая колонка: Результаты -->
+                <div>
+                    <div class="support-status" id="status"></div>
+                    
+                    <div class="support-answer card" id="answerSection">
+                        <div class="card-header">
+                            <div class="card-icon success">✨</div>
+                            <h3 class="card-title">Ответ</h3>
+                        </div>
+                        <div class="answer-content" id="answerContent"></div>
+                    </div>
+                    
+                    <div class="sources-section card" id="sourcesSection">
+                        <div class="card-header">
+                            <div class="card-icon info">📚</div>
+                            <h3 class="card-title">Источники</h3>
+                        </div>
+                        <div id="sourcesList"></div>
+                    </div>
+                    
+                    <div class="suggestions-section card" id="suggestionsSection">
+                        <div class="card-header">
+                            <div class="card-icon primary">💡</div>
+                            <h3 class="card-title">Предложения</h3>
+                        </div>
+                        <div class="suggestion-buttons" id="suggestionsList"></div>
+                    </div>
+                    
+                    <div class="ticket-history card" id="ticketHistory">
+                        <div class="card-header" style="width: 100%; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="card-icon info">💬</div>
+                                <h3 class="card-title" style="margin: 0;">История тикета</h3>
+                            </div>
+                            <div class="export-buttons">
+                                <button class="btn btn-secondary" id="exportJsonBtn">📥 JSON</button>
+                                <button class="btn btn-secondary" id="exportTextBtn">📄 Текст</button>
+                            </div>
+                        </div>
+                        <div id="historyList"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Форма создания тикета -->
+            <section class="create-ticket-form" id="createTicketForm">
+                <div class="card-header">
+                    <div class="card-icon primary">➕</div>
+                    <h3 class="card-title">Создать новый тикет</h3>
+                </div>
+                <form id="createTicketFormElement">
+                    <div class="form-group">
+                        <label for="createTicketUserId">👤 User ID *</label>
+                        <input type="text" id="createTicketUserId" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="createTicketSubject">📝 Тема *</label>
+                        <input type="text" id="createTicketSubject" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="createTicketDescription">📄 Описание *</label>
+                        <textarea id="createTicketDescription" required></textarea>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="submit" class="btn btn-primary">✅ Создать тикет</button>
+                        <button type="button" class="btn btn-secondary" id="cancelCreateTicketBtn">❌ Отмена</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+    <script src="support.js"></script>
+</body>
+</html>
+
