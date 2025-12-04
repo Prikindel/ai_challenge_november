@@ -13,6 +13,7 @@ class TeamAssistantService(
     private val llmService: LLMService
 ) {
     private val logger = LoggerFactory.getLogger(TeamAssistantService::class.java)
+    private val promptBuilder = TeamAssistantPromptBuilder()
     
     /**
      * Ответить на вопрос команды
@@ -156,86 +157,19 @@ class TeamAssistantService(
      * Генерация ответа через LLM
      */
     private suspend fun generateAnswer(question: String, context: TeamContext): String {
-        // Формируем промпт с контекстом
-        val systemPrompt = buildSystemPrompt(context)
-        val userPrompt = buildUserPrompt(question, context)
+        // Формируем промпт с контекстом через TeamAssistantPromptBuilder
+        val promptResult = promptBuilder.buildTeamPrompt(question, context)
         
         return try {
             val response = llmService.generateAnswer(
-                question = userPrompt,
-                systemPrompt = systemPrompt,
+                question = promptResult.userPrompt,
+                systemPrompt = promptResult.systemPrompt,
                 temperature = 0.7
             )
             response.answer
         } catch (e: Exception) {
             logger.error("Failed to generate answer: ${e.message}", e)
             "Извините, произошла ошибка при генерации ответа. Пожалуйста, попробуйте позже."
-        }
-    }
-    
-    /**
-     * Построение системного промпта
-     */
-    private fun buildSystemPrompt(context: TeamContext): String {
-        return buildString {
-            appendLine("Ты — ассистент команды разработки. Твоя задача — помогать команде управлять задачами, анализировать статус проекта и давать рекомендации.")
-            appendLine()
-            appendLine("Ты имеешь доступ к:")
-            appendLine("- Задачам команды (статус, приоритет, исполнитель, зависимости)")
-            appendLine("- Статусу проекта (статистика по задачам)")
-            appendLine("- Документации проекта (через RAG)")
-            appendLine()
-            appendLine("Твои возможности:")
-            appendLine("- Анализировать задачи и предлагать приоритеты")
-            appendLine("- Выявлять блокирующие задачи")
-            appendLine("- Давать рекомендации по управлению задачами")
-            appendLine("- Отвечать на вопросы о статусе проекта")
-            appendLine()
-            if (context.projectStatus != null) {
-                appendLine("Текущий статус проекта:")
-                appendLine("- Всего задач: ${context.projectStatus.totalTasks}")
-                appendLine("- В работе: ${context.projectStatus.tasksInProgress}")
-                appendLine("- Выполнено: ${context.projectStatus.tasksDone}")
-                appendLine("- Заблокировано: ${context.projectStatus.blockedTasks}")
-                appendLine()
-            }
-            appendLine("Отвечай на русском языке, будь конкретным и полезным.")
-        }
-    }
-    
-    /**
-     * Построение пользовательского промпта
-     */
-    private fun buildUserPrompt(question: String, context: TeamContext): String {
-        return buildString {
-            appendLine("Вопрос команды: $question")
-            appendLine()
-            
-            if (context.tasks.isNotEmpty()) {
-                appendLine("Релевантные задачи:")
-                context.tasks.forEachIndexed { index, task ->
-                    appendLine("${index + 1}. ${task.title}")
-                    appendLine("   Статус: ${task.status.name}, Приоритет: ${task.priority.name}")
-                    if (task.assignee != null) {
-                        appendLine("   Исполнитель: ${task.assignee}")
-                    }
-                    if (task.blockedBy.isNotEmpty()) {
-                        appendLine("   Блокируется задачами: ${task.blockedBy.joinToString(", ")}")
-                    }
-                    if (task.blocks.isNotEmpty()) {
-                        appendLine("   Блокирует задачи: ${task.blocks.joinToString(", ")}")
-                    }
-                    appendLine()
-                }
-            }
-            
-            if (context.ragContext.isNotEmpty()) {
-                appendLine("Контекст из документации проекта:")
-                appendLine(context.ragContext)
-                appendLine()
-            }
-            
-            appendLine("Ответь на вопрос команды, используя информацию о задачах и документации проекта.")
         }
     }
     
