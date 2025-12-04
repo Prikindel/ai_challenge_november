@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ассистент команды</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Современный дизайн с карточками */
+        .team-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 968px) {
+            .team-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f5f5f5;
+        }
+        
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .card-icon.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-icon.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .card-icon.info {
+            background: linear-gradient(135deg, #3494E6 0%, #EC6EAD 100%);
+        }
+        
+        .card-icon.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 0;
+        }
+        
+        .team-form {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 28px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .status-message {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .status-message.show {
+            display: block;
+        }
+        
+        .status-message.loading {
+            background: #e6f3ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .status-message.success {
+            background: #e6f7e6;
+            color: #006600;
+            border: 1px solid #b3e6b3;
+        }
+        
+        .status-message.error {
+            background: #ffe6e6;
+            color: #cc0000;
+            border: 1px solid #ffb3b3;
+        }
+        
+        .answer-section {
+            margin-top: 30px;
+        }
+        
+        .answer-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .tasks-list {
+            margin-top: 20px;
+        }
+        
+        .task-item {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .task-item.blocked {
+            border-left-color: #f5576c;
+        }
+        
+        .task-item.in-progress {
+            border-left-color: #3494E6;
+        }
+        
+        .task-item.done {
+            border-left-color: #38ef7d;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+        
+        .task-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1a1a1a;
+        }
+        
+        .task-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-status {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+        
+        .badge-priority {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .badge-priority.high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .badge-priority.urgent {
+            background: #fce7f3;
+            color: #9f1239;
+        }
+        
+        .task-description {
+            color: #4a5568;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .recommendations-list {
+            margin-top: 20px;
+        }
+        
+        .recommendation-item {
+            background: #fff9e6;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #fbbf24;
+        }
+        
+        .recommendation-priority {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 8px;
+        }
+        
+        .recommendation-reason {
+            color: #4a5568;
+            font-size: 14px;
+        }
+        
+        .actions-list {
+            margin-top: 20px;
+        }
+        
+        .action-item {
+            background: #e6f3ff;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #3494E6;
+        }
+        
+        .action-description {
+            color: #2d3748;
+            font-size: 14px;
+        }
+        
+        .sources-list {
+            margin-top: 20px;
+        }
+        
+        .source-item {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .source-title {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        
+        .source-content {
+            color: #4a5568;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .examples-section {
+            margin-top: 30px;
+        }
+        
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .example-btn {
+            padding: 12px 20px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            font-size: 14px;
+        }
+        
+        .example-btn:hover {
+            border-color: #667eea;
+            background: #f5f7fa;
+            transform: translateY(-2px);
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="nav">
+            <a href="index.html">🏠 Главная</a>
+            <a href="chat.html">💬 Чат</a>
+            <a href="search.html">🔍 Поиск</a>
+            <a href="indexing.html">📚 Индексация</a>
+            <a href="code-review.html">🔍 Code Review</a>
+            <a href="dev-assistant.html">👨‍💻 Dev Assistant</a>
+            <a href="support.html">🎧 Поддержка</a>
+            <a href="team-assistant.html" class="active">👥 Ассистент команды</a>
+        </nav>
+        
+        <main>
+            <h1>🔥 День 23. Ассистент команды</h1>
+            
+            <div class="team-form">
+                <form id="teamForm">
+                    <div class="form-group">
+                        <label for="question">Задайте вопрос команде:</label>
+                        <textarea 
+                            id="question" 
+                            name="question" 
+                            placeholder="Например: Покажи задачи с приоритетом high и предложи, что делать первым"
+                            required
+                        ></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <span>💬</span>
+                        <span>Задать вопрос</span>
+                    </button>
+                </form>
+            </div>
+            
+            <div class="status-message" id="statusMessage"></div>
+            
+            <div class="examples-section">
+                <h3>Примеры вопросов:</h3>
+                <div class="examples-grid">
+                    <button class="example-btn" data-question="Покажи задачи с приоритетом high">
+                        Покажи задачи с приоритетом high
+                    </button>
+                    <button class="example-btn" data-question="Что делать первым?">
+                        Что делать первым?
+                    </button>
+                    <button class="example-btn" data-question="Какой статус проекта?">
+                        Какой статус проекта?
+                    </button>
+                    <button class="example-btn" data-question="Создай задачу для исправления бага">
+                        Создай задачу для исправления бага
+                    </button>
+                    <button class="example-btn" data-question="Какие задачи заблокированы?">
+                        Какие задачи заблокированы?
+                    </button>
+                    <button class="example-btn" data-question="Покажи задачи в работе">
+                        Покажи задачи в работе
+                    </button>
+                </div>
+            </div>
+            
+            <div class="answer-section hidden" id="answerSection">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon primary">💬</div>
+                        <h2 class="card-title">Ответ ассистента</h2>
+                    </div>
+                    <div class="answer-content" id="answerContent"></div>
+                </div>
+                
+                <div class="tasks-list hidden" id="tasksList">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon info">📋</div>
+                            <h2 class="card-title">Задачи</h2>
+                        </div>
+                        <div id="tasksContent"></div>
+                    </div>
+                </div>
+                
+                <div class="recommendations-list hidden" id="recommendationsList">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon warning">💡</div>
+                            <h2 class="card-title">Рекомендации</h2>
+                        </div>
+                        <div id="recommendationsContent"></div>
+                    </div>
+                </div>
+                
+                <div class="actions-list hidden" id="actionsList">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon success">⚡</div>
+                            <h2 class="card-title">Действия</h2>
+                        </div>
+                        <div id="actionsContent"></div>
+                    </div>
+                </div>
+                
+                <div class="sources-list hidden" id="sourcesList">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon info">📚</div>
+                            <h2 class="card-title">Источники</h2>
+                        </div>
+                        <div id="sourcesContent"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="team-assistant.js"></script>
+</body>
+</html>
+
