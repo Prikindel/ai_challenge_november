@@ -54,8 +54,12 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-dao:0.44.1")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.44.1")
     
-    // Koog framework - будет добавлена в следующих коммитах, пока используем обертку
-    // TODO: добавить зависимость Koog когда будет доступна
+    // Koog framework для создания AI-агентов
+    implementation("ai.koog:koog-agents:0.5.4")
+    
+    // Дополнительные зависимости Koog могут потребоваться для LLM провайдеров
+    // implementation("ai.koog:koog-llm-openai:0.5.4") // для OpenAI
+    // implementation("ai.koog:koog-llm-anthropic:0.5.4") // для Anthropic
     
     // MCP Kotlin SDK для Telegram интеграции
     implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
