@@ -1,7 +1,9 @@
 package com.prike.domain.service
 
 import com.prike.domain.model.TeamContext
+import com.prike.data.client.MCPTool
 import org.slf4j.LoggerFactory
+import kotlinx.serialization.json.*
 
 /**
  * Построитель промптов для ассистента команды
@@ -33,6 +35,30 @@ class TeamAssistantPromptBuilder {
         
         val systemPrompt = buildSystemPrompt(context)
         val userPrompt = buildUserPrompt(question, context)
+        
+        return TeamPromptResult(
+            systemPrompt = systemPrompt,
+            userPrompt = userPrompt
+        )
+    }
+    
+    /**
+     * Формирует промпт для команды с поддержкой инструментов
+     * 
+     * @param question вопрос команды
+     * @param context контекст команды (статус проекта, задачи, RAG-контекст)
+     * @param tools список доступных Task MCP инструментов
+     * @return системный и пользовательский промпты
+     */
+    fun buildTeamPromptWithTools(
+        question: String,
+        context: TeamContext,
+        tools: List<MCPTool>
+    ): TeamPromptResult {
+        logger.debug("Building team prompt with tools for question: ${question.take(100)}...")
+        
+        val systemPrompt = buildSystemPromptWithTools(context, tools)
+        val userPrompt = buildUserPromptWithTools(question, context, tools)
         
         return TeamPromptResult(
             systemPrompt = systemPrompt,
@@ -208,6 +234,177 @@ class TeamAssistantPromptBuilder {
         val date = java.util.Date(timestamp)
         val format = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm")
         return format.format(date)
+    }
+    
+    /**
+     * Формирует системный промпт с поддержкой инструментов
+     */
+    private fun buildSystemPromptWithTools(context: TeamContext, tools: List<MCPTool>): String {
+        return buildString {
+            appendLine("Ты — опытный ассистент команды разработки, который помогает команде управлять задачами, анализировать статус проекта и давать рекомендации.")
+            appendLine()
+            appendLine("Твоя задача:")
+            appendLine("- Отвечать на вопросы команды о статусе проекта и задачах")
+            appendLine("- Анализировать задачи и предлагать приоритеты выполнения")
+            appendLine("- Выявлять блокирующие задачи и зависимости")
+            appendLine("- Давать рекомендации по управлению задачами")
+            appendLine("- Использовать документацию проекта для контекста")
+            appendLine("- **Создавать задачи через инструменты MCP, когда команда просит создать задачу**")
+            appendLine()
+            appendLine("**ВАЖНО: Использование инструментов:**")
+            appendLine("Если команда просит создать задачу, ты ДОЛЖЕН использовать инструмент create_task.")
+            appendLine()
+            appendLine("Формат вызова инструмента - добавь в конец ответа JSON блок:")
+            appendLine("```json")
+            appendLine("{")
+            appendLine("  \"tool_calls\": [")
+            appendLine("    {")
+            appendLine("      \"tool\": \"create_task\",")
+            appendLine("      \"params\": {")
+            appendLine("        \"title\": \"Название задачи\",")
+            appendLine("        \"description\": \"Описание задачи\",")
+            appendLine("        \"priority\": \"HIGH|MEDIUM|LOW|URGENT\",")
+            appendLine("        \"assignee\": \"user-id\" (опционально),")
+            appendLine("        \"dueDate\": timestamp (опционально)")
+            appendLine("      }")
+            appendLine("    }")
+            appendLine("  ]")
+            appendLine("}")
+            appendLine("```")
+            appendLine()
+            appendLine("Примеры:")
+            appendLine("- \"Создай задачу для исправления бага\" → добавь JSON с tool_calls")
+            appendLine("- \"Добавь задачу на рефакторинг кода\" → добавь JSON с tool_calls")
+            appendLine()
+            appendLine("Правила ответа:")
+            appendLine("- Отвечай на русском языке")
+            appendLine("- Будь конкретным и полезным")
+            appendLine("- Используй информацию о задачах для точных ответов")
+            appendLine("- Анализируй зависимости между задачами")
+            appendLine("- Учитывай приоритеты и сроки выполнения")
+            appendLine("- Предлагай конкретные шаги для решения проблем")
+            appendLine()
+            
+            // Добавляем информацию о статусе проекта
+            if (context.projectStatus != null) {
+                appendLine("Текущий статус проекта:")
+                appendLine("- Всего задач: ${context.projectStatus.totalTasks}")
+                appendLine("- В работе: ${context.projectStatus.tasksInProgress}")
+                appendLine("- Выполнено: ${context.projectStatus.tasksDone}")
+                appendLine("- Заблокировано: ${context.projectStatus.blockedTasks}")
+                appendLine()
+            }
+            
+            // Добавляем описание доступных инструментов
+            if (tools.isNotEmpty()) {
+                appendLine("**Доступные инструменты Task Management:**")
+                tools.forEach { tool ->
+                    appendLine("- **${tool.name}**: ${tool.description}")
+                    // Добавляем схему параметров, если доступна
+                    val inputSchema = tool.inputSchema
+                    if (inputSchema != null && inputSchema is JsonObject) {
+                        val properties = inputSchema["properties"]?.jsonObject
+                        if (properties != null) {
+                            appendLine("  Параметры:")
+                            properties.forEach { (key, value) ->
+                                val desc = (value as? JsonObject)?.get("description")?.jsonPrimitive?.content
+                                val required = inputSchema["required"]?.jsonArray?.any { 
+                                    (it as? JsonPrimitive)?.content == key 
+                                } == true
+                                appendLine("    - $key${if (required) " (обязательный)" else " (опциональный)"}: ${desc ?: "без описания"}")
+                            }
+                        }
+                    }
+                }
+                appendLine()
+            }
+        }
+    }
+    
+    /**
+     * Формирует пользовательский промпт с поддержкой инструментов
+     */
+    private fun buildUserPromptWithTools(question: String, context: TeamContext, tools: List<MCPTool>): String {
+        val prompt = StringBuilder()
+        
+        // Вопрос команды
+        prompt.appendLine("Вопрос команды: $question")
+        prompt.appendLine()
+        
+        // Контекст задач
+        if (context.tasks.isNotEmpty()) {
+            prompt.appendLine("Релевантные задачи (${context.tasks.size}):")
+            context.tasks.forEachIndexed { index, task ->
+                prompt.appendLine("${index + 1}. ${task.title}")
+                prompt.appendLine("   ID: ${task.id}")
+                prompt.appendLine("   Описание: ${task.description.take(150)}${if (task.description.length > 150) "..." else ""}")
+                prompt.appendLine("   Статус: ${formatTaskStatus(task.status)}")
+                prompt.appendLine("   Приоритет: ${formatPriority(task.priority)}")
+                
+                if (task.assignee != null) {
+                    prompt.appendLine("   Исполнитель: ${task.assignee}")
+                }
+                
+                if (task.dueDate != null) {
+                    prompt.appendLine("   Срок выполнения: ${formatTimestamp(task.dueDate)}")
+                }
+                
+                if (task.blockedBy.isNotEmpty()) {
+                    prompt.appendLine("   ⚠️ Блокируется задачами: ${task.blockedBy.joinToString(", ")}")
+                }
+                
+                if (task.blocks.isNotEmpty()) {
+                    prompt.appendLine("   🔒 Блокирует задачи: ${task.blocks.joinToString(", ")}")
+                }
+                
+                prompt.appendLine("   Создана: ${formatTimestamp(task.createdAt)}")
+                prompt.appendLine("   Обновлена: ${formatTimestamp(task.updatedAt)}")
+                prompt.appendLine()
+            }
+        } else {
+            prompt.appendLine("Релевантные задачи не найдены.")
+            prompt.appendLine()
+        }
+        
+        // RAG-контекст из документации проекта
+        if (context.ragContext.isNotEmpty()) {
+            prompt.appendLine("Контекст из документации проекта:")
+            prompt.appendLine("---")
+            val contextPreview = if (context.ragContext.length > 3000) {
+                context.ragContext.take(3000) + "\n\n... (контекст обрезан, показаны первые 3000 символов)"
+            } else {
+                context.ragContext
+            }
+            prompt.appendLine(contextPreview)
+            prompt.appendLine("---")
+            prompt.appendLine()
+        }
+        
+        // Инструкции для ответа
+        prompt.appendLine("Ответь на вопрос команды, учитывая:")
+        prompt.appendLine("- Информацию о задачах (статус, приоритет, зависимости)")
+        prompt.appendLine("- Статус проекта (если доступен)")
+        prompt.appendLine("- Информацию из документации проекта")
+        prompt.appendLine()
+        
+        // Если вопрос про создание задачи, явно указываем использовать инструмент
+        val lowerQuestion = question.lowercase()
+        if (lowerQuestion.contains("создай") || lowerQuestion.contains("создать") || 
+            lowerQuestion.contains("добавь") || lowerQuestion.contains("добавить")) {
+            prompt.appendLine("**ВАЖНО: Команда просит создать задачу. Ты ДОЛЖЕН использовать инструмент create_task.**")
+            prompt.appendLine("Извлеки из вопроса название задачи, описание и приоритет (если указан).")
+            prompt.appendLine("Добавь в конец ответа JSON блок с tool_calls для вызова create_task.")
+            prompt.appendLine()
+        }
+        
+        prompt.appendLine("В ответе:")
+        prompt.appendLine("- Проанализируй задачи и их зависимости")
+        prompt.appendLine("- Предложи, какие задачи нужно выполнить первыми и почему")
+        prompt.appendLine("- Укажи блокирующие проблемы, если они есть")
+        prompt.appendLine("- Дай конкретные рекомендации по приоритетам")
+        prompt.appendLine("- Если нужно создать задачу, используй инструмент create_task")
+        
+        return prompt.toString()
     }
 }
 

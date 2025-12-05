@@ -34,27 +34,24 @@ class TeamAssistantService(
         // 4. Обновляем контекст с RAG-данными
         val fullContext = context.copy(ragContext = ragContext)
         
-        // 5. Генерируем ответ через LLM
-        val answer = generateAnswer(request.question, fullContext)
+        // 5. Генерируем ответ через LLM с поддержкой инструментов
+        val (answer, executedActions) = generateAnswerWithTools(request.question, fullContext)
         
         // 6. Генерируем рекомендации
         val recommendations = generateRecommendations(fullContext)
         
-        // 7. Генерируем действия
-        var actions = generateActions(request.question, fullContext)
-        
-        // 8. Автоматически выполняем действия, если они требуют создания задачи
-        val executedActions = executeActions(request.question, answer, actions)
-        actions = executedActions
-        
-        // 9. Обновляем контекст после выполнения действий
-        val updatedContext = if (executedActions.any { it.type == ActionType.CREATE_TASK }) {
+        // 7. Обновляем контекст после выполнения действий через инструменты
+        val updatedContext = if (executedActions.isNotEmpty()) {
             getTeamContext(request.question)
         } else {
             fullContext
         }
         
-        // 10. Формируем источники
+        // 8. Формируем действия для отображения (объединяем с выполненными)
+        val suggestedActions = generateActions(request.question, fullContext)
+        val allActions = (executedActions + suggestedActions).distinctBy { it.type }
+        
+        // 9. Формируем источники
         val sources = ragResults.map { result ->
             Source(
                 title = result.title ?: "Документация проекта",
@@ -67,7 +64,7 @@ class TeamAssistantService(
             answer = answer,
             tasks = updatedContext.tasks,
             recommendations = recommendations,
-            actions = actions,
+            actions = allActions,
             sources = sources
         )
     }
@@ -166,22 +163,243 @@ class TeamAssistantService(
     }
     
     /**
-     * Генерация ответа через LLM
+     * Генерация ответа через LLM с поддержкой инструментов Task MCP
+     * LLM может использовать инструменты для создания задач
      */
-    private suspend fun generateAnswer(question: String, context: TeamContext): String {
-        // Формируем промпт с контекстом через TeamAssistantPromptBuilder
-        val promptResult = promptBuilder.buildTeamPrompt(question, context)
+    private suspend fun generateAnswerWithTools(question: String, context: TeamContext): Pair<String, List<Action>> {
+        // Получаем список доступных Task MCP инструментов
+        val availableTools = getAvailableTaskTools()
         
-        return try {
-            val response = llmService.generateAnswer(
+        // Формируем промпт с описанием инструментов
+        val promptResult = promptBuilder.buildTeamPromptWithTools(question, context, availableTools)
+        
+        // Генерируем ответ через LLM
+        val response = try {
+            llmService.generateAnswer(
                 question = promptResult.userPrompt,
                 systemPrompt = promptResult.systemPrompt,
                 temperature = 0.7
             )
-            response.answer
         } catch (e: Exception) {
             logger.error("Failed to generate answer: ${e.message}", e)
-            "Извините, произошла ошибка при генерации ответа. Пожалуйста, попробуйте позже."
+            return Pair("Извините, произошла ошибка при генерации ответа. Пожалуйста, попробуйте позже.", emptyList())
+        }
+        
+        // Парсим ответ и ищем вызовы инструментов
+        val executedActions = parseAndExecuteToolCalls(response.answer, question)
+        
+        // Формируем финальный ответ с информацией о выполненных действиях
+        val finalAnswer = buildFinalAnswer(response.answer, executedActions)
+        
+        return Pair(finalAnswer, executedActions)
+    }
+    
+    /**
+     * Получить список доступных Task MCP инструментов
+     */
+    private suspend fun getAvailableTaskTools(): List<com.prike.data.client.MCPTool> {
+        return try {
+            taskMCPService?.listTools() ?: emptyList()
+        } catch (e: Exception) {
+            logger.warn("Failed to get Task MCP tools: ${e.message}")
+            emptyList()
+        }
+    }
+    
+    /**
+     * Парсинг ответа LLM и выполнение вызовов инструментов
+     * Ищем JSON блок с tool_calls в ответе LLM
+     */
+    private suspend fun parseAndExecuteToolCalls(answer: String, question: String): List<Action> {
+        val executedActions = mutableListOf<Action>()
+        
+        // Ищем JSON блок с tool_calls (формат: ```json ... ```)
+        val jsonBlockPattern = """```json\s*([\s\S]*?)```""".toRegex(RegexOption.IGNORE_CASE)
+        val jsonMatches = jsonBlockPattern.findAll(answer)
+        
+        for (jsonMatch in jsonMatches) {
+            val jsonContent = jsonMatch.groupValues[1].trim()
+            try {
+                val jsonObj = Json.parseToJsonElement(jsonContent) as? JsonObject
+                val toolCalls = jsonObj?.get("tool_calls")?.jsonArray
+                
+                toolCalls?.forEach { toolCallElement ->
+                    if (toolCallElement is JsonObject) {
+                        val tool = toolCallElement["tool"]?.jsonPrimitive?.content?.lowercase()
+                        val params = toolCallElement["params"]?.jsonObject
+                        
+                        when (tool) {
+                            "create_task" -> {
+                                executeCreateTaskTool(params, question, answer, executedActions)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                logger.warn("Не удалось распарсить JSON блок с tool_calls: ${e.message}")
+                // Fallback: пытаемся найти старый формат [TOOL: ...]
+                parseLegacyToolCalls(answer, question, executedActions)
+            }
+        }
+        
+        // Если JSON блоков не найдено, пытаемся найти старый формат [TOOL: ...]
+        if (executedActions.isEmpty()) {
+            parseLegacyToolCalls(answer, question, executedActions)
+        }
+        
+        return executedActions
+    }
+    
+    /**
+     * Выполнение инструмента create_task из JSON параметров
+     */
+    private suspend fun executeCreateTaskTool(
+        params: JsonObject?,
+        question: String,
+        answer: String,
+        executedActions: MutableList<Action>
+    ) {
+        if (params == null) return
+        
+        try {
+            val title = params["title"]?.jsonPrimitive?.content 
+                ?: extractTaskTitle(question, answer)
+            val description = params["description"]?.jsonPrimitive?.content 
+                ?: extractTaskDescription(question, answer)
+            val priorityStr = params["priority"]?.jsonPrimitive?.content ?: "MEDIUM"
+            val priority = try {
+                Priority.valueOf(priorityStr.uppercase())
+            } catch (e: Exception) {
+                Priority.MEDIUM
+            }
+            val assignee = params["assignee"]?.jsonPrimitive?.content
+            val dueDate = params["dueDate"]?.jsonPrimitive?.longOrNull
+            
+            if (title.isNotBlank()) {
+                // Вызываем инструмент create_task через Task MCP
+                val createdTask = taskMCPService?.createTask(
+                    title = title,
+                    description = description.ifBlank { "Создано ассистентом команды" },
+                    priority = priority,
+                    assignee = assignee,
+                    dueDate = dueDate
+                )
+                
+                if (createdTask != null) {
+                    logger.info("Задача создана через инструмент create_task: ${createdTask.id} - ${createdTask.title}")
+                    executedActions.add(
+                        Action(
+                            type = ActionType.CREATE_TASK,
+                            description = "✅ Задача создана: ${createdTask.title} (ID: ${createdTask.id})",
+                            task = createdTask
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Ошибка при выполнении инструмента create_task: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Парсинг старого формата [TOOL: ...] для обратной совместимости
+     */
+    private suspend fun parseLegacyToolCalls(answer: String, question: String, executedActions: MutableList<Action>) {
+        val toolCallPattern = """\[TOOL:\s*(\w+)(?:[,\s]+([^\]]+))?\]""".toRegex(RegexOption.IGNORE_CASE)
+        val matches = toolCallPattern.findAll(answer)
+        
+        for (match in matches) {
+            val toolName = match.groupValues[1].lowercase()
+            val paramsStr = match.groupValues[2]
+            
+            when (toolName) {
+                "create_task" -> {
+                    try {
+                        val params = parseToolParams(paramsStr)
+                        val title = params["title"] ?: extractTaskTitle(question, answer)
+                        val description = params["description"] ?: extractTaskDescription(question, answer)
+                        val priorityStr = params["priority"] ?: "MEDIUM"
+                        val priority = try {
+                            Priority.valueOf(priorityStr.uppercase())
+                        } catch (e: Exception) {
+                            Priority.MEDIUM
+                        }
+                        
+                        if (title.isNotBlank()) {
+                            val createdTask = taskMCPService?.createTask(
+                                title = title,
+                                description = description.ifBlank { "Создано ассистентом команды" },
+                                priority = priority,
+                                assignee = params["assignee"],
+                                dueDate = params["dueDate"]?.toLongOrNull()
+                            )
+                            
+                            if (createdTask != null) {
+                                logger.info("Задача создана через инструмент create_task (legacy format): ${createdTask.id} - ${createdTask.title}")
+                                executedActions.add(
+                                    Action(
+                                        type = ActionType.CREATE_TASK,
+                                        description = "✅ Задача создана: ${createdTask.title} (ID: ${createdTask.id})",
+                                        task = createdTask
+                                    )
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Ошибка при выполнении инструмента create_task (legacy): ${e.message}", e)
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Парсинг параметров инструмента из строки (для старого формата)
+     */
+    private fun parseToolParams(paramsStr: String): Map<String, String> {
+        val params = mutableMapOf<String, String>()
+        if (paramsStr.isBlank()) return params
+        
+        // Формат: key: "value", key2: "value2"
+        val paramPattern = """(\w+):\s*["']([^"']+)["']""".toRegex()
+        paramPattern.findAll(paramsStr).forEach { match ->
+            val key = match.groupValues[1]
+            val value = match.groupValues[2]
+            params[key] = value
+        }
+        
+        return params
+    }
+    
+    /**
+     * Формирование финального ответа с информацией о выполненных действиях
+     */
+    private fun buildFinalAnswer(originalAnswer: String, executedActions: List<Action>): String {
+        if (executedActions.isEmpty()) {
+            // Убираем из ответа JSON блоки с tool_calls и старые паттерны
+            return originalAnswer
+                .replace(Regex("""```json\s*[\s\S]*?tool_calls[\s\S]*?```""", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("""\[TOOL:[^\]]+\]"""), "")
+                .trim()
+        }
+        
+        val actionsInfo = executedActions.joinToString("\n") { action ->
+            when (action.type) {
+                ActionType.CREATE_TASK -> "✅ ${action.description}"
+                else -> "✅ ${action.description}"
+            }
+        }
+        
+        // Убираем JSON блоки с tool_calls и старые паттерны, добавляем информацию о выполненных действиях
+        val cleanedAnswer = originalAnswer
+            .replace(Regex("""```json\s*[\s\S]*?tool_calls[\s\S]*?```""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\[TOOL:[^\]]+\]"""), "")
+            .trim()
+        
+        return if (cleanedAnswer.isNotBlank()) {
+            "$cleanedAnswer\n\n**Выполненные действия:**\n$actionsInfo"
+        } else {
+            "**Выполненные действия:**\n$actionsInfo"
         }
     }
     
@@ -319,53 +537,6 @@ class TeamAssistantService(
         }
     }
     
-    /**
-     * Выполнить действия автоматически
-     */
-    private suspend fun executeActions(question: String, answer: String, actions: List<Action>): List<Action> {
-        val executedActions = actions.toMutableList()
-        val lowerQuestion = question.lowercase()
-        val lowerAnswer = answer.lowercase()
-        
-        // Если вопрос про создание задачи и есть действие CREATE_TASK
-        if ((lowerQuestion.contains("создай") || lowerQuestion.contains("создать") || 
-             lowerQuestion.contains("добавь") || lowerQuestion.contains("добавить")) &&
-            executedActions.any { it.type == ActionType.CREATE_TASK }) {
-            
-            try {
-                // Пытаемся извлечь информацию о задаче из вопроса или ответа
-                val taskTitle = extractTaskTitle(question, answer)
-                val taskDescription = extractTaskDescription(question, answer)
-                val taskPriority = extractTaskPriority(question, answer)
-                
-                if (taskTitle.isNotBlank()) {
-                    // Создаём задачу через Task MCP
-                    val createdTask = taskMCPService?.createTask(
-                        title = taskTitle,
-                        description = taskDescription.ifBlank { "Создано ассистентом команды" },
-                        priority = taskPriority,
-                        assignee = null,
-                        dueDate = null
-                    )
-                    
-                    if (createdTask != null) {
-                        logger.info("Автоматически создана задача: ${createdTask.id} - ${createdTask.title}")
-                        // Обновляем действие, указывая что оно выполнено
-                        val actionIndex = executedActions.indexOfFirst { it.type == ActionType.CREATE_TASK }
-                        if (actionIndex >= 0) {
-                            executedActions[actionIndex] = executedActions[actionIndex].copy(
-                                description = "✅ Задача создана: ${createdTask.title} (ID: ${createdTask.id})"
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                logger.error("Ошибка при автоматическом создании задачи: ${e.message}", e)
-            }
-        }
-        
-        return executedActions
-    }
     
     /**
      * Извлечь название задачи из вопроса или ответа

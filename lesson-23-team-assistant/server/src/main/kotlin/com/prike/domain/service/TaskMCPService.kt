@@ -215,6 +215,22 @@ class TaskMCPService(
         return taskMCPClient.isConnected()
     }
     
+    /**
+     * Получить список доступных инструментов Task MCP
+     */
+    suspend fun listTools(): List<com.prike.data.client.MCPTool> {
+        return try {
+            if (!taskMCPClient.isConnected()) {
+                logger.warn("Task MCP client is not connected, attempting to reconnect...")
+                connect()
+            }
+            taskMCPClient.listTools()
+        } catch (e: Exception) {
+            logger.error("Failed to list Task MCP tools: ${e.message}", e)
+            emptyList()
+        }
+    }
+    
     // Парсинг JSON ответов
     
     private fun parseTask(json: String): Task? {
