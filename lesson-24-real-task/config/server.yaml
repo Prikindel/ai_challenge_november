@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+reviews:
+  api:
+    baseUrl: "https://stores.mobile.company-team.ru"
+    store: "googleplay"
+    packageId: "com.example.app"
+
+koog:
+  enabled: true
+  model: "gpt-4o-mini"
+  apiKey: "${OPENAI_API_KEY}"
+
+telegram:
+  mcp:
+    enabled: false
+    jarPath: "telegram-mcp-server/build/libs/telegram-mcp-server-1.0.0.jar"
+  botToken: "${TELEGRAM_BOT_TOKEN}"
+  chatId: "${TELEGRAM_CHAT_ID}"
+
+database:
+  path: "data/reviews.db"
+

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ отзывов - День 24</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Анализ отзывов</h1>
+            <p class="subtitle">Сравнение недель и выявление трендов</p>
+        </header>
+        
+        <nav>
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/reviews-analysis.html">Анализ отзывов</a></li>
+            </ul>
+        </nav>
+        
+        <main>
+            <section class="analysis-section">
+                <h2>Запуск анализа</h2>
+                <p>Укажите период для анализа или оставьте пустым для автоматического определения текущей недели.</p>
+                
+                <form id="analysisForm">
+                    <div class="form-group">
+                        <label for="fromDate">Начало недели (опционально):</label>
+                        <input type="date" id="fromDate" name="fromDate">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="toDate">Конец недели (опционально):</label>
+                        <input type="date" id="toDate" name="toDate">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Анализировать</button>
+                </form>
+            </section>
+            
+            <section id="loadingSection" class="hidden">
+                <div class="loading">
+                    <p>Анализ выполняется, пожалуйста, подождите...</p>
+                </div>
+            </section>
+            
+            <section id="resultsSection" class="hidden">
+                <h2>Результаты анализа</h2>
+                <!-- Результаты будут добавлены динамически -->
+            </section>
+            
+            <section id="errorSection" class="hidden">
+                <div class="error">
+                    <p id="errorMessage"></p>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 AI Challenge November</p>
+        </footer>
+    </div>
+    
+    <script src="reviews-analysis.js"></script>
+</body>
+</html>
+
