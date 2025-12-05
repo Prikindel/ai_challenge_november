@@ -1,6 +1,7 @@
 package com.prike
 
 import com.prike.config.Config
+import com.prike.data.DatabaseManager
 import com.prike.presentation.controller.ClientController
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -24,6 +25,10 @@ fun main(args: Array<String>) {
     
     logger.info("Starting lesson-24-real-task server...")
     logger.info("Lesson root: ${lessonRoot.absolutePath}")
+    
+    // Инициализация БД
+    val databaseManager = DatabaseManager(config.database, lessonRoot)
+    databaseManager.init()
     
     // Статический контент для UI
     val clientDir = File(lessonRoot, "client")

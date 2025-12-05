@@ -2,6 +2,7 @@ package com.prike.domain.agent
 
 import com.prike.config.KoogConfig
 import com.prike.config.ReviewsConfig
+import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.model.*
 import com.prike.infrastructure.client.ReviewsApiClient
 import kotlinx.serialization.json.*
@@ -13,7 +14,8 @@ import org.slf4j.LoggerFactory
 class ReviewsAnalyzerAgent(
     private val koogConfig: KoogConfig,
     private val reviewsConfig: ReviewsConfig,
-    private val apiClient: ReviewsApiClient
+    private val apiClient: ReviewsApiClient,
+    private val repository: ReviewsRepository
 ) {
     private val logger = LoggerFactory.getLogger(ReviewsAnalyzerAgent::class.java)
     private val json = Json { ignoreUnknownKeys = true }
@@ -46,12 +48,6 @@ class ReviewsAnalyzerAgent(
         logger.info("Classifying ${reviews.size} reviews via LLM")
         
         // TODO: Реализовать через Koog AIAgent
-        // Структура будет:
-        // 1. Создать промпт для классификации
-        // 2. Вызвать koog.ask() или agent.run()
-        // 3. Распарсить JSON ответ
-        // 4. Вернуть List<ReviewAnalysis>
-        
         // Пока возвращаем пустой список - будет реализовано в следующих коммитах
         return emptyList()
     }
@@ -68,12 +64,6 @@ class ReviewsAnalyzerAgent(
         logger.info("Comparing weeks: ${currentWeek.weekStart} vs ${previousWeek.weekStart}")
         
         // TODO: Реализовать через Koog AIAgent
-        // Структура будет:
-        // 1. Создать промпт для сравнения
-        // 2. Вызвать koog.ask() или agent.run()
-        // 3. Распарсить JSON ответ
-        // 4. Вернуть WeekComparison с improvements/degradations
-        
         // Пока возвращаем базовое сравнение - будет реализовано в следующих коммитах
         return WeekComparison(
             currentWeek = currentWeek,
@@ -83,5 +73,51 @@ class ReviewsAnalyzerAgent(
             newIssues = emptyList(),
             resolvedIssues = emptyList()
         )
+    }
+
+    /**
+     * Koog инструмент для сохранения отзывов в локальную БД
+     * 
+     * TODO: Добавить @Tool аннотацию после настройки Koog
+     */
+    fun saveReviews(
+        reviews: List<Review>,
+        weekStart: String
+    ): Boolean {
+        return repository.saveReviews(reviews, weekStart)
+    }
+
+    /**
+     * Koog инструмент для получения отзывов за неделю из БД
+     * 
+     * TODO: Добавить @Tool аннотацию после настройки Koog
+     */
+    fun getWeekReviews(
+        weekStart: String
+    ): List<Review> {
+        return repository.getWeekReviews(weekStart)
+    }
+
+    /**
+     * Koog инструмент для сохранения анализа недели в БД
+     * 
+     * TODO: Добавить @Tool аннотацию после настройки Koog
+     */
+    fun saveWeekAnalysis(
+        weekStart: String,
+        stats: WeekStats
+    ): Boolean {
+        return repository.saveWeekAnalysis(weekStart, stats)
+    }
+
+    /**
+     * Koog инструмент для получения анализа предыдущей недели из БД
+     * 
+     * TODO: Добавить @Tool аннотацию после настройки Koog
+     */
+    fun getPreviousWeekAnalysis(
+        currentWeekStart: String
+    ): WeekStats? {
+        return repository.getPreviousWeekAnalysis(currentWeekStart)
     }
 }
