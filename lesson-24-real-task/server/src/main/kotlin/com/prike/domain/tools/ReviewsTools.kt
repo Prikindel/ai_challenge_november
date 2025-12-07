@@ -13,11 +13,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.*
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.putJsonArray
 import org.slf4j.LoggerFactory
 import java.time.DayOfWeek
 import java.time.Instant
@@ -689,14 +684,10 @@ class ReviewsTools(
                                 summariesJson
                             )
                         } catch (e: kotlinx.serialization.SerializationException) {
-                            // Если есть ошибка десериализации (например, неизвестное значение ReviewTopic),
-                            // пытаемся исправить JSON перед парсингом
-                            logger.warn("Error deserializing summaries, attempting to fix JSON: ${e.message}")
-                            val fixedJson = fixReviewSummaryJson(summariesJson)
-                            json.decodeFromString<List<ReviewSummary>>(
-                                ListSerializer(ReviewSummary.serializer()),
-                                fixedJson
-                            )
+                            // Ошибка десериализации - логируем и пробуем создать базовые саммари
+                            logger.error("Error deserializing summaries: ${e.message}")
+                            logger.error("Problematic JSON (first 500 chars): ${summariesJson.take(500)}")
+                            throw e
                         }
                     } else {
                         // Если summariesJson пустой, создаем базовые саммари
@@ -775,83 +766,5 @@ class ReviewsTools(
         }
     }
 
-    /**
-     * Исправляет JSON саммари, заменяя неизвестные значения ReviewTopic на OTHER
-     * Использует более надежный подход с парсингом JSON
-     */
-    private fun fixReviewSummaryJson(jsonStr: String): String {
-        val availableTopicNames = ReviewTopic.values().map { it.name }.toSet()
-        
-        try {
-            // Парсим JSON как JsonArray
-            val jsonArray = json.parseToJsonElement(jsonStr) as? JsonArray
-                ?: return jsonStr // Если не массив, возвращаем как есть
-            
-            // Обрабатываем каждый элемент массива
-            val fixedArray = jsonArray.map { element ->
-                val obj = element as? JsonObject ?: return@map element
-                
-                // Проверяем наличие topics
-                val topicsElement = obj["topics"] as? JsonArray
-                if (topicsElement != null) {
-                    // Заменяем неизвестные темы на OTHER
-                    val fixedTopics = topicsElement.map { topicElement ->
-                        val topicName = topicElement.jsonPrimitive.content
-                        if (availableTopicNames.contains(topicName)) {
-                            topicElement
-                        } else {
-                            logger.warn("Unknown ReviewTopic value: $topicName, replacing with OTHER")
-                            JsonPrimitive("OTHER")
-                        }
-                    }
-                    
-                    // Создаем новый объект с исправленными topics
-                    buildJsonObject {
-                        obj.forEach { (key, value) ->
-                            if (key == "topics") {
-                                putJsonArray(key) {
-                                    fixedTopics.forEach { add(it) }
-                                }
-                            } else {
-                                put(key, value)
-                            }
-                        }
-                    }
-                } else {
-                    obj
-                }
-            }
-            
-            // Сериализуем обратно в JSON
-            return json.encodeToString(JsonArray.serializer(), JsonArray(fixedArray))
-        } catch (e: Exception) {
-            logger.warn("Failed to fix JSON using structured approach, falling back to regex: ${e.message}")
-            
-            // Fallback к regex подходу
-            var fixed = jsonStr
-            val availableTopicNamesSet = availableTopicNames
-            
-            // Более надежный regex, который обрабатывает многострочные JSON
-            val topicPattern = Regex(""""topics"\s*:\s*\[([^\]]*)\]""", RegexOption.MULTILINE)
-            fixed = topicPattern.replace(fixed) { matchResult ->
-                val topicsContent = matchResult.groupValues[1]
-                
-                // Извлекаем все значения topics (включая многострочные)
-                val topicValues = Regex(""""([^"]+)"""").findAll(topicsContent).map { it.groupValues[1] }.toList()
-                val fixedTopics = topicValues.map { topicName ->
-                    if (availableTopicNamesSet.contains(topicName)) {
-                        "\"$topicName\""
-                    } else {
-                        logger.warn("Unknown ReviewTopic value: $topicName, replacing with OTHER")
-                        "\"OTHER\""
-                    }
-                }
-                
-                "\"topics\": [${fixedTopics.joinToString(", ")}]"
-            }
-            
-            return fixed
-        }
-    }
 }
 
