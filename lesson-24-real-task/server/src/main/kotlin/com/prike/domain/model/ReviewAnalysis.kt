@@ -9,6 +9,6 @@ import kotlinx.serialization.Serializable
 data class ReviewAnalysis(
     val reviewId: String,
     val category: ReviewCategory,
-    val topics: List<String>,
+    val topics: List<String>, // Названия категорий из ReviewTopic
     val criticality: Criticality
 )

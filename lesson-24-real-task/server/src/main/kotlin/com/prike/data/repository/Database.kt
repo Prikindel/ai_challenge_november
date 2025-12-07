@@ -5,17 +5,20 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Instant
 
 /**
- * Таблица для хранения отзывов
+ * Таблица для хранения саммари отзывов (вместо полных отзывов)
  */
-object ReviewsTable : Table("reviews") {
-    val id = text("id")
-    val text = text("text")
+object ReviewSummariesTable : Table("review_summaries") {
+    val reviewId = text("review_id")
     val rating = integer("rating")
     val date = text("date")
+    val summary = text("summary") // Краткое саммари отзыва
+    val category = text("category") // POSITIVE, NEGATIVE, NEUTRAL
+    val topics = text("topics") // JSON массив категорий
+    val criticality = text("criticality") // HIGH, MEDIUM, LOW
     val weekStart = text("week_start").index()
     val createdAt = text("created_at").default(Instant.now().toString())
     
-    override val primaryKey = PrimaryKey(id)
+    override val primaryKey = PrimaryKey(reviewId)
 }
 
 /**
@@ -41,7 +44,7 @@ object WeekAnalysesTable : Table("week_analyses") {
 fun initDatabase(connection: Database) {
     transaction(connection) {
         SchemaUtils.createMissingTablesAndColumns(
-            ReviewsTable,
+            ReviewSummariesTable,
             WeekAnalysesTable
         )
     }

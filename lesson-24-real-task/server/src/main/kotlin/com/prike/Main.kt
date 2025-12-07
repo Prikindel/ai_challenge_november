@@ -2,16 +2,27 @@ package com.prike
 
 import com.prike.config.Config
 import com.prike.data.DatabaseManager
+import com.prike.data.client.TelegramMCPClient
+import com.prike.data.repository.ReviewsRepository
+import com.prike.domain.agent.ReviewsAnalyzerAgent
+import com.prike.domain.service.KoogAgentService
+import com.prike.domain.service.ReviewsAnalysisService
+import com.prike.infrastructure.client.ReviewsApiClient
 import com.prike.presentation.controller.ClientController
+import com.prike.presentation.controller.ReviewsController
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.routing.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.response.*
-import io.ktor.http.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.http.*
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -29,13 +40,54 @@ fun main(args: Array<String>) {
     // Инициализация БД
     val databaseManager = DatabaseManager(config.database, lessonRoot)
     databaseManager.init()
+    val database = databaseManager.database
+    
+    // Инициализация Koog Agent Service
+    val koogAgentService = KoogAgentService(config.koog)
+    val koogAgent = koogAgentService.createAgent()
+    logger.info("Koog AIAgent initialized")
+    
+    // Инициализация Telegram MCP Client (если включен)
+    val telegramMCPClient = TelegramMCPClient(config.telegram, lessonRoot)
+    if (config.telegram.mcp.enabled) {
+        runBlocking {
+            try {
+                telegramMCPClient.connect()
+                logger.info("Telegram MCP client connected")
+            } catch (e: Exception) {
+                logger.error("Failed to connect Telegram MCP client: ${e.message}", e)
+            }
+        }
+    }
+    
+    // Инициализация HTTP клиента для API
+    val httpClient = HttpClient(CIO) {
+        install(io.ktor.client.plugins.contentnegotiation.ContentNegotiation) {
+            json(Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            })
+        }
+    }
+    
+    // Инициализация компонентов
+    val reviewsApiClient = ReviewsApiClient(config.reviews.api.baseUrl, httpClient)
+    val reviewsRepository = ReviewsRepository(database)
+    val reviewsAnalyzerAgent = ReviewsAnalyzerAgent(
+        koogAgent = koogAgent,
+        reviewsConfig = config.reviews,
+        apiClient = reviewsApiClient,
+        repository = reviewsRepository
+    )
+    val reviewsAnalysisService = ReviewsAnalysisService(reviewsAnalyzerAgent)
+    val reviewsController = ReviewsController(reviewsAnalysisService)
     
     // Статический контент для UI
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
     
     embeddedServer(Netty, port = config.server.port, host = config.server.host) {
-        install(ContentNegotiation) {
+        install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) {
             json(Json {
                 ignoreUnknownKeys = true
                 isLenient = true
@@ -64,7 +116,8 @@ fun main(args: Array<String>) {
                 call.respond(HttpStatusCode.OK, HealthResponse("ok", "lesson-24-real-task-server"))
             }
             
-            // API маршруты будут добавлены в следующих коммитах
+            // API маршруты для работы с отзывами
+            reviewsController.registerRoutes(this)
         }
     }.start(wait = true)
 }

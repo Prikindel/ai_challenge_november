@@ -15,6 +15,10 @@ application {
 
 repositories {
     mavenCentral()
+    // JetBrains Space для Koog
+    maven {
+        url = uri("https://maven.pkg.jetbrains.space/public/p/koog/maven")
+    }
 }
 
 dependencies {
@@ -58,6 +62,8 @@ dependencies {
     implementation("ai.koog:koog-agents:0.5.4")
     
     // Дополнительные зависимости Koog могут потребоваться для LLM провайдеров
+    // Пока закомментировано, так как зависимость не найдена в репозиториях
+    // Возможно, executor уже входит в koog-agents
     // implementation("ai.koog:koog-llm-openai:0.5.4") // для OpenAI
     // implementation("ai.koog:koog-llm-anthropic:0.5.4") // для Anthropic
     
