@@ -4,18 +4,20 @@ import ai.koog.agents.core.agent.AIAgent
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
 import com.prike.config.KoogConfig
+import com.prike.domain.tools.ReviewsTools
 import org.slf4j.LoggerFactory
 
 /**
- * Сервис для создания и настройки Koog AIAgent
+ * Сервис для создания и настройки Koog AIAgent с инструментами
  */
 class KoogAgentService(
-    private val koogConfig: KoogConfig
+    private val koogConfig: KoogConfig,
+    private val reviewsTools: ReviewsTools
 ) {
     private val logger = LoggerFactory.getLogger(KoogAgentService::class.java)
 
     /**
-     * Создает и настраивает Koog AIAgent для анализа отзывов
+     * Создает и настраивает Koog AIAgent для анализа отзывов с инструментами
      */
     fun createAgent(): AIAgent<String, String> {
         if (!koogConfig.enabled) {
@@ -49,6 +51,11 @@ class KoogAgentService(
                 OpenAIModels.Chat.GPT4o
             }
         }
+
+        // TODO: Регистрация инструментов из ReviewsTools
+        // Пока создаем агента без инструментов, инструменты будут добавлены позже
+        
+        logger.info("Creating AIAgent")
 
         return AIAgent(
             promptExecutor = executor,

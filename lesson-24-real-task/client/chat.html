@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат - Анализатор отзывов</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 24. Реальная задача</h1>
+            <p class="subtitle">Диалоговый анализатор отзывов с AI-агентом</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="chat.html" class="tab active">Чат</a>
+            </nav>
+            
+            <div class="chat-layout">
+                <!-- Боковая панель с сессиями -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <h3>Сессии чата</h3>
+                        <button class="btn-new-session" onclick="createNewSession()" title="Создать новую сессию">
+                            <span>+</span>
+                        </button>
+                    </div>
+                    <div class="chat-sessions-list" id="sessionsList">
+                        <div class="sessions-loading">Загрузка сессий...</div>
+                    </div>
+                </div>
+                
+                <!-- Основная область чата -->
+                <div class="chat-container">
+                    <!-- Область истории сообщений -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-welcome">
+                            <h2>Добро пожаловать в анализатор отзывов!</h2>
+                            <p>Задайте вопрос, и я помогу вам проанализировать отзывы.</p>
+                            <div class="chat-examples">
+                                <h3>Примеры запросов:</h3>
+                                <ul>
+                                    <li>"Получи 10 отзывов, проанализируй их и дай краткую сводку"</li>
+                                    <li>"Сравни отзывы за последний месяц по неделям. Что улучшилось, а что ухудшилось?"</li>
+                                    <li>"Составь план по тому, что критично для пользователей"</li>
+                                    <li>"Отправь отчет в Telegram"</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Область ввода сообщения -->
+                    <div class="chat-input-container">
+                        <div class="chat-input-wrapper">
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Введите ваш запрос... Например: 'Получи 10 отзывов и проанализируй их'" 
+                                rows="3"
+                                maxlength="2000"
+                            ></textarea>
+                            <button id="sendButton" onclick="sendMessage()">Отправить</button>
+                        </div>
+                        <div class="chat-status" id="chatStatus"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Marked.js для рендеринга Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+    <script src="chat.js"></script>
+</body>
+</html>
+

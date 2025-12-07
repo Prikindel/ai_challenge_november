@@ -3,11 +3,14 @@ package com.prike
 import com.prike.config.Config
 import com.prike.data.DatabaseManager
 import com.prike.data.client.TelegramMCPClient
+import com.prike.data.repository.ChatRepository
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.agent.ReviewsAnalyzerAgent
 import com.prike.domain.service.KoogAgentService
 import com.prike.domain.service.ReviewsAnalysisService
+import com.prike.domain.service.ReviewsChatService
 import com.prike.infrastructure.client.ReviewsApiClient
+import com.prike.presentation.controller.ChatController
 import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.ReviewsController
 import io.ktor.client.*
@@ -42,10 +45,6 @@ fun main(args: Array<String>) {
     databaseManager.init()
     val database = databaseManager.database
     
-    // Инициализация Koog Agent Service
-    val koogAgentService = KoogAgentService(config.koog)
-    val koogAgent = koogAgentService.createAgent()
-    logger.info("Koog AIAgent initialized")
     
     // Инициализация Telegram MCP Client (если включен)
     val telegramMCPClient = TelegramMCPClient(config.telegram, lessonRoot)
@@ -73,6 +72,17 @@ fun main(args: Array<String>) {
     // Инициализация компонентов
     val reviewsApiClient = ReviewsApiClient(config.reviews.api.baseUrl, httpClient)
     val reviewsRepository = ReviewsRepository(database)
+    val reviewsTools = com.prike.domain.tools.ReviewsTools(
+        apiClient = reviewsApiClient,
+        repository = reviewsRepository,
+        reviewsConfig = config.reviews
+    )
+    
+    // Инициализация Koog Agent Service с инструментами
+    val koogAgentService = KoogAgentService(config.koog, reviewsTools)
+    val koogAgent = koogAgentService.createAgent()
+    logger.info("Koog AIAgent initialized")
+    
     val reviewsAnalyzerAgent = ReviewsAnalyzerAgent(
         koogAgent = koogAgent,
         reviewsConfig = config.reviews,
@@ -81,6 +91,11 @@ fun main(args: Array<String>) {
     )
     val reviewsAnalysisService = ReviewsAnalysisService(reviewsAnalyzerAgent)
     val reviewsController = ReviewsController(reviewsAnalysisService)
+    
+    // Инициализация ChatRepository и ChatService
+    val chatRepository = ChatRepository(database)
+    val reviewsChatService = ReviewsChatService(chatRepository, koogAgent)
+    val chatController = ChatController(reviewsChatService, chatRepository)
     
     // Статический контент для UI
     val clientDir = File(lessonRoot, "client")
@@ -118,6 +133,9 @@ fun main(args: Array<String>) {
             
             // API маршруты для работы с отзывами
             reviewsController.registerRoutes(this)
+            
+            // API маршруты для чата
+            chatController.registerRoutes(this)
         }
     }.start(wait = true)
 }

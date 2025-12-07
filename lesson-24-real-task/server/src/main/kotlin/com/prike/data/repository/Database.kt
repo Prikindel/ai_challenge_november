@@ -45,7 +45,9 @@ fun initDatabase(connection: Database) {
     transaction(connection) {
         SchemaUtils.createMissingTablesAndColumns(
             ReviewSummariesTable,
-            WeekAnalysesTable
+            WeekAnalysesTable,
+            ChatSessionsTable,
+            ChatMessagesTable
         )
     }
 }
