@@ -7,6 +7,7 @@ reviews:
     baseUrl: "https://stores.mobile.company-team.ru"
     store: "googleplay"
     packageId: "com.example.app"
+    oauthToken: "${REVIEWS_API_OAUTH_TOKEN}"
 
 koog:
   enabled: true

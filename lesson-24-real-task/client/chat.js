@@ -215,7 +215,7 @@ async function sendMessage() {
     
     const sendButton = document.getElementById('sendButton');
     sendButton.disabled = true;
-    sendButton.textContent = 'Отправка...';
+    sendButton.innerHTML = '<span style="margin-right: 6px;">⏳</span>Отправка...';
     
     messageInput.value = '';
     
@@ -258,7 +258,7 @@ async function sendMessage() {
         addMessage('assistant', 'Извините, произошла ошибка при обработке вашего запроса. Попробуйте еще раз.', []);
     } finally {
         sendButton.disabled = false;
-        sendButton.textContent = 'Отправить';
+        sendButton.innerHTML = '<span style="margin-right: 6px;">📤</span>Отправить';
     }
 }
 

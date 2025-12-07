@@ -14,12 +14,13 @@
         </header>
         
         <main>
-            <nav class="tabs">
-                <a href="index.html" class="tab">Главная</a>
-                <a href="chat.html" class="tab active">Чат</a>
-            </nav>
-            
-            <div class="chat-layout">
+            <div class="main-content-wrapper">
+                <nav class="tabs">
+                    <a href="index.html" class="tab">Главная</a>
+                    <a href="chat.html" class="tab active">Чат</a>
+                </nav>
+                
+                <div class="chat-layout">
                 <!-- Боковая панель с сессиями -->
                 <div class="chat-sidebar">
                     <div class="chat-sidebar-header">
@@ -38,15 +39,16 @@
                     <!-- Область истории сообщений -->
                     <div class="chat-messages" id="chatMessages">
                         <div class="chat-welcome">
+                            <div style="font-size: 4em; margin-bottom: 20px;">🤖</div>
                             <h2>Добро пожаловать в анализатор отзывов!</h2>
-                            <p>Задайте вопрос, и я помогу вам проанализировать отзывы.</p>
+                            <p style="font-size: 1.1em; margin-bottom: 30px;">Задайте вопрос, и я помогу вам проанализировать отзывы с помощью AI.</p>
                             <div class="chat-examples">
-                                <h3>Примеры запросов:</h3>
+                                <h3 style="color: var(--text-primary); margin-bottom: 16px; font-size: 1.1em;">💡 Примеры запросов:</h3>
                                 <ul>
-                                    <li>"Получи 10 отзывов, проанализируй их и дай краткую сводку"</li>
-                                    <li>"Сравни отзывы за последний месяц по неделям. Что улучшилось, а что ухудшилось?"</li>
-                                    <li>"Составь план по тому, что критично для пользователей"</li>
-                                    <li>"Отправь отчет в Telegram"</li>
+                                    <li onclick="document.getElementById('messageInput').value = 'Получи 10 отзывов, проанализируй их и дай краткую сводку'; document.getElementById('messageInput').focus();">"Получи 10 отзывов, проанализируй их и дай краткую сводку"</li>
+                                    <li onclick="document.getElementById('messageInput').value = 'Сравни отзывы за последний месяц по неделям. Что улучшилось, а что ухудшилось?'; document.getElementById('messageInput').focus();">"Сравни отзывы за последний месяц по неделям. Что улучшилось, а что ухудшилось?"</li>
+                                    <li onclick="document.getElementById('messageInput').value = 'Составь план по тому, что критично для пользователей'; document.getElementById('messageInput').focus();">"Составь план по тому, что критично для пользователей"</li>
+                                    <li onclick="document.getElementById('messageInput').value = 'Отправь отчет в Telegram'; document.getElementById('messageInput').focus();">"Отправь отчет в Telegram"</li>
                                 </ul>
                             </div>
                         </div>
@@ -61,7 +63,10 @@
                                 rows="3"
                                 maxlength="2000"
                             ></textarea>
-                            <button id="sendButton" onclick="sendMessage()">Отправить</button>
+                            <button id="sendButton" onclick="sendMessage()">
+                                <span style="margin-right: 6px;">📤</span>
+                                Отправить
+                            </button>
                         </div>
                         <div class="chat-status" id="chatStatus"></div>
                     </div>

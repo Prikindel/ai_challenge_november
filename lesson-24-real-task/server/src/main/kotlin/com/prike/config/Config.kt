@@ -113,14 +113,20 @@ data class ReviewsConfig(
 data class ReviewsApiConfig(
     val baseUrl: String,
     val store: String,
-    val packageId: String
+    val packageId: String,
+    val oauthToken: String? = null
 ) {
     companion object {
         fun fromMap(map: Map<String, Any>): ReviewsApiConfig {
+            val oauthToken = (map["oauthToken"] as? String)?.let { token ->
+                Config.resolveEnvVar(token)
+            }
+            
             return ReviewsApiConfig(
                 baseUrl = map["baseUrl"] as String,
                 store = map["store"] as String,
-                packageId = map["packageId"] as String
+                packageId = map["packageId"] as String,
+                oauthToken = oauthToken
             )
         }
     }

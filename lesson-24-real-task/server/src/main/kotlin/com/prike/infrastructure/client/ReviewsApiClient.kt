@@ -13,7 +13,8 @@ import org.slf4j.LoggerFactory
  */
 class ReviewsApiClient(
     private val baseUrl: String,
-    private val httpClient: HttpClient
+    private val httpClient: HttpClient,
+    private val oauthToken: String? = null
 ) {
     private val logger = LoggerFactory.getLogger(ReviewsApiClient::class.java)
     private val json = Json { ignoreUnknownKeys = true }
@@ -49,6 +50,10 @@ class ReviewsApiClient(
                 val response: String = httpClient.post(url) {
                     contentType(ContentType.Application.Json)
                     setBody(requestBody.toString())
+                    // Добавляем OAuth токен в заголовок Authorization, если он указан
+                    oauthToken?.let { token ->
+                        header(HttpHeaders.Authorization, "Bearer $token")
+                    }
                 }.body()
 
                 val jsonResponse = json.parseToJsonElement(response).jsonObject

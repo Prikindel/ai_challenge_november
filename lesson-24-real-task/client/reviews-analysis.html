@@ -9,53 +9,75 @@
 <body>
     <div class="container">
         <header>
-            <h1>Анализ отзывов</h1>
+            <h1>📊 Анализ отзывов</h1>
             <p class="subtitle">Сравнение недель и выявление трендов</p>
         </header>
         
-        <nav>
-            <ul>
-                <li><a href="/">Главная</a></li>
-                <li><a href="/reviews-analysis.html">Анализ отзывов</a></li>
-            </ul>
-        </nav>
-        
         <main>
-            <section class="analysis-section">
-                <h2>Запуск анализа</h2>
-                <p>Укажите период для анализа или оставьте пустым для автоматического определения текущей недели.</p>
+            <div class="main-content-wrapper">
+                <nav class="tabs">
+                    <a href="index.html" class="tab">Главная</a>
+                    <a href="chat.html" class="tab">Чат</a>
+                    <a href="reviews-analysis.html" class="tab active">Анализ отзывов</a>
+                </nav>
                 
-                <form id="analysisForm">
-                    <div class="form-group">
-                        <label for="fromDate">Начало недели (опционально):</label>
-                        <input type="date" id="fromDate" name="fromDate">
+                <section class="analysis-section">
+                    <div class="section-header">
+                        <h2>🔍 Запуск анализа</h2>
+                        <p class="section-description">Укажите период для анализа или оставьте пустым для автоматического определения текущей недели.</p>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="toDate">Конец недели (опционально):</label>
-                        <input type="date" id="toDate" name="toDate">
+                    <form id="analysisForm" class="analysis-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fromDate">
+                                    <span class="label-icon">📅</span>
+                                    Начало недели (опционально)
+                                </label>
+                                <input type="date" id="fromDate" name="fromDate" class="form-input">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="toDate">
+                                    <span class="label-icon">📅</span>
+                                    Конец недели (опционально)
+                                </label>
+                                <input type="date" id="toDate" name="toDate" class="form-input">
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <span style="margin-right: 8px;">🚀</span>
+                                Анализировать
+                            </button>
+                        </div>
+                    </form>
+                </section>
+                
+                <section id="loadingSection" class="hidden">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <p class="loading-text">Анализ выполняется, пожалуйста, подождите...</p>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary">Анализировать</button>
-                </form>
-            </section>
-            
-            <section id="loadingSection" class="hidden">
-                <div class="loading">
-                    <p>Анализ выполняется, пожалуйста, подождите...</p>
-                </div>
-            </section>
-            
-            <section id="resultsSection" class="hidden">
-                <h2>Результаты анализа</h2>
-                <!-- Результаты будут добавлены динамически -->
-            </section>
-            
-            <section id="errorSection" class="hidden">
-                <div class="error">
-                    <p id="errorMessage"></p>
-                </div>
-            </section>
+                </section>
+                
+                <section id="resultsSection" class="hidden results-section">
+                    <div class="section-header">
+                        <h2>📈 Результаты анализа</h2>
+                    </div>
+                    <div id="resultsContent" class="results-content">
+                        <!-- Результаты будут добавлены динамически -->
+                    </div>
+                </section>
+                
+                <section id="errorSection" class="hidden">
+                    <div class="error-container">
+                        <div class="error-icon">⚠️</div>
+                        <p id="errorMessage" class="error-message"></p>
+                    </div>
+                </section>
+            </div>
         </main>
         
         <footer>

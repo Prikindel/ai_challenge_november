@@ -71,8 +71,12 @@ fun main(args: Array<String>) {
         }
     }
     
-    // Инициализация компонентов
-    val reviewsApiClient = ReviewsApiClient(config.reviews.api.baseUrl, httpClient)
+           // Инициализация компонентов
+           val reviewsApiClient = ReviewsApiClient(
+               baseUrl = config.reviews.api.baseUrl,
+               httpClient = httpClient,
+               oauthToken = config.reviews.api.oauthToken
+           )
     val reviewsRepository = ReviewsRepository(database)
     val reviewsTools = com.prike.domain.tools.ReviewsTools(
         apiClient = reviewsApiClient,
