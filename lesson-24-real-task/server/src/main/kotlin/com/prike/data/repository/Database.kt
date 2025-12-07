@@ -39,6 +39,21 @@ object WeekAnalysesTable : Table("week_analyses") {
 }
 
 /**
+ * Таблица для хранения чанков саммари отзывов с эмбеддингами для RAG
+ */
+object ReviewSummaryChunksTable : Table("review_summary_chunks") {
+    val id = text("id")
+    val reviewId = text("review_id").index() // Ссылка на review_summaries.review_id
+    val chunkIndex = integer("chunk_index")
+    val content = text("content")
+    val embedding = text("embedding") // JSON массив чисел (вектор эмбеддинга)
+    val weekStart = text("week_start").index()
+    val createdAt = text("created_at").default(Instant.now().toString())
+    
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
  * Инициализация схемы БД
  */
 fun initDatabase(connection: Database) {
@@ -47,7 +62,8 @@ fun initDatabase(connection: Database) {
             ReviewSummariesTable,
             WeekAnalysesTable,
             ChatSessionsTable,
-            ChatMessagesTable
+            ChatMessagesTable,
+            ReviewSummaryChunksTable
         )
     }
 }

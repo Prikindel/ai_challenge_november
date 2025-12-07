@@ -3,16 +3,18 @@ package com.prike.domain.service
 import ai.koog.agents.core.agent.AIAgent
 import com.prike.data.repository.ChatRepository
 import com.prike.domain.model.ChatMessage
+import com.prike.domain.model.Citation
 import com.prike.domain.model.MessageRole
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 
 /**
- * Сервис для обработки сообщений в чате с использованием Koog агента
+ * Сервис для обработки сообщений в чате с использованием Koog агента и RAG
  */
 class ReviewsChatService(
     private val chatRepository: ChatRepository,
-    private val koogAgent: AIAgent<String, String>
+    private val koogAgent: AIAgent<String, String>,
+    private val ragService: ReviewSummaryRagService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ReviewsChatService::class.java)
 
@@ -44,21 +46,73 @@ class ReviewsChatService(
             content = userMessage
         )
         
-        // 4. Формируем промпт с учетом истории
-        val prompt = buildPromptWithHistory(userMessage, history)
+        // 4. Если доступен RAG, выполняем поиск по саммари отзывов
+        val ragContext = if (ragService != null) {
+            runBlocking {
+                try {
+                    val searchResults = ragService.search(
+                        query = userMessage,
+                        limit = 5,
+                        minSimilarity = 0.3
+                    )
+                    
+                    if (searchResults.isNotEmpty()) {
+                        logger.debug("Found ${searchResults.size} relevant review summaries via RAG")
+                        buildRagContext(searchResults)
+                    } else {
+                        null
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Error during RAG search: ${e.message}", e)
+                    null
+                }
+            }
+        } else {
+            null
+        }
         
-        // 5. Генерируем ответ через Koog агента
+        // 5. Формируем промпт с учетом истории и RAG контекста
+        val prompt = buildPromptWithHistoryAndRag(userMessage, history, ragContext)
+        
+        // 6. Генерируем ответ через Koog агента
         val assistantResponse = runBlocking {
             koogAgent.run(prompt)
         }
         
         logger.info("Generated answer: length=${assistantResponse.length}")
         
-        // 6. Сохраняем ответ ассистента в историю
+        // 7. Формируем цитаты из RAG результатов
+        val citations = if (ragContext != null && ragService != null) {
+            runBlocking {
+                try {
+                    val searchResults = ragService.search(
+                        query = userMessage,
+                        limit = 5,
+                        minSimilarity = 0.3
+                    )
+                    searchResults.map { result ->
+                        Citation(
+                            text = result.content,
+                            documentPath = "review_summaries",
+                            documentTitle = "Review Summary ${result.reviewId}",
+                            chunkId = result.reviewId
+                        )
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Error building citations: ${e.message}", e)
+                    emptyList()
+                }
+            }
+        } else {
+            emptyList()
+        }
+        
+        // 8. Сохраняем ответ ассистента в историю с цитатами
         val assistantMessage = chatRepository.saveMessage(
             sessionId = sessionId,
             role = MessageRole.ASSISTANT,
-            content = assistantResponse
+            content = assistantResponse,
+            citations = citations
         )
         
         return assistantMessage
@@ -72,30 +126,66 @@ class ReviewsChatService(
     }
 
     /**
-     * Формирует промпт с учетом истории диалога
+     * Формирует промпт с учетом истории диалога и RAG контекста
      */
-    private fun buildPromptWithHistory(
+    private fun buildPromptWithHistoryAndRag(
         currentMessage: String,
-        history: List<ChatMessage>
+        history: List<ChatMessage>,
+        ragContext: String?
     ): String {
-        if (history.isEmpty()) {
-            return currentMessage
-        }
-
-        val historyText = history.takeLast(10).joinToString("\n") { message ->
-            when (message.role) {
-                MessageRole.USER -> "Пользователь: ${message.content}"
-                MessageRole.ASSISTANT -> "Ассистент: ${message.content}"
+        val historyText = if (history.isNotEmpty()) {
+            history.takeLast(10).joinToString("\n") { message ->
+                when (message.role) {
+                    MessageRole.USER -> "Пользователь: ${message.content}"
+                    MessageRole.ASSISTANT -> "Ассистент: ${message.content}"
+                }
             }
+        } else {
+            null
         }
 
-        return """
+        val ragSection = if (ragContext != null) {
+            """
+            |Релевантная информация из саммари отзывов:
+            |$ragContext
+            |
+            """.trimMargin()
+        } else {
+            ""
+        }
+
+        val historySection = if (historyText != null) {
+            """
             |Контекст предыдущего диалога:
             |$historyText
             |
-            |Текущий вопрос пользователя:
-            |$currentMessage
-        """.trimMargin()
+            """.trimMargin()
+        } else {
+            ""
+        }
+
+        return buildString {
+            if (ragSection.isNotEmpty()) {
+                append(ragSection)
+            }
+            if (historySection.isNotEmpty()) {
+                append(historySection)
+            }
+            append("Текущий вопрос пользователя:\n")
+            append(currentMessage)
+        }
+    }
+    
+    /**
+     * Строит RAG контекст из результатов поиска
+     */
+    private fun buildRagContext(searchResults: List<com.prike.domain.service.ReviewSummarySearchResult>): String {
+        return searchResults.joinToString("\n\n") { result ->
+            """
+            |[Саммари отзыва ${result.reviewId}, неделя ${result.weekStart}, сходство: ${String.format("%.2f", result.similarity)}]
+            |${result.content}
+            """.trimMargin()
+        }
     }
 }
 

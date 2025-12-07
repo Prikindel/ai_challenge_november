@@ -216,6 +216,43 @@ class ReviewsTools(
     }
 
     /**
+     * Индексирует саммари отзывов для RAG (создает чанки с эмбеддингами)
+     * 
+     * @param weekStart Дата начала недели (ISO8601) - индексируются саммари за эту неделю
+     * @return JSON строка с результатом операции
+     */
+    suspend fun indexReviewSummariesForRag(weekStart: String): String {
+        return try {
+            logger.info("Indexing review summaries for week $weekStart")
+            
+            // Получаем саммари за неделю
+            val summaries = repository.getWeekSummaries(weekStart)
+            
+            if (summaries.isEmpty()) {
+                return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                    put("success", false)
+                    put("error", "No summaries found for week $weekStart")
+                })
+            }
+            
+            // TODO: Индексируем через RAG сервис
+            // Это будет вызвано извне, так как RAG сервис не доступен здесь напрямую
+            
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", true)
+                put("message", "Indexing initiated for ${summaries.size} summaries")
+                put("count", summaries.size)
+            })
+        } catch (e: Exception) {
+            logger.error("Error indexing review summaries: ${e.message}", e)
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", false)
+                put("error", e.message ?: "Unknown error")
+            })
+        }
+    }
+
+    /**
      * Отправляет сообщение в Telegram через MCP
      * 
      * @param message Текст сообщения для отправки

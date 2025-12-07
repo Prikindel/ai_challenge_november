@@ -6,7 +6,9 @@ import com.prike.data.client.TelegramMCPClient
 import com.prike.data.repository.ChatRepository
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.agent.ReviewsAnalyzerAgent
+import com.prike.domain.service.EmbeddingService
 import com.prike.domain.service.KoogAgentService
+import com.prike.domain.service.ReviewSummaryRagService
 import com.prike.domain.service.ReviewsAnalysisService
 import com.prike.domain.service.ReviewsChatService
 import com.prike.infrastructure.client.ReviewsApiClient
@@ -94,9 +96,29 @@ fun main(args: Array<String>) {
     val reviewsAnalysisService = ReviewsAnalysisService(reviewsAnalyzerAgent)
     val reviewsController = ReviewsController(reviewsAnalysisService)
     
+    // Инициализация RAG сервисов (если Koog включен)
+    val embeddingService = if (config.koog.enabled) {
+        EmbeddingService(
+            apiKey = config.koog.apiKey,
+            model = "text-embedding-3-small"
+        )
+    } else {
+        null
+    }
+    
+    val ragService = if (embeddingService != null) {
+        ReviewSummaryRagService(
+            embeddingService = embeddingService,
+            reviewsRepository = reviewsRepository,
+            database = database
+        )
+    } else {
+        null
+    }
+    
     // Инициализация ChatRepository и ChatService
     val chatRepository = ChatRepository(database)
-    val reviewsChatService = ReviewsChatService(chatRepository, koogAgent)
+    val reviewsChatService = ReviewsChatService(chatRepository, koogAgent, ragService)
     val chatController = ChatController(reviewsChatService, chatRepository)
     
     // Статический контент для UI
