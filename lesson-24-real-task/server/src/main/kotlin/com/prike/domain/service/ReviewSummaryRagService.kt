@@ -46,6 +46,8 @@ class ReviewSummaryRagService(
                     .firstOrNull()
                 
                 val embeddingJson: String = json.encodeToString(embedding)
+                val weekStartStr: String = summary.weekStart ?: ""
+                val createdAtStr: String = java.time.Instant.now().toString()
                 val table = com.prike.data.repository.ReviewSummaryChunksTable
                 
                 if (existing == null) {
@@ -55,8 +57,8 @@ class ReviewSummaryRagService(
                         it[table.chunkIndex] = 0
                         it[table.content] = textToIndex
                         it[table.embedding] = embeddingJson
-                        it[table.weekStart] = summary.weekStart
-                        it[table.createdAt] = java.time.Instant.now().toString()
+                        it[table.weekStart] = weekStartStr
+                        it[table.createdAt] = createdAtStr
                     }
                 } else {
                     // Обновляем существующий чанк
@@ -65,7 +67,7 @@ class ReviewSummaryRagService(
                     }) {
                         it[table.content] = textToIndex
                         it[table.embedding] = embeddingJson
-                        it[table.weekStart] = summary.weekStart
+                        it[table.weekStart] = weekStartStr
                     }
                 }
             }
@@ -163,7 +165,7 @@ class ReviewSummaryRagService(
      * Строит текст для индексации из саммари отзыва
      */
     private fun buildTextForIndexing(summary: ReviewSummary): String {
-        val topicsText = summary.topics.joinToString(", ") { it.name }
+        val topicsText = summary.topics.joinToString(", ")
         return """
             |Рейтинг: ${summary.rating}/5
             |Категория: ${summary.category.name}
