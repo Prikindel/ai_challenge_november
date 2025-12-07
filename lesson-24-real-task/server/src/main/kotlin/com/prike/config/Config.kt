@@ -14,7 +14,8 @@ data class Config(
     val reviews: ReviewsConfig,
     val koog: KoogConfig,
     val telegram: TelegramConfig,
-    val database: DatabaseConfig
+    val database: DatabaseConfig,
+    val ollama: OllamaConfig
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(Config::class.java)
@@ -36,14 +37,16 @@ data class Config(
             logger.info("Loading config from: ${configFile.absolutePath}")
             
             val yaml = Yaml()
-            val configMap = yaml.load<Map<String, Any>>(FileInputStream(configFile))
+            @Suppress("UNCHECKED_CAST")
+            val configMap = yaml.load<Map<String, Any>>(FileInputStream(configFile)) as Map<String, Any>
             
             return Config(
-                server = ServerConfig.fromMap(configMap["server"] as Map<String, Any>),
-                reviews = ReviewsConfig.fromMap(configMap["reviews"] as Map<String, Any>),
-                koog = KoogConfig.fromMap(configMap["koog"] as Map<String, Any>),
-                telegram = TelegramConfig.fromMap(configMap["telegram"] as Map<String, Any>),
-                database = DatabaseConfig.fromMap(configMap["database"] as Map<String, Any>)
+                server = ServerConfig.fromMap(configMap["server"] as? Map<String, Any> ?: emptyMap()),
+                reviews = ReviewsConfig.fromMap(configMap["reviews"] as? Map<String, Any> ?: emptyMap()),
+                koog = KoogConfig.fromMap(configMap["koog"] as? Map<String, Any> ?: emptyMap()),
+                telegram = TelegramConfig.fromMap(configMap["telegram"] as? Map<String, Any> ?: emptyMap()),
+                database = DatabaseConfig.fromMap(configMap["database"] as? Map<String, Any> ?: emptyMap()),
+                ollama = OllamaConfig.fromMap(configMap["ollama"] as? Map<String, Any> ?: emptyMap())
             )
         }
         
@@ -77,7 +80,11 @@ data class Config(
         fun resolveEnvVar(value: String): String {
             return value.replace(Regex("\\$\\{([^}]+)\\}")) { matchResult ->
                 val varName = matchResult.groupValues[1]
-                dotenv[varName] ?: System.getenv(varName) ?: matchResult.value
+                val resolved = dotenv[varName] ?: System.getenv(varName)
+                if (resolved == null) {
+                    logger.warn("Environment variable '$varName' not found. Please check your .env file or environment variables.")
+                }
+                resolved ?: matchResult.value
             }
         }
     }
@@ -102,7 +109,8 @@ data class ReviewsConfig(
 ) {
     companion object {
         fun fromMap(map: Map<String, Any>): ReviewsConfig {
-            val apiMap = map["api"] as Map<String, Any>
+            @Suppress("UNCHECKED_CAST")
+            val apiMap = (map["api"] as? Map<String, Any>) ?: emptyMap()
             return ReviewsConfig(
                 api = ReviewsApiConfig.fromMap(apiMap)
             )
@@ -118,8 +126,21 @@ data class ReviewsApiConfig(
 ) {
     companion object {
         fun fromMap(map: Map<String, Any>): ReviewsApiConfig {
-            val oauthToken = (map["oauthToken"] as? String)?.let { token ->
-                Config.resolveEnvVar(token)
+            val oauthTokenRaw = map["oauthToken"] as? String
+            val oauthToken = oauthTokenRaw?.let { token ->
+                val resolved = Config.resolveEnvVar(token)
+                // Если токен не был разрешен (остался как ${VAR_NAME}), возвращаем null
+                if (resolved == token && token.startsWith("${") && token.contains("}")) {
+                    val logger = org.slf4j.LoggerFactory.getLogger(ReviewsApiConfig::class.java)
+                    logger.error("❌ OAuth token environment variable not resolved: $token")
+                    logger.error("Please check:")
+                    logger.error("  1. File .env exists in lesson-24-real-task directory")
+                    logger.error("  2. Variable REVIEWS_API_OAUTH_TOKEN is set in .env file")
+                    logger.error("  3. Variable is not empty")
+                    null
+                } else {
+                    resolved
+                }
             }
             
             return ReviewsApiConfig(
@@ -135,17 +156,19 @@ data class ReviewsApiConfig(
 data class KoogConfig(
     val enabled: Boolean,
     val model: String,
-    val apiKey: String
+    val apiKey: String,
+    val useOpenRouter: Boolean = false
 ) {
     companion object {
         fun fromMap(map: Map<String, Any>): KoogConfig {
-            val apiKey = (map["apiKey"] as String)
+            val apiKey = (map["apiKey"] as? String) ?: ""
             val resolvedApiKey = Config.resolveEnvVar(apiKey)
             
             return KoogConfig(
                 enabled = (map["enabled"] as? Boolean) ?: true,
-                model = map["model"] as String,
-                apiKey = resolvedApiKey
+                model = (map["model"] as? String) ?: "gpt-4o-mini",
+                apiKey = resolvedApiKey,
+                useOpenRouter = (map["useOpenRouter"] as? Boolean) ?: false
             )
         }
     }
@@ -158,9 +181,10 @@ data class TelegramConfig(
 ) {
     companion object {
         fun fromMap(map: Map<String, Any>): TelegramConfig {
-            val mcpMap = map["mcp"] as Map<String, Any>
-            val botToken = Config.resolveEnvVar((map["botToken"] as String))
-            val chatId = Config.resolveEnvVar((map["chatId"] as String))
+            @Suppress("UNCHECKED_CAST")
+            val mcpMap = (map["mcp"] as? Map<String, Any>) ?: emptyMap()
+            val botToken = Config.resolveEnvVar((map["botToken"] as? String) ?: "")
+            val chatId = Config.resolveEnvVar((map["chatId"] as? String) ?: "")
             
             return TelegramConfig(
                 mcp = TelegramMCPConfig.fromMap(mcpMap),
@@ -192,6 +216,22 @@ data class DatabaseConfig(
         fun fromMap(map: Map<String, Any>): DatabaseConfig {
             return DatabaseConfig(
                 path = map["path"] as String
+            )
+        }
+    }
+}
+
+data class OllamaConfig(
+    val baseUrl: String,
+    val model: String,
+    val timeout: Long
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): OllamaConfig {
+            return OllamaConfig(
+                baseUrl = (map["baseUrl"] as? String) ?: "http://localhost:11434",
+                model = (map["model"] as? String) ?: "nomic-embed-text",
+                timeout = (map["timeout"] as? Number)?.toLong() ?: 120000L
             )
         }
     }

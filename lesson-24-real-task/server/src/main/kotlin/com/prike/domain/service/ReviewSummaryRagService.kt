@@ -2,6 +2,7 @@ package com.prike.domain.service
 
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.model.ReviewSummary
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -28,55 +29,99 @@ class ReviewSummaryRagService(
      * Индексирует саммари отзыва (создает чанк с эмбеддингом)
      * 
      * @param summary саммари отзыва для индексации
+     * @param maxRetries максимальное количество попыток при ошибке SQLITE_BUSY
      */
-    suspend fun indexSummary(summary: ReviewSummary) {
-        try {
-            // Создаем текст для индексации из саммари
-            val textToIndex = buildTextForIndexing(summary)
-            
-            // Генерируем эмбеддинг
-            val embedding = embeddingService.generateEmbedding(textToIndex)
-            
-            // Сохраняем чанк в БД
-            transaction(database) {
-                val chunkId = UUID.randomUUID().toString()
-                // Проверяем, существует ли уже чанк для этого reviewId
-                val existing = com.prike.data.repository.ReviewSummaryChunksTable
-                    .select { com.prike.data.repository.ReviewSummaryChunksTable.reviewId eq summary.reviewId }
-                    .firstOrNull()
+    suspend fun indexSummary(summary: ReviewSummary, maxRetries: Int = 5) {
+        var lastException: Exception? = null
+        
+        repeat(maxRetries) { attempt ->
+            try {
+                // Создаем текст для индексации из саммари
+                val textToIndex = buildTextForIndexing(summary)
                 
-                val embeddingJson: String = json.encodeToString(embedding)
-                val weekStartStr: String = summary.weekStart ?: ""
-                val createdAtStr: String = java.time.Instant.now().toString()
-                val table = com.prike.data.repository.ReviewSummaryChunksTable
+                // Генерируем эмбеддинг
+                val embedding = embeddingService.generateEmbedding(textToIndex)
                 
-                if (existing == null) {
-                    table.insert {
-                        it[table.id] = chunkId
-                        it[table.reviewId] = summary.reviewId
-                        it[table.chunkIndex] = 0
-                        it[table.content] = textToIndex
-                        it[table.embedding] = embeddingJson
-                        it[table.weekStart] = weekStartStr
-                        it[table.createdAt] = createdAtStr
-                    }
-                } else {
-                    // Обновляем существующий чанк
-                    table.update({
-                        table.reviewId eq summary.reviewId
-                    }) {
-                        it[table.content] = textToIndex
-                        it[table.embedding] = embeddingJson
-                        it[table.weekStart] = weekStartStr
+                // Сохраняем чанк в БД с retry для SQLITE_BUSY
+                var success = false
+                var retryCount = 0
+                val maxDbRetries = 10
+                
+                while (!success && retryCount < maxDbRetries) {
+                    try {
+                        transaction(database) {
+                            val chunkId = UUID.randomUUID().toString()
+                            // Проверяем, существует ли уже чанк для этого reviewId
+                            val existing = com.prike.data.repository.ReviewSummaryChunksTable
+                                .select { com.prike.data.repository.ReviewSummaryChunksTable.reviewId eq summary.reviewId }
+                                .firstOrNull()
+                            
+                            val embeddingJson: String = json.encodeToString(embedding)
+                            val weekStartStr: String = summary.weekStart ?: ""
+                            val createdAtStr: String = java.time.Instant.now().toString()
+                            val table = com.prike.data.repository.ReviewSummaryChunksTable
+                            
+                            if (existing == null) {
+                                table.insert {
+                                    it[table.id] = chunkId
+                                    it[table.reviewId] = summary.reviewId
+                                    it[table.chunkIndex] = 0
+                                    it[table.content] = textToIndex
+                                    it[table.embedding] = embeddingJson
+                                    it[table.weekStart] = weekStartStr
+                                    it[table.createdAt] = createdAtStr
+                                }
+                            } else {
+                                // Обновляем существующий чанк
+                                table.update({
+                                    table.reviewId eq summary.reviewId
+                                }) {
+                                    it[table.content] = textToIndex
+                                    it[table.embedding] = embeddingJson
+                                    it[table.weekStart] = weekStartStr
+                                }
+                            }
+                        }
+                        success = true
+                    } catch (e: org.jetbrains.exposed.exceptions.ExposedSQLException) {
+                        if (e.cause?.message?.contains("SQLITE_BUSY") == true || 
+                            e.cause?.message?.contains("database is locked") == true) {
+                            retryCount++
+                            if (retryCount < maxDbRetries) {
+                                val delayMs = (50L * retryCount).coerceAtMost(500L) // Экспоненциальная задержка до 500ms
+                                logger.debug("Database locked, retrying in ${delayMs}ms (attempt $retryCount/$maxDbRetries)")
+                                kotlinx.coroutines.delay(delayMs)
+                            } else {
+                                throw e
+                            }
+                        } else {
+                            throw e
+                        }
                     }
                 }
+                
+                logger.debug("Indexed summary for review ${summary.reviewId}")
+                return // Успешно проиндексировали, выходим
+            } catch (e: Exception) {
+                lastException = e
+                if (e.cause?.message?.contains("SQLITE_BUSY") == true || 
+                    e.cause?.message?.contains("database is locked") == true) {
+                    if (attempt < maxRetries - 1) {
+                        val delayMs = (200L * (attempt + 1)).coerceAtMost(2000L) // Задержка до 2 секунд
+                        logger.warn("Attempt ${attempt + 1}/$maxRetries failed (SQLITE_BUSY), retrying in ${delayMs}ms...")
+                        kotlinx.coroutines.delay(delayMs)
+                    }
+                } else {
+                    // Для других ошибок не делаем retry
+                    logger.error("Error indexing summary for review ${summary.reviewId}: ${e.message}", e)
+                    throw e
+                }
             }
-            
-            logger.debug("Indexed summary for review ${summary.reviewId}")
-        } catch (e: Exception) {
-            logger.error("Error indexing summary for review ${summary.reviewId}: ${e.message}", e)
-            throw e
         }
+        
+        // Если все попытки не удались
+        logger.error("Failed to index summary for review ${summary.reviewId} after $maxRetries attempts", lastException)
+        throw lastException ?: Exception("Unknown error")
     }
     
     /**

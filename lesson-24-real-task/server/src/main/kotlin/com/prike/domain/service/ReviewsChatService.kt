@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
  */
 class ReviewsChatService(
     private val chatRepository: ChatRepository,
-    private val koogAgent: AIAgent<String, String>,
+    private val koogAgentService: KoogAgentService, // Используем сервис для создания агентов, а не сам агент
     private val ragService: ReviewSummaryRagService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ReviewsChatService::class.java)
@@ -75,11 +75,18 @@ class ReviewsChatService(
         val prompt = buildPromptWithHistoryAndRag(userMessage, history, ragContext)
         
         // 6. Генерируем ответ через Koog агента
+        // Создаем новый агент для каждого запроса, так как агент можно использовать только один раз
+        // OpenTelemetry с LoggingSpanExporter автоматически логирует все вызовы LLM
         val assistantResponse = runBlocking {
-            koogAgent.run(prompt)
+            val agent = koogAgentService.createAgent()
+            try {
+                agent.run(prompt)
+            } finally {
+                agent.close() // Закрываем агент после использования
+            }
         }
         
-        logger.info("Generated answer: length=${assistantResponse.length}")
+        logger.debug("LLM response generated: ${assistantResponse.length} chars")
         
         // 7. Формируем цитаты из RAG результатов
         val citations = if (ragContext != null && ragService != null) {

@@ -5,7 +5,12 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
+import ai.koog.prompt.executor.clients.openrouter.OpenRouterModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
+import ai.koog.prompt.executor.llms.all.simpleOpenRouterExecutor
+import ai.koog.prompt.llm.LLMCapability
+import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.llm.LLModel
 import com.prike.config.KoogConfig
 import com.prike.domain.tools.ReviewsTools
 import kotlinx.coroutines.runBlocking
@@ -31,41 +36,135 @@ class KoogAgentService(
             throw IllegalStateException("Koog is disabled in configuration")
         }
 
-        logger.info("Initializing Koog AIAgent with model: ${koogConfig.model}")
+        logger.info("Initializing Koog AIAgent with model: ${koogConfig.model}, useOpenRouter: ${koogConfig.useOpenRouter}")
 
+        // Получаем текущую дату для включения в промпт
+        val currentDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_DATE)
+        val currentDateTime = java.time.Instant.now().atOffset(java.time.ZoneOffset.UTC)
+            .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        
         val systemPrompt = """
             Ты - умный помощник для анализа отзывов пользователей мобильных приложений.
+            
+            ВАЖНО: Текущая дата: $currentDate (ISO: $currentDateTime)
+            Используй эту дату для определения актуальных периодов при запросах отзывов.
             
             Твоя задача - помогать пользователю анализировать отзывы, сравнивать статистику и генерировать отчеты.
             
             У тебя есть доступ к инструментам для:
-            - Получения отзывов из API за указанный период
-            - Сохранения саммари отзывов в базу данных
-            - Получения саммари отзывов за неделю или всех саммари
-            - Получения статистики по неделям
-            - Отправки сообщений в Telegram (если настроено)
+            - getCurrentDate - Получения текущей даты и времени (используй, если нужно узнать актуальную дату)
+            - fetchReviews - Получения отзывов из API за указанный период (параметры: fromDate, toDate в формате ISO8601, limit)
+            - saveReviewSummaries - Сохранения саммари отзывов в базу данных
+            - getWeekSummaries - Получения саммари отзывов за неделю
+            - getAllSummaries - Получения всех саммари отзывов
+            - getWeekStats - Получения статистики по неделям
+            - calculateWeekDates - Вычисления дат начала и конца недели
+            - sendTelegramMessage - Отправки сообщений в Telegram (если настроено)
+            - indexReviewSummary - Индексации саммари для RAG
+            - analyzePeriodByDays - Анализ отзывов за период с автоматическим батчингом по дням (разбивает период на дни, для каждого дня получает отзывы, анализирует через LLM и сохраняет в БД)
             
-            Когда пользователь просит выполнить задачу:
-            1. Понять, что именно нужно сделать
-            2. Использовать соответствующие инструменты для получения данных
-            3. Проанализировать данные
-            4. Предоставить понятный ответ пользователю
-            5. Если пользователь просит отправить отчет в Telegram, использовать инструмент sendTelegramMessage
+            ВАЖНО: Когда пользователь просит получить отзывы или отправить отчет, ТЫ ДОЛЖЕН автоматически:
+            1. Если нужно узнать текущую дату, вызови getCurrentDate
+            2. Если нужно найти отзывы в БД:
+               - Сначала попробуй getWeekSummaries с weekStart (дата начала недели в формате "2025-12-01")
+               - Если не найдено, используй getAllSummaries для получения всех отзывов из БД
+               - Если в БД есть отзывы, используй их для формирования отчета
+            3. Если нужно получить новые отзывы из API:
+               - Определи период (если не указан, используй последние 30 дней от ТЕКУЩЕЙ ДАТЫ или текущую неделю)
+               - Вызови инструмент fetchReviews с правильными датами в формате ISO8601 (например: "2024-12-07T00:00:00Z")
+               - ВАЖНО: 
+                 * Если пользователь явно указал количество (например, "10 отзывов"), используй это количество
+                 * Если пользователь просит "все отзывы", используй limit=100-200 (разумный баланс между полнотой и стоимостью)
+                 * Если количество не указано, используй limit=50 для быстрого и экономичного анализа
+                 * Система автоматически делает пагинацию по 50 отзывов, если limit >= 50
+                 * НЕ используй limit больше 200 без явного запроса пользователя - это дорого и долго
+               - Проанализируй полученные отзывы и создай саммари
+               - Сохрани саммари через saveReviewSummaries
+            4. Предоставь понятный ответ пользователю
             
-            Отвечай на русском языке, будь дружелюбным и понятным. Используй инструменты для выполнения задач пользователя.
+            КРИТИЧЕСКИ ВАЖНО: При сохранении саммари через saveReviewSummaries:
+            1. Передавай ТОЛЬКО валидный JSON массив, без дополнительного текста, markdown разметки или комментариев
+            2. НЕ добавляй текст после JSON (например, "Goodbye now!" или эмодзи)
+            3. JSON должен быть полным и завершенным (не обрезанным)
+            4. Структура каждого объекта ReviewSummary:
+            {
+              "reviewId": "string (ID отзыва из Review.id)",
+              "rating": 1-5 (число из Review.rating),
+              "date": "ISO8601 строка из Review.date",
+              "summary": "краткое саммари отзыва (строка, 1-2 предложения, БЕЗ markdown разметки)",
+              "category": "POSITIVE" | "NEGATIVE" | "NEUTRAL",
+              "topics": ["AUTO_UPLOAD" | "ALBUMS" | "UNLIMITED" | "CRASHES" | "DOCUMENTS" | "OTHER" | "DOWNLOAD_MANAGER" | "LOW_SPEED" | "OPERATIONS" | "FILE_OPERATIONS" | "STORAGE_DISPLAY" | "OFFLINE" | "UI_ERRORS" | "RESOURCE_USAGE" | "LINK_SETTINGS" | "MISSING_FILES" | "PHOTO_VIDEO_VIEWER" | "VIEWER" | "MANUAL_UPLOAD" | "SCANNER" | "DOWNLOAD" | "INSTALLATION" | "PHOTO_SLICE"],
+              "criticality": "HIGH" | "MEDIUM" | "LOW",
+              "weekStart": "ISO8601 строка (опционально)"
+            }
+            
+            topics должен быть массивом строк с именами enum значений ReviewTopic (например: ["MISSING_FILES", "LOW_SPEED"]).
+            category определяется по rating: 4-5 = POSITIVE, 1-2 = NEGATIVE, 3 = NEUTRAL.
+            criticality: HIGH для негативных отзывов с rating 1, MEDIUM для rating 2, LOW для остальных.
+            
+            ПРИМЕР правильного вызова saveReviewSummaries:
+            summariesJson: "[{\"reviewId\":\"123\",\"rating\":5,\"date\":\"2025-12-07T00:00:00Z\",\"summary\":\"Отличное приложение\",\"category\":\"POSITIVE\",\"topics\":[\"OTHER\"],\"criticality\":\"LOW\"}]"
+            weekStart: "2025-12-01"
+            
+            НЕ используй старые даты (например, 2024-01-01) - всегда используй актуальные даты относительно текущей даты!
+            НЕ спрашивай пользователя о периоде, если он не указан явно - используй разумные значения по умолчанию (последние 30 дней или текущая неделя).
+            
+            Отвечай на русском языке, будь дружелюбным и понятным. ВСЕГДА используй инструменты для выполнения задач пользователя.
         """.trimIndent()
 
-        val executor = simpleOpenAIExecutor(koogConfig.apiKey)
+        // Определяем, используется ли OpenRouter по формату ключа или настройке
+        val isOpenRouterKey = koogConfig.apiKey.startsWith("sk-or-v1")
+        val useOpenRouter = isOpenRouterKey || koogConfig.useOpenRouter
         
-        val model = when (koogConfig.model.lowercase()) {
-            "gpt-4o-mini", "gpt4o-mini" -> OpenAIModels.Chat.GPT4o
-            "gpt-4o", "gpt4o" -> OpenAIModels.Chat.GPT4o
-            "gpt-4-turbo", "gpt4-turbo" -> OpenAIModels.Chat.GPT4o
-            else -> {
-                logger.warn("Unknown model ${koogConfig.model}, using GPT4o")
-                OpenAIModels.Chat.GPT4o
-            }
+        val executor = if (useOpenRouter) {
+            logger.info("Using OpenRouter executor")
+            simpleOpenRouterExecutor(koogConfig.apiKey)
+        } else {
+            logger.info("Using OpenAI executor")
+            simpleOpenAIExecutor(koogConfig.apiKey)
         }
+
+        val model = OpenRouterModels.GPT4o
+//        val model = LLModel(
+//            provider = LLMProvider.OpenRouter,
+//            id = "qwen/qwen3-coder-30b-a3b-instruct",
+//            capabilities =  listOf(
+//                LLMCapability.Temperature,
+//                LLMCapability.Speculation,
+//                LLMCapability.Tools,
+//                LLMCapability.Completion,
+//                LLMCapability.Vision.Image,
+//                LLMCapability.Schema.JSON.Standard,
+//                LLMCapability.ToolChoice
+//            ),
+//            contextLength = 128_000,
+//            maxOutputTokens = 4000,
+//        )
+            /*if (useOpenRouter) {
+            // Для OpenRouter используем модели OpenRouter
+            // OpenRouter использует формат "openai/gpt-4o" или просто "gpt-4o"
+            when (koogConfig.model.lowercase()) {
+                "gpt-4o-mini", "gpt4o-mini", "openai/gpt-4o-mini" -> {
+                    logger.info("Using OpenRouter model: openai/gpt-4o-mini")
+                    OpenRouterModels.GPT4oMini
+                }
+                "gpt-4o", "gpt4o", "openai/gpt-4o" -> {
+                    logger.info("Using OpenRouter model: openai/gpt-4o")
+                    OpenRouterModels.GPT4o
+                }
+                "gpt-4-turbo", "gpt4-turbo", "openai/gpt-4-turbo" -> {
+                    logger.info("Using OpenRouter model: openai/gpt-4-turbo")
+                    OpenRouterModels.GPT4Turbo
+                }
+                else -> {
+                    logger.warn("Unknown model ${koogConfig.model} for OpenRouter, using GPT4o")
+                    OpenRouterModels.GPT4o
+                }
+            }
+        } else {
+            logger.warn("Unknown model ${koogConfig.model} for OpenAI, using GPT4o")
+            OpenAIModels.Chat.GPT4o
+        }*/
 
         // Создаем ToolRegistry с инструментами из ReviewsTools
         val toolRegistry = createToolRegistry()
@@ -76,7 +175,31 @@ class KoogAgentService(
             promptExecutor = executor,
             llmModel = model,
             systemPrompt = systemPrompt,
-            toolRegistry = toolRegistry
+            toolRegistry = toolRegistry,
+            installFeatures = {
+                try {
+                    // Используем OpenTelemetry с LoggingSpanExporter для логирования LLM вызовов
+                    val openTelemetryClass = Class.forName("ai.koog.agents.core.feature.OpenTelemetry")
+                    val loggingExporterClass = Class.forName("io.opentelemetry.exporter.logging.LoggingSpanExporter")
+                    val createMethod = loggingExporterClass.getMethod("create")
+                    val exporter = createMethod.invoke(null)
+                    
+                    val installMethod = openTelemetryClass.getMethod("install", 
+                        kotlin.jvm.functions.Function1::class.java)
+                    
+                    val configLambda: (Any) -> Unit = { config ->
+                        val addSpanExporterMethod = config.javaClass.getMethod("addSpanExporter",
+                            Class.forName("io.opentelemetry.sdk.trace.export.SpanExporter"))
+                        addSpanExporterMethod.invoke(config, exporter)
+                    }
+                    
+                    installMethod.invoke(null, configLambda)
+                    logger.info("OpenTelemetry with LoggingSpanExporter installed for LLM tracing")
+                } catch (e: Exception) {
+                    logger.debug("OpenTelemetry not available: ${e.message}")
+                    // Продолжаем без OpenTelemetry, если он недоступен
+                }
+            }
         )
     }
 
@@ -86,6 +209,7 @@ class KoogAgentService(
     private fun createToolRegistry(): ToolRegistry {
         // Создаем список всех инструментов
         val tools = mutableListOf<Tool<*, *>>(
+            createGetCurrentDateTool(),
             createFetchReviewsTool(),
             createSaveReviewSummariesTool(),
             createGetWeekSummariesTool(),
@@ -153,6 +277,18 @@ class KoogAgentService(
     data class SendTelegramMessageArgs(
         val message: String
     )
+
+    private fun createGetCurrentDateTool(): Tool<Unit, String> {
+        return object : SimpleTool<Unit>() {
+            override val name: String = "getCurrentDate"
+            override val description: String = "Получает текущую дату и время в формате ISO8601. Не требует параметров. Используй этот инструмент, если нужно узнать актуальную дату для определения периодов запросов."
+            override val argsSerializer = serializer<Unit>()
+            
+            override suspend fun doExecute(args: Unit): String {
+                return reviewsTools.getCurrentDate()
+            }
+        }
+    }
 
     private fun createFetchReviewsTool(): Tool<FetchReviewsArgs, String> {
         return object : SimpleTool<FetchReviewsArgs>() {

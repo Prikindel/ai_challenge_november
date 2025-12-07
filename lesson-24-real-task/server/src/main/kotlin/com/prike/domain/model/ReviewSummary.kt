@@ -12,7 +12,7 @@ data class ReviewSummary(
     val date: String, // ISO8601 формат
     val summary: String, // Краткое саммари отзыва
     val category: ReviewCategory,
-    val topics: List<String>, // Категории из списка (Автозагрузка, Альбомы, и т.д.)
+    val topics: List<ReviewTopic>, // Категории из списка (Автозагрузка, Альбомы, и т.д.)
     val criticality: Criticality,
     val weekStart: String? = null // Начало недели для группировки
 )

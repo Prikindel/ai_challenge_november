@@ -1,17 +1,28 @@
 package com.prike.domain.tools
 
+import ai.koog.prompt.executor.clients.LLMClientException
 import com.prike.config.ReviewsConfig
 import com.prike.config.TelegramConfig
 import com.prike.data.client.TelegramMCPClient
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.model.*
+import com.prike.domain.service.KoogAgentService
+import com.prike.domain.service.ReviewSummaryRagService
 import com.prike.infrastructure.client.ReviewsApiClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.*
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.putJsonArray
 import org.slf4j.LoggerFactory
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
@@ -23,7 +34,9 @@ class ReviewsTools(
     private val repository: ReviewsRepository,
     private val reviewsConfig: ReviewsConfig,
     private val telegramMCPClient: TelegramMCPClient?,
-    private val telegramConfig: TelegramConfig?
+    private val telegramConfig: TelegramConfig?,
+    private val reviewSummaryRagService: ReviewSummaryRagService,
+    private val koogAgentService: KoogAgentService? = null // Для анализа через LLM (опционально, чтобы избежать циклической зависимости)
 ) {
     private val logger = LoggerFactory.getLogger(ReviewsTools::class.java)
     private val json = Json { 
@@ -46,21 +59,33 @@ class ReviewsTools(
         limit: Int = 100
     ): String {
         return try {
-            logger.info("Fetching reviews from $fromDate to $toDate (limit: $limit)")
+            logger.info("Fetching reviews: $fromDate to $toDate (limit: $limit)")
+            
+            // Если limit большой (>= 50), используем пагинацию по 50
+            // Если limit >= 500, считаем что нужно получить все отзывы (maxResults = null)
+            // Если limit маленький, используем его как pageSize
+            val pageSize = if (limit >= 50) 50 else limit
+            val maxResults = when {
+                limit >= 500 -> null // Получаем все отзывы через пагинацию
+                limit > 0 -> limit // Ограничиваем указанным количеством
+                else -> null // Если limit = 0 или отрицательный, получаем все
+            }
             
             val reviews = apiClient.fetchReviews(
                 store = reviewsConfig.api.store,
                 packageId = reviewsConfig.api.packageId,
                 fromDate = fromDate,
-                toDate = toDate
-            ).take(limit)
+                toDate = toDate,
+                pageSize = pageSize,
+                maxResults = maxResults
+            )
 
             val result = json.encodeToString(
                 ListSerializer(Review.serializer()),
                 reviews
             )
             
-            logger.info("Fetched ${reviews.size} reviews")
+            logger.info("✅ Fetched ${reviews.size} reviews")
             result
         } catch (e: Exception) {
             logger.error("Error fetching reviews: ${e.message}", e)
@@ -82,9 +107,54 @@ class ReviewsTools(
         weekStart: String
     ): String {
         return try {
-            val summaries = json.decodeFromString<List<ReviewSummary>>(summariesJson)
+            // Очищаем JSON от возможных артефактов LLM (markdown код блоки, лишний текст)
+            var cleanedJson = summariesJson.trim()
+            
+            // Удаляем markdown код блоки, если есть
+            if (cleanedJson.startsWith("```json")) {
+                cleanedJson = cleanedJson.removePrefix("```json").trim()
+            }
+            if (cleanedJson.startsWith("```")) {
+                cleanedJson = cleanedJson.removePrefix("```").trim()
+            }
+            if (cleanedJson.endsWith("```")) {
+                cleanedJson = cleanedJson.removeSuffix("```").trim()
+            }
+            
+            // Ищем начало JSON массива
+            val arrayStart = cleanedJson.indexOf('[')
+            if (arrayStart > 0) {
+                cleanedJson = cleanedJson.substring(arrayStart)
+            }
+            
+            // Ищем конец JSON массива (последняя закрывающая скобка)
+            val lastBracket = cleanedJson.lastIndexOf(']')
+            if (lastBracket > 0 && lastBracket < cleanedJson.length - 1) {
+                cleanedJson = cleanedJson.substring(0, lastBracket + 1)
+            }
+            
+            logger.debug("Cleaned JSON (first 200 chars): ${cleanedJson.take(200)}")
+            logger.debug("Cleaned JSON (last 200 chars): ${cleanedJson.takeLast(200)}")
+            
+            // Проверяем, что это валидный JSON
+            val jsonElement = json.parseToJsonElement(cleanedJson)
+            if (jsonElement !is JsonArray) {
+                throw IllegalArgumentException("Expected JSON array, got: ${jsonElement::class.simpleName}")
+            }
+            
+            val summaries = json.decodeFromString<List<ReviewSummary>>(cleanedJson)
+            
+            if (summaries.isEmpty()) {
+                logger.warn("Empty summaries list provided")
+                return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                    put("success", false)
+                    put("error", "Empty summaries list")
+                })
+            }
             
             val saved = repository.saveReviewSummaries(summaries, weekStart)
+            
+            logger.info("✅ Saved ${summaries.size} review summaries for week $weekStart")
             
             json.encodeToString(JsonObject.serializer(), buildJsonObject {
                 put("success", saved)
@@ -92,10 +162,23 @@ class ReviewsTools(
                 put("weekStart", weekStart)
             })
         } catch (e: Exception) {
-            logger.error("Error saving review summaries: ${e.message}", e)
+            @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+            val errorMsg = when (e) {
+                is kotlinx.serialization.MissingFieldException -> {
+                    "Invalid ReviewSummary format. Required fields: reviewId, rating, date, summary, category, topics (array of ReviewTopic enum values), criticality. Error: ${e.message}"
+                }
+                is kotlinx.serialization.SerializationException -> {
+                    "Invalid JSON format. Make sure the JSON is complete and valid. Error: ${e.message}. JSON preview: ${summariesJson.take(200)}..."
+                }
+                else -> e.message ?: "Unknown error"
+            }
+            logger.error("Error saving review summaries: $errorMsg", e)
+            logger.error("Problematic JSON (first 500 chars): ${summariesJson.take(500)}")
+            logger.error("Problematic JSON (last 500 chars): ${summariesJson.takeLast(500)}")
             json.encodeToString(JsonObject.serializer(), buildJsonObject {
                 put("success", false)
-                put("error", e.message ?: "Unknown error")
+                put("error", errorMsg)
+                put("hint", "ReviewSummary must be a valid JSON array. Each item must have: reviewId (string), rating (1-5), date (ISO8601), summary (string), category (POSITIVE/NEGATIVE/NEUTRAL), topics (array of ReviewTopic enum: AUTO_UPLOAD, ALBUMS, etc.), criticality (HIGH/MEDIUM/LOW)")
             })
         }
     }
@@ -108,7 +191,20 @@ class ReviewsTools(
      */
     fun getWeekSummaries(weekStart: String): String {
         return try {
+            logger.info("Getting week summaries for weekStart: $weekStart")
             val summaries = repository.getWeekSummaries(weekStart)
+            logger.info("Found ${summaries.size} summaries for week $weekStart")
+            
+            if (summaries.isEmpty()) {
+                // Если не найдено, попробуем получить все отзывы для информации
+                val allSummaries = repository.getAllSummaries()
+                logger.info("Total summaries in DB: ${allSummaries.size}")
+                if (allSummaries.isNotEmpty()) {
+                    // Показываем примеры weekStart из БД для отладки
+                    val weekStartsInDb = allSummaries.mapNotNull { it.weekStart }.distinct().take(5)
+                    logger.info("Example weekStart values in DB: $weekStartsInDb")
+                }
+            }
             
             json.encodeToString(
                 ListSerializer(ReviewSummary.serializer()),
@@ -146,12 +242,30 @@ class ReviewsTools(
     /**
      * Вычисляет даты недели для указанной даты
      * 
-     * @param dateStr Дата (ISO8601) или null для текущей даты
+     * @param dateStr Дата (ISO8601, с временем или без) или null для текущей даты
      * @return JSON строка с weekStart и weekEnd
      */
     fun calculateWeekDates(dateStr: String? = null): String {
         val date = if (dateStr != null) {
-            LocalDate.parse(dateStr, dateFormatter)
+            try {
+                // Пробуем парсить как дату без времени (ISO_DATE)
+                LocalDate.parse(dateStr, dateFormatter)
+            } catch (e: Exception) {
+                try {
+                    // Если не получилось, пробуем парсить как дату с временем (ISO_DATE_TIME или ISO_INSTANT)
+                    if (dateStr.contains("T")) {
+                        // ISO8601 с временем: "2025-12-07T00:00:00Z" или "2025-12-07T00:00:00+00:00"
+                        val instant = java.time.Instant.parse(dateStr)
+                        LocalDate.ofInstant(instant, ZoneOffset.UTC)
+                    } else {
+                        // Пробуем ISO_DATE еще раз
+                        LocalDate.parse(dateStr, dateFormatter)
+                    }
+                } catch (e2: Exception) {
+                    logger.warn("Failed to parse date: $dateStr, using current date")
+                    LocalDate.now()
+                }
+            }
         } else {
             LocalDate.now()
         }
@@ -197,6 +311,7 @@ class ReviewsTools(
      * @return JSON строка со статистикой предыдущей недели или null
      */
     fun getPreviousWeekStats(currentWeekStart: String): String {
+        logger.info("Getting previous week stats for currentWeekStart: $currentWeekStart")
         return try {
             val stats = repository.getPreviousWeekAnalysis(currentWeekStart)
             
@@ -253,6 +368,86 @@ class ReviewsTools(
     }
 
     /**
+     * Получает текущую дату и время в формате ISO8601
+     *
+     * @return JSON строка с текущей датой и временем
+     */
+    fun getCurrentDate(): String {
+        val now = java.time.Instant.now().atOffset(ZoneOffset.UTC)
+        val dateStr = now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        val localDateStr = LocalDate.now().format(dateFormatter)
+        
+        return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+            put("currentDateTime", dateStr) // ISO8601 с временем
+            put("currentDate", localDateStr) // Только дата
+            put("timestamp", now.toEpochSecond())
+        })
+    }
+
+    /**
+     * Индексирует все саммари из БД в RAG
+     *
+     * @return JSON строка с результатом операции
+     */
+    suspend fun indexAllSummaries(): String {
+        return try {
+            if (reviewSummaryRagService == null) {
+                return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                    put("success", false)
+                    put("error", "RAG service is not available")
+                })
+            }
+
+            val allSummaries = repository.getAllSummaries()
+            if (allSummaries.isEmpty()) {
+                return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                    put("success", false)
+                    put("error", "No summaries found in database")
+                })
+            }
+
+            logger.info("Starting RAG indexing for ${allSummaries.size} summaries")
+            var indexed = 0
+            var failed = 0
+
+            allSummaries.forEach { summary ->
+                try {
+                    reviewSummaryRagService.indexSummary(summary)
+                    indexed++
+                    if (indexed % 50 == 0) {
+                        logger.info("Indexed $indexed/${allSummaries.size} summaries...")
+                    }
+                    // Увеличиваем задержку между запросами, чтобы снизить нагрузку на БД
+                    if (indexed < allSummaries.size) {
+                        kotlinx.coroutines.delay(200) // 200ms задержка между запросами
+                    }
+                } catch (e: Exception) {
+                    failed++
+                    logger.warn("Failed to index summary ${summary.reviewId}: ${e.message}")
+                    // При ошибке делаем большую задержку перед следующим запросом
+                    kotlinx.coroutines.delay(2000) // 2 секунды задержка после ошибки
+                }
+            }
+
+            logger.info("✅ RAG indexing completed: $indexed indexed, $failed failed")
+
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", true)
+                put("message", "RAG indexing completed")
+                put("total", allSummaries.size)
+                put("indexed", indexed)
+                put("failed", failed)
+            })
+        } catch (e: Exception) {
+            logger.error("Error indexing all summaries: ${e.message}", e)
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", false)
+                put("error", e.message ?: "Unknown error")
+            })
+        }
+    }
+
+    /**
      * Отправляет сообщение в Telegram через MCP
      * 
      * @param message Текст сообщения для отправки
@@ -287,6 +482,375 @@ class ReviewsTools(
                 put("success", false)
                 put("error", e.message ?: "Unknown error")
             })
+        }
+    }
+
+    /**
+     * Анализирует отзывы за период с автоматическим батчингом по дням
+     * Разбивает период на дни, для каждого дня получает отзывы, анализирует через LLM и сохраняет в БД
+     * 
+     * @param fromDate Дата начала периода (ISO8601, например "2025-11-01")
+     * @param toDate Дата конца периода (ISO8601, например "2025-12-07")
+     * @return JSON строка с результатом анализа
+     */
+    suspend fun analyzePeriodByDays(
+        fromDate: String,
+        toDate: String
+    ): String {
+        return try {
+            logger.info("Starting period analysis by days: $fromDate to $toDate")
+            
+            val startDate = LocalDate.parse(fromDate.substringBefore("T"), dateFormatter)
+            val endDate = LocalDate.parse(toDate.substringBefore("T"), dateFormatter)
+            
+            var totalProcessed = 0
+            var totalSaved = 0
+            val processedDays = mutableListOf<String>()
+            
+            var currentDate = startDate
+            while (!currentDate.isAfter(endDate)) {
+                val dayStart = currentDate.atStartOfDay(ZoneOffset.UTC)
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                val dayEnd = currentDate.plusDays(1).atStartOfDay(ZoneOffset.UTC)
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                
+                logger.info("Processing day: ${currentDate.format(dateFormatter)}")
+                
+                try {
+                    // 1. Получаем отзывы за день (без ограничения, получаем все)
+                    val reviewsJson = fetchReviews(dayStart, dayEnd, limit = 500)
+                    val reviews = json.decodeFromString<List<Review>>(
+                        ListSerializer(Review.serializer()),
+                        reviewsJson
+                    )
+                    
+                    if (reviews.isEmpty()) {
+                        logger.debug("No reviews for day ${currentDate.format(dateFormatter)}")
+                        currentDate = currentDate.plusDays(1)
+                        continue
+                    }
+                    
+                    logger.info("Fetched ${reviews.size} reviews for day ${currentDate.format(dateFormatter)}")
+                    totalProcessed += reviews.size
+                    
+                    // 2. Анализируем через LLM (используем Koog агента через специальный промпт)
+                    // Создаем промпт для анализа отзывов за день
+                    val reviewsJsonForLLM = json.encodeToString(
+                        ListSerializer(Review.serializer()),
+                        reviews
+                    )
+                    
+                    // Используем RAG для поиска похожих отзывов из прошлого (если доступен)
+                    // ВАЖНО: Если RAG недоступен или произошла ошибка, продолжаем без него
+                    val ragContext = if (reviewSummaryRagService != null && reviews.isNotEmpty()) {
+                        try {
+                            // Берем первые несколько отзывов для поиска похожих
+                            val sampleReview = reviews.take(3).joinToString("\n") { "${it.rating}/5: ${it.text.take(100)}" }
+                            val searchResults = runBlocking {
+                                try {
+                                    reviewSummaryRagService.search(
+                                        query = sampleReview,
+                                        limit = 3,
+                                        minSimilarity = 0.5
+                                    )
+                                } catch (e: Exception) {
+                                    logger.warn("RAG search failed for day ${currentDate.format(dateFormatter)}: ${e.message}")
+                                    emptyList()
+                                }
+                            }
+                            if (searchResults.isNotEmpty()) {
+                                logger.debug("Found ${searchResults.size} similar reviews via RAG for day ${currentDate.format(dateFormatter)}")
+                                "\n\nПохожие отзывы из прошлого для контекста:\n" + 
+                                searchResults.joinToString("\n") { 
+                                    "- ${it.reviewId}: ${it.content.take(150)} (сходство: ${String.format("%.2f", it.similarity)})" 
+                                }
+                            } else {
+                                null
+                            }
+                        } catch (e: Exception) {
+                            logger.warn("Error during RAG search for day ${currentDate.format(dateFormatter)}: ${e.message}. Continuing without RAG context.")
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                    
+                    val availableTopics = ReviewTopic.values().joinToString(", ") { it.name }
+                    val analysisPrompt = """
+                        Проанализируй следующие отзывы за ${currentDate.format(dateFormatter)} и создай саммари для каждого отзыва.
+                        ${ragContext ?: ""}
+                        
+                        Для каждого отзыва создай ReviewSummary со следующей структурой:
+                        {
+                          "reviewId": "ID отзыва из Review.id",
+                          "rating": рейтинг из Review.rating (1-5),
+                          "date": дата из Review.date,
+                          "summary": краткое саммари отзыва (1-2 предложения, БЕЗ markdown разметки),
+                          "category": "POSITIVE" (для rating 4-5), "NEGATIVE" (для rating 1-2), "NEUTRAL" (для rating 3),
+                          "topics": массив из ReviewTopic enum. ВАЖНО: используй ТОЛЬКО следующие значения: $availableTopics. Если тема не подходит ни под одну категорию, используй "OTHER".
+                          "criticality": "HIGH" (для rating 1), "MEDIUM" (для rating 2), "LOW" (для остальных),
+                          "weekStart": дата начала недели в формате ISO8601 (YYYY-MM-DD)
+                        }
+                        
+                        КРИТИЧЕСКИ ВАЖНО: topics должен содержать ТОЛЬКО значения из списка выше. НЕ придумывай новые значения!
+                        ${if (ragContext != null) "Используй контекст похожих отзывов из прошлого для более точной классификации тем." else ""}
+                        
+                        Верни ТОЛЬКО валидный JSON массив ReviewSummary, без дополнительного текста.
+                        
+                        Отзывы:
+                        $reviewsJsonForLLM
+                    """.trimIndent()
+                    
+                    // Используем Koog агента для анализа
+                    if (koogAgentService == null) {
+                        throw IllegalStateException("KoogAgentService not available for analysis")
+                    }
+                    val agent = koogAgentService.createAgent()
+                    val summariesJson = try {
+                        runBlocking {
+                            val result = agent.run(analysisPrompt)
+                            // Извлекаем JSON из ответа (может быть обернут в markdown)
+                            var cleaned = result.trim()
+                            if (cleaned.startsWith("```json")) {
+                                cleaned = cleaned.removePrefix("```json").trim()
+                            }
+                            if (cleaned.startsWith("```")) {
+                                cleaned = cleaned.removePrefix("```").trim()
+                            }
+                            if (cleaned.endsWith("```")) {
+                                cleaned = cleaned.removeSuffix("```").trim()
+                            }
+                            // Ищем начало массива
+                            val arrayStart = cleaned.indexOf('[')
+                            if (arrayStart > 0) {
+                                cleaned = cleaned.substring(arrayStart)
+                            }
+                            // Ищем конец массива
+                            val arrayEnd = cleaned.lastIndexOf(']')
+                            if (arrayEnd > 0 && arrayEnd < cleaned.length - 1) {
+                                cleaned = cleaned.substring(0, arrayEnd + 1)
+                            }
+                            cleaned
+                        }
+                    } catch (e: LLMClientException) {
+                        // Обрабатываем ошибки LLM (например, 403 - регион не поддерживается)
+                        if (e.message?.contains("403") == true || e.message?.contains("unsupported_country") == true) {
+                            logger.error("LLM API error (403 - region not supported) for day ${currentDate.format(dateFormatter)}: ${e.message}")
+                            logger.warn("Skipping LLM analysis for day ${currentDate.format(dateFormatter)} due to region restrictions. Creating basic summaries from reviews.")
+                            // Создаем базовые саммари без LLM анализа и сохраняем их
+                            val summaries = createBasicSummariesFromReviews(reviews, currentDate)
+                            val weekStart = currentDate.with(DayOfWeek.MONDAY).format(dateFormatter)
+                            val saved = repository.saveReviewSummaries(summaries, weekStart)
+                            if (saved) {
+                                totalSaved += summaries.size
+                                processedDays.add(currentDate.format(dateFormatter))
+                                logger.info("✅ Saved ${summaries.size} basic summaries (without LLM) for day ${currentDate.format(dateFormatter)}")
+                            }
+                            currentDate = currentDate.plusDays(1)
+                            continue
+                        } else {
+                            throw e
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Error calling LLM for day ${currentDate.format(dateFormatter)}: ${e.message}", e)
+                        // Создаем базовые саммари без LLM анализа и сохраняем их
+                        val summaries = createBasicSummariesFromReviews(reviews, currentDate)
+                        val weekStart = currentDate.with(DayOfWeek.MONDAY).format(dateFormatter)
+                        val saved = repository.saveReviewSummaries(summaries, weekStart)
+                        if (saved) {
+                            totalSaved += summaries.size
+                            processedDays.add(currentDate.format(dateFormatter))
+                            logger.info("✅ Saved ${summaries.size} basic summaries (without LLM) for day ${currentDate.format(dateFormatter)}")
+                            
+                            // Индексируем в RAG
+                            if (reviewSummaryRagService != null) {
+                                try {
+                                    summaries.forEach { summary ->
+                                        runBlocking {
+                                            reviewSummaryRagService.indexSummary(summary)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    logger.warn("Error indexing basic summaries in RAG: ${e.message}")
+                                }
+                            }
+                        }
+                        currentDate = currentDate.plusDays(1)
+                        continue
+                    } finally {
+                        agent.close()
+                    }
+                    
+                    // 3. Парсим и сохраняем саммари с обработкой неизвестных значений
+                    val summaries = if (summariesJson.isNotEmpty()) {
+                        try {
+                            json.decodeFromString<List<ReviewSummary>>(
+                                ListSerializer(ReviewSummary.serializer()),
+                                summariesJson
+                            )
+                        } catch (e: kotlinx.serialization.SerializationException) {
+                            // Если есть ошибка десериализации (например, неизвестное значение ReviewTopic),
+                            // пытаемся исправить JSON перед парсингом
+                            logger.warn("Error deserializing summaries, attempting to fix JSON: ${e.message}")
+                            val fixedJson = fixReviewSummaryJson(summariesJson)
+                            json.decodeFromString<List<ReviewSummary>>(
+                                ListSerializer(ReviewSummary.serializer()),
+                                fixedJson
+                            )
+                        }
+                    } else {
+                        // Если summariesJson пустой, создаем базовые саммари
+                        createBasicSummariesFromReviews(reviews, currentDate)
+                    }
+                    
+                    // Вычисляем weekStart
+                    val weekStart = currentDate.with(DayOfWeek.MONDAY).format(dateFormatter)
+                    
+                    // 4. Сохраняем в БД
+                    val saved = repository.saveReviewSummaries(summaries, weekStart)
+                    if (saved) {
+                        totalSaved += summaries.size
+                        processedDays.add(currentDate.format(dateFormatter))
+                        logger.info("✅ Saved ${summaries.size} summaries for day ${currentDate.format(dateFormatter)}")
+                    } else {
+                        logger.warn("Failed to save summaries for day ${currentDate.format(dateFormatter)}")
+                    }
+                    
+                } catch (e: Exception) {
+                    logger.error("Error processing day ${currentDate.format(dateFormatter)}: ${e.message}", e)
+                    // Продолжаем со следующим днем
+                }
+                
+                currentDate = currentDate.plusDays(1)
+            }
+            
+            logger.info("✅ Period analysis completed: processed $totalProcessed reviews, saved $totalSaved summaries for ${processedDays.size} days")
+            
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", true)
+                put("message", "Period analysis completed")
+                put("totalProcessed", totalProcessed)
+                put("totalSaved", totalSaved)
+                put("daysProcessed", processedDays.size)
+                putJsonArray("processedDays") {
+                    processedDays.forEach { day ->
+                        add(day)
+                    }
+                }
+            })
+        } catch (e: Exception) {
+            logger.error("Error in analyzePeriodByDays: ${e.message}", e)
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", false)
+                put("error", e.message ?: "Unknown error")
+            })
+        }
+    }
+
+    /**
+     * Создает базовые саммари из отзывов без использования LLM
+     * Используется как fallback при ошибках LLM API
+     */
+    private fun createBasicSummariesFromReviews(reviews: List<Review>, date: LocalDate): List<ReviewSummary> {
+        val weekStart = date.with(DayOfWeek.MONDAY).format(dateFormatter)
+        return reviews.map { review ->
+            ReviewSummary(
+                reviewId = review.id,
+                rating = review.rating,
+                date = review.date,
+                summary = review.text.take(200), // Первые 200 символов как саммари
+                category = when {
+                    review.rating >= 4 -> ReviewCategory.POSITIVE
+                    review.rating <= 2 -> ReviewCategory.NEGATIVE
+                    else -> ReviewCategory.NEUTRAL
+                },
+                topics = emptyList(), // Без тем, так как LLM недоступен
+                criticality = when {
+                    review.rating == 1 -> Criticality.HIGH
+                    review.rating == 2 -> Criticality.MEDIUM
+                    else -> Criticality.LOW
+                },
+                weekStart = weekStart
+            )
+        }
+    }
+
+    /**
+     * Исправляет JSON саммари, заменяя неизвестные значения ReviewTopic на OTHER
+     * Использует более надежный подход с парсингом JSON
+     */
+    private fun fixReviewSummaryJson(jsonStr: String): String {
+        val availableTopicNames = ReviewTopic.values().map { it.name }.toSet()
+        
+        try {
+            // Парсим JSON как JsonArray
+            val jsonArray = json.parseToJsonElement(jsonStr) as? JsonArray
+                ?: return jsonStr // Если не массив, возвращаем как есть
+            
+            // Обрабатываем каждый элемент массива
+            val fixedArray = jsonArray.map { element ->
+                val obj = element as? JsonObject ?: return@map element
+                
+                // Проверяем наличие topics
+                val topicsElement = obj["topics"] as? JsonArray
+                if (topicsElement != null) {
+                    // Заменяем неизвестные темы на OTHER
+                    val fixedTopics = topicsElement.map { topicElement ->
+                        val topicName = topicElement.jsonPrimitive.content
+                        if (availableTopicNames.contains(topicName)) {
+                            topicElement
+                        } else {
+                            logger.warn("Unknown ReviewTopic value: $topicName, replacing with OTHER")
+                            JsonPrimitive("OTHER")
+                        }
+                    }
+                    
+                    // Создаем новый объект с исправленными topics
+                    buildJsonObject {
+                        obj.forEach { (key, value) ->
+                            if (key == "topics") {
+                                putJsonArray(key) {
+                                    fixedTopics.forEach { add(it) }
+                                }
+                            } else {
+                                put(key, value)
+                            }
+                        }
+                    }
+                } else {
+                    obj
+                }
+            }
+            
+            // Сериализуем обратно в JSON
+            return json.encodeToString(JsonArray.serializer(), JsonArray(fixedArray))
+        } catch (e: Exception) {
+            logger.warn("Failed to fix JSON using structured approach, falling back to regex: ${e.message}")
+            
+            // Fallback к regex подходу
+            var fixed = jsonStr
+            val availableTopicNamesSet = availableTopicNames
+            
+            // Более надежный regex, который обрабатывает многострочные JSON
+            val topicPattern = Regex(""""topics"\s*:\s*\[([^\]]*)\]""", RegexOption.MULTILINE)
+            fixed = topicPattern.replace(fixed) { matchResult ->
+                val topicsContent = matchResult.groupValues[1]
+                
+                // Извлекаем все значения topics (включая многострочные)
+                val topicValues = Regex(""""([^"]+)"""").findAll(topicsContent).map { it.groupValues[1] }.toList()
+                val fixedTopics = topicValues.map { topicName ->
+                    if (availableTopicNamesSet.contains(topicName)) {
+                        "\"$topicName\""
+                    } else {
+                        logger.warn("Unknown ReviewTopic value: $topicName, replacing with OTHER")
+                        "\"OTHER\""
+                    }
+                }
+                
+                "\"topics\": [${fixedTopics.joinToString(", ")}]"
+            }
+            
+            return fixed
         }
     }
 }

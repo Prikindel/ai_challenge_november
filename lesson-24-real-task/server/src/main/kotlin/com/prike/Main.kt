@@ -78,16 +78,61 @@ fun main(args: Array<String>) {
                oauthToken = config.reviews.api.oauthToken
            )
     val reviewsRepository = ReviewsRepository(database)
+    
+    // Инициализация RAG сервисов (если Koog включен) - ДО создания ReviewsTools
+    // Используем локальный Ollama для генерации эмбеддингов
+    val ollamaClient = if (config.koog.enabled) {
+        com.prike.data.client.OllamaClient(config.ollama)
+    } else {
+        null
+    }
+    
+    val embeddingService = if (ollamaClient != null) {
+        EmbeddingService(ollamaClient)
+    } else {
+        null
+    }
+    if (embeddingService != null) {
+        logger.info("EmbeddingService initialized (using local Ollama at ${config.ollama.baseUrl}, model: ${config.ollama.model})")
+    }
+    
+    val reviewSummaryRagService = if (embeddingService != null) {
+        ReviewSummaryRagService(
+            embeddingService = embeddingService,
+            reviewsRepository = reviewsRepository,
+            database = database
+        )
+    } else {
+        null
+    }
+    if (reviewSummaryRagService != null) {
+        logger.info("ReviewSummaryRagService initialized (using local Ollama for embeddings)")
+    }
+    
+    // Создаем временный ReviewsTools без koogAgentService для инициализации KoogAgentService
+    val reviewsToolsTemp = com.prike.domain.tools.ReviewsTools(
+        apiClient = reviewsApiClient,
+        repository = reviewsRepository,
+        reviewsConfig = config.reviews,
+        telegramMCPClient = if (config.telegram.mcp.enabled) telegramMCPClient else null,
+        telegramConfig = if (config.telegram.mcp.enabled) config.telegram else null,
+        reviewSummaryRagService = reviewSummaryRagService ?: throw IllegalStateException("RAG service is not initialized"),
+        koogAgentService = null // Временно null
+    )
+    
+    // Инициализация Koog Agent Service с инструментами
+    val koogAgentService = KoogAgentService(config.koog, reviewsToolsTemp)
+    
+    // Теперь создаем финальный ReviewsTools с koogAgentService
     val reviewsTools = com.prike.domain.tools.ReviewsTools(
         apiClient = reviewsApiClient,
         repository = reviewsRepository,
         reviewsConfig = config.reviews,
         telegramMCPClient = if (config.telegram.mcp.enabled) telegramMCPClient else null,
-        telegramConfig = if (config.telegram.mcp.enabled) config.telegram else null
+        telegramConfig = if (config.telegram.mcp.enabled) config.telegram else null,
+        reviewSummaryRagService = reviewSummaryRagService ?: throw IllegalStateException("RAG service is not initialized"),
+        koogAgentService = koogAgentService
     )
-    
-    // Инициализация Koog Agent Service с инструментами
-    val koogAgentService = KoogAgentService(config.koog, reviewsTools)
     val koogAgent = koogAgentService.createAgent()
     logger.info("Koog AIAgent initialized")
     
@@ -97,32 +142,12 @@ fun main(args: Array<String>) {
         apiClient = reviewsApiClient,
         repository = reviewsRepository
     )
-    val reviewsAnalysisService = ReviewsAnalysisService(reviewsAnalyzerAgent)
-    val reviewsController = ReviewsController(reviewsAnalysisService)
-    
-    // Инициализация RAG сервисов (если Koog включен)
-    val embeddingService = if (config.koog.enabled) {
-        EmbeddingService(
-            apiKey = config.koog.apiKey,
-            model = "text-embedding-3-small"
-        )
-    } else {
-        null
-    }
-    
-    val ragService = if (embeddingService != null) {
-        ReviewSummaryRagService(
-            embeddingService = embeddingService,
-            reviewsRepository = reviewsRepository,
-            database = database
-        )
-    } else {
-        null
-    }
+    val reviewsAnalysisService = ReviewsAnalysisService(reviewsAnalyzerAgent, reviewsTools)
+    val reviewsController = ReviewsController(reviewsAnalysisService, reviewsTools)
     
     // Инициализация ChatRepository и ChatService
     val chatRepository = ChatRepository(database)
-    val reviewsChatService = ReviewsChatService(chatRepository, koogAgent, ragService)
+    val reviewsChatService = ReviewsChatService(chatRepository, koogAgentService, reviewSummaryRagService)
     val chatController = ChatController(reviewsChatService, chatRepository)
     
     // Статический контент для UI

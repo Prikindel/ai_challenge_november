@@ -3,6 +3,7 @@ package com.prike.data
 import com.prike.config.DatabaseConfig
 import com.prike.data.repository.initDatabase
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.io.File
 
@@ -23,10 +24,26 @@ class DatabaseManager(
         
         logger.info("Initializing database at: ${dbPath.absolutePath}")
         
-        Database.connect(
-            url = "jdbc:sqlite:${dbPath.absolutePath}",
+        // Сначала подключаемся через прямой JDBC для установки PRAGMA (нельзя делать внутри транзакции)
+        val jdbcUrl = "jdbc:sqlite:${dbPath.absolutePath}"
+        java.sql.DriverManager.getConnection(jdbcUrl).use { connection ->
+            connection.createStatement().use { statement ->
+                // Устанавливаем PRAGMA до создания Exposed Database
+                statement.execute("PRAGMA journal_mode=WAL")
+                statement.execute("PRAGMA busy_timeout=30000") // 30 секунд timeout
+                statement.execute("PRAGMA synchronous=NORMAL") // Баланс между производительностью и надежностью
+            }
+        }
+        
+        // Теперь создаем Exposed Database
+        val db = Database.connect(
+            url = jdbcUrl,
             driver = "org.sqlite.JDBC"
         )
+        
+        logger.info("Database initialized with WAL mode and busy_timeout=30000")
+        
+        db
     }
     
     fun init() {

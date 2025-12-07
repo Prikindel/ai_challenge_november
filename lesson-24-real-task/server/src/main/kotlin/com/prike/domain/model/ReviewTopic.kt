@@ -1,8 +1,16 @@
 package com.prike.domain.model
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.serialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+
 /**
  * Категории тем отзывов
  */
+@Serializable(with = ReviewTopicSerializer::class)
 enum class ReviewTopic(val displayName: String) {
     AUTO_UPLOAD("Автозагрузка"),
     ALBUMS("Альбомы"),
@@ -44,6 +52,27 @@ enum class ReviewTopic(val displayName: String) {
          */
         fun allDisplayNames(): List<String> {
             return values().map { it.displayName }
+        }
+    }
+}
+
+/**
+ * Кастомный serializer для ReviewTopic, который автоматически заменяет неизвестные значения на OTHER
+ */
+object ReviewTopicSerializer : KSerializer<ReviewTopic> {
+    override val descriptor: SerialDescriptor = serialDescriptor<String>()
+
+    override fun serialize(encoder: Encoder, value: ReviewTopic) {
+        encoder.encodeString(value.name)
+    }
+
+    override fun deserialize(decoder: Decoder): ReviewTopic {
+        val value = decoder.decodeString()
+        return try {
+            ReviewTopic.valueOf(value)
+        } catch (e: IllegalArgumentException) {
+            // Если значение не найдено, возвращаем OTHER
+            ReviewTopic.OTHER
         }
     }
 }

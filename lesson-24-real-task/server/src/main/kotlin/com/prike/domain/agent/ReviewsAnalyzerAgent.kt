@@ -49,9 +49,7 @@ class ReviewsAnalyzerAgent(
     ): List<ReviewAnalysis> {
         logger.info("Classifying ${reviews.size} reviews via LLM")
         
-        if (reviews.isEmpty()) {
-            return emptyList()
-        }
+        if (reviews.isEmpty()) return emptyList()
 
         val reviewsJson = json.encodeToString(
             ListSerializer(Review.serializer()),

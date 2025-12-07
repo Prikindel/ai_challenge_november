@@ -64,7 +64,7 @@ class ReviewsRepository(
                             date = row[ReviewSummariesTable.date],
                             summary = row[ReviewSummariesTable.summary],
                             category = ReviewCategory.valueOf(row[ReviewSummariesTable.category]),
-                            topics = json.decodeFromString<List<String>>(row[ReviewSummariesTable.topics]),
+                            topics = json.decodeFromString<List<ReviewTopic>>(row[ReviewSummariesTable.topics]),
                             criticality = Criticality.valueOf(row[ReviewSummariesTable.criticality]),
                             weekStart = row[ReviewSummariesTable.weekStart]
                         )
@@ -92,7 +92,7 @@ class ReviewsRepository(
                             date = row[ReviewSummariesTable.date],
                             summary = row[ReviewSummariesTable.summary],
                             category = ReviewCategory.valueOf(row[ReviewSummariesTable.category]),
-                            topics = json.decodeFromString<List<String>>(row[ReviewSummariesTable.topics]),
+                            topics = json.decodeFromString<List<ReviewTopic>>(row[ReviewSummariesTable.topics]),
                             criticality = Criticality.valueOf(row[ReviewSummariesTable.criticality]),
                             weekStart = row[ReviewSummariesTable.weekStart]
                         )

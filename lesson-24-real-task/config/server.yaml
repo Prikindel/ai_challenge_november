@@ -13,6 +13,7 @@ koog:
   enabled: true
   model: "gpt-4o-mini"
   apiKey: "${OPENAI_API_KEY}"
+  useOpenRouter: true  # Установите true, если используете OpenRouter ключ
 
 telegram:
   mcp:
@@ -23,4 +24,9 @@ telegram:
 
 database:
   path: "data/reviews.db"
+
+ollama:
+  baseUrl: "http://localhost:11434"  # URL Ollama сервера
+  model: "nomic-embed-text"          # Модель для эмбеддингов
+  timeout: 120000                    # Таймаут в миллисекундах (2 минуты для больших текстов)
 

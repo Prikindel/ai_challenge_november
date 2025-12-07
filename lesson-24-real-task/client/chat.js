@@ -326,11 +326,15 @@ function addMessage(role, content, citations = [], scroll = true) {
         const citationsDiv = document.createElement('div');
         citationsDiv.className = 'chat-citations';
         
-        citations.forEach(citation => {
+        citations.forEach((citation, index) => {
             const citationLink = document.createElement('a');
             citationLink.href = '#';
             citationLink.className = 'citation-link';
             citationLink.textContent = `📄 ${citation.documentTitle || citation.documentPath}`;
+            citationLink.onclick = (e) => {
+                e.preventDefault();
+                showCitationModal(citation, index);
+            };
             citationsDiv.appendChild(citationLink);
         });
         
@@ -461,5 +465,79 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Показывает модальное окно с содержимым citation
+ */
+function showCitationModal(citation, index) {
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.className = 'citation-modal';
+    modal.id = 'citationModal';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'citation-modal-content';
+    
+    const modalHeader = document.createElement('div');
+    modalHeader.className = 'citation-modal-header';
+    modalHeader.innerHTML = `
+        <h3>${escapeHtml(citation.documentTitle || 'Review Summary')}</h3>
+        <button class="citation-modal-close" onclick="closeCitationModal()">&times;</button>
+    `;
+    
+    const modalBody = document.createElement('div');
+    modalBody.className = 'citation-modal-body';
+    
+    // Форматируем текст citation
+    const citationText = citation.text || 'Нет содержимого';
+    modalBody.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(citationText)}</pre>`;
+    
+    if (citation.chunkId) {
+        const chunkInfo = document.createElement('div');
+        chunkInfo.className = 'citation-chunk-info';
+        chunkInfo.innerHTML = `<small>Review ID: ${escapeHtml(citation.chunkId)}</small>`;
+        modalBody.appendChild(chunkInfo);
+    }
+    
+    modalContent.appendChild(modalHeader);
+    modalContent.appendChild(modalBody);
+    modal.appendChild(modalContent);
+    
+    // Закрытие по клику вне модального окна
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            closeCitationModal();
+        }
+    };
+    
+    // Закрытие по Escape
+    const escapeHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeCitationModal();
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    };
+    document.addEventListener('keydown', escapeHandler);
+    
+    document.body.appendChild(modal);
+    
+    // Плавное появление
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+/**
+ * Закрывает модальное окно citation
+ */
+function closeCitationModal() {
+    const modal = document.getElementById('citationModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.remove();
+        }, 300);
+    }
 }
 
