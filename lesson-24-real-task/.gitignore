@@ -1,0 +1,42 @@
+# База данных с отзывами
+data/reviews.db
+data/reviews.db-shm
+data/reviews.db-wal
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Build files
+server/build/
+server/.gradle/
+server/gradle/
+server/gradlew
+server/gradlew.bat
+server/.gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
