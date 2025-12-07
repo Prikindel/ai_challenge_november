@@ -1,6 +1,7 @@
 package com.prike.domain.service
 
 import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
 import com.prike.config.KoogConfig
@@ -27,17 +28,25 @@ class KoogAgentService(
         logger.info("Initializing Koog AIAgent with model: ${koogConfig.model}")
 
         val systemPrompt = """
-            Ты - эксперт по анализу отзывов пользователей мобильных приложений.
+            Ты - умный помощник для анализа отзывов пользователей мобильных приложений.
             
-            Твоя задача:
-            1. Классифицировать отзывы на POSITIVE, NEGATIVE или NEUTRAL
-            2. Определять темы и категории проблем/улучшений
-            3. Оценивать критичность проблем (HIGH, MEDIUM, LOW)
-            4. Сравнивать статистику между неделями
-            5. Генерировать структурированные отчеты
+            Твоя задача - помогать пользователю анализировать отзывы, сравнивать статистику и генерировать отчеты.
             
-            Всегда отвечай в формате JSON, строго следуя структуре данных.
-            Будь точным и объективным в анализе.
+            У тебя есть доступ к инструментам для:
+            - Получения отзывов из API за указанный период
+            - Сохранения саммари отзывов в базу данных
+            - Получения саммари отзывов за неделю или всех саммари
+            - Получения статистики по неделям
+            - Отправки сообщений в Telegram (если настроено)
+            
+            Когда пользователь просит выполнить задачу:
+            1. Понять, что именно нужно сделать
+            2. Использовать соответствующие инструменты для получения данных
+            3. Проанализировать данные
+            4. Предоставить понятный ответ пользователю
+            5. Если пользователь просит отправить отчет в Telegram, использовать инструмент sendTelegramMessage
+            
+            Отвечай на русском языке, будь дружелюбным и понятным. Используй инструменты для выполнения задач пользователя.
         """.trimIndent()
 
         val executor = simpleOpenAIExecutor(koogConfig.apiKey)
@@ -52,15 +61,17 @@ class KoogAgentService(
             }
         }
 
-        // TODO: Регистрация инструментов из ReviewsTools
-        // Пока создаем агента без инструментов, инструменты будут добавлены позже
+        // Создаем ToolRegistry (пока пустой, инструменты будут добавлены позже)
+        // Используем EMPTY для начала, инструменты добавим позже
+        val toolRegistry = ToolRegistry.EMPTY
         
-        logger.info("Creating AIAgent")
+        logger.info("Creating AIAgent with ToolRegistry")
 
         return AIAgent(
             promptExecutor = executor,
             llmModel = model,
-            systemPrompt = systemPrompt
+            systemPrompt = systemPrompt,
+            toolRegistry = toolRegistry
         )
     }
 }

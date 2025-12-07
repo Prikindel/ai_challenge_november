@@ -75,7 +75,9 @@ fun main(args: Array<String>) {
     val reviewsTools = com.prike.domain.tools.ReviewsTools(
         apiClient = reviewsApiClient,
         repository = reviewsRepository,
-        reviewsConfig = config.reviews
+        reviewsConfig = config.reviews,
+        telegramMCPClient = if (config.telegram.mcp.enabled) telegramMCPClient else null,
+        telegramConfig = if (config.telegram.mcp.enabled) config.telegram else null
     )
     
     // Инициализация Koog Agent Service с инструментами

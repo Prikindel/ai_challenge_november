@@ -1,9 +1,12 @@
 package com.prike.domain.tools
 
 import com.prike.config.ReviewsConfig
+import com.prike.config.TelegramConfig
+import com.prike.data.client.TelegramMCPClient
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.model.*
 import com.prike.infrastructure.client.ReviewsApiClient
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -18,7 +21,9 @@ import java.time.format.DateTimeFormatter
 class ReviewsTools(
     private val apiClient: ReviewsApiClient,
     private val repository: ReviewsRepository,
-    private val reviewsConfig: ReviewsConfig
+    private val reviewsConfig: ReviewsConfig,
+    private val telegramMCPClient: TelegramMCPClient?,
+    private val telegramConfig: TelegramConfig?
 ) {
     private val logger = LoggerFactory.getLogger(ReviewsTools::class.java)
     private val json = Json { 
@@ -205,6 +210,44 @@ class ReviewsTools(
         } catch (e: Exception) {
             logger.error("Error getting previous week stats: ${e.message}", e)
             json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("error", e.message ?: "Unknown error")
+            })
+        }
+    }
+
+    /**
+     * Отправляет сообщение в Telegram через MCP
+     * 
+     * @param message Текст сообщения для отправки
+     * @return JSON строка с результатом операции
+     */
+    suspend fun sendTelegramMessage(message: String): String {
+        return try {
+            if (telegramMCPClient == null || !telegramMCPClient.isConnected()) {
+                return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                    put("success", false)
+                    put("error", "Telegram MCP client is not connected")
+                })
+            }
+
+            // Получаем chatId из конфига
+            val chatId = telegramConfig?.chatId ?: run {
+                return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                    put("success", false)
+                    put("error", "Telegram chatId is not configured")
+                })
+            }
+            
+            val sent = telegramMCPClient.sendMessage(chatId, message)
+            
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", sent)
+                put("message", if (sent) "Message sent successfully" else "Failed to send message")
+            })
+        } catch (e: Exception) {
+            logger.error("Error sending Telegram message: ${e.message}", e)
+            json.encodeToString(JsonObject.serializer(), buildJsonObject {
+                put("success", false)
                 put("error", e.message ?: "Unknown error")
             })
         }
