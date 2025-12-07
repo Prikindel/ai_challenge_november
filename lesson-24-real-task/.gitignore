@@ -6,6 +6,9 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 
+# Классы получения отзывов (исходные файлы)
+server/src/main/kotlin/com/prike/infrastructure/client/ReviewsApiClient.kt
+
 # Build files
 server/build/
 server/.gradle/
