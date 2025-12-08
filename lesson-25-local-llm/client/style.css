@@ -1367,6 +1367,51 @@ select {
     margin-bottom: 8px;
 }
 
+.chat-llm-info {
+    background: #f0f7ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.llm-label {
+    font-weight: 600;
+    color: #0066cc;
+}
+
+.llm-value {
+    color: #333;
+    font-weight: 500;
+}
+
+.llm-status {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.llm-status.available {
+    background: #d4edda;
+    color: #155724;
+}
+
+.llm-status.unavailable {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.llm-status.local {
+    background: #fff3cd;
+    color: #856404;
+}
+
 .chat-git-info {
     padding: 10px 20px;
     background: #f0f4ff;

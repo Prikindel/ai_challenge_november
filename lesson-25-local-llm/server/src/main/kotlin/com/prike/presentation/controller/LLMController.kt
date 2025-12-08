@@ -51,6 +51,42 @@ class LLMController(
                     )
                 }
             }
+            
+            // Получение статуса LLM
+            get("/api/llm/status") {
+                try {
+                    val localLLMConfig = llmService.getLocalLLMConfig()
+                    val isLocalEnabled = localLLMConfig?.enabled == true
+                    val isLocalAvailable = if (isLocalEnabled) {
+                        kotlinx.coroutines.runBlocking {
+                            llmService.checkLocalLLMAvailability()
+                        }
+                    } else {
+                        false
+                    }
+                    
+                    call.respond(LLMStatusResponse(
+                        provider = llmService.getProviderInfo(),
+                        localLLM = if (localLLMConfig != null) {
+                            LocalLLMStatus(
+                                enabled = localLLMConfig.enabled,
+                                provider = localLLMConfig.provider,
+                                baseUrl = localLLMConfig.baseUrl,
+                                model = localLLMConfig.model,
+                                available = isLocalAvailable
+                            )
+                        } else {
+                            null
+                        }
+                    ))
+                } catch (e: Exception) {
+                    logger.error("LLM status error", e)
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to get LLM status: ${e.message}")
+                    )
+                }
+            }
         }
     }
 }
@@ -66,5 +102,20 @@ data class LLMChatResponse(
     val question: String,
     val answer: String,
     val tokensUsed: Int
+)
+
+@Serializable
+data class LLMStatusResponse(
+    val provider: String,
+    val localLLM: LocalLLMStatus?
+)
+
+@Serializable
+data class LocalLLMStatus(
+    val enabled: Boolean,
+    val provider: String,
+    val baseUrl: String,
+    val model: String,
+    val available: Boolean
 )
 

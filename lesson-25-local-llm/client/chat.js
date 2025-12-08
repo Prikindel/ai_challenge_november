@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Загружаем список сессий
     await loadSessions();
     
+    // Загружаем информацию о LLM провайдере
+    await loadLLMStatus();
+    
     // Загружаем информацию о git-ветке
     await loadGitBranch();
     
@@ -534,6 +537,58 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Загружает информацию о статусе LLM провайдера
+ */
+async function loadLLMStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/llm/status`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const llmProvider = document.getElementById('llmProvider');
+        const llmStatus = document.getElementById('llmStatus');
+        
+        if (llmProvider && llmStatus) {
+            // Отображаем информацию о провайдере
+            llmProvider.textContent = data.provider || 'Неизвестно';
+            
+            // Отображаем статус локальной LLM
+            if (data.localLLM) {
+                const localLLM = data.localLLM;
+                if (localLLM.enabled) {
+                    if (localLLM.available) {
+                        llmStatus.textContent = `✓ Локальная (${localLLM.model})`;
+                        llmStatus.className = 'llm-status available';
+                    } else {
+                        llmStatus.textContent = `⚠ Локальная недоступна`;
+                        llmStatus.className = 'llm-status unavailable';
+                    }
+                } else {
+                    llmStatus.textContent = 'OpenRouter';
+                    llmStatus.className = 'llm-status';
+                }
+            } else {
+                llmStatus.textContent = 'OpenRouter';
+                llmStatus.className = 'llm-status';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load LLM status:', error);
+        const llmProvider = document.getElementById('llmProvider');
+        const llmStatus = document.getElementById('llmStatus');
+        if (llmProvider) {
+            llmProvider.textContent = 'Ошибка загрузки';
+        }
+        if (llmStatus) {
+            llmStatus.textContent = '?';
+            llmStatus.className = 'llm-status unavailable';
+        }
+    }
 }
 
 /**

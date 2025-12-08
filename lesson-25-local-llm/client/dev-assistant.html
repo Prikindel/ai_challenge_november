@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔥 День 20. Ассистент разработчика</h1>
+            <h1>🔥 День 25. Локальная LLM</h1>
             <p>Ассистент разработчика с RAG и MCP интеграцией</p>
         </header>
         
@@ -40,6 +40,13 @@
                 
                 <!-- Основная область чата -->
                 <div class="chat-container">
+                    <!-- Информация о LLM провайдере -->
+                    <div class="chat-llm-info" id="llmInfo">
+                        <span class="llm-label">🤖 LLM:</span>
+                        <span class="llm-value" id="llmProvider">Загрузка...</span>
+                        <span class="llm-status" id="llmStatus"></span>
+                    </div>
+                    
                     <!-- Информация о git-ветке -->
                     <div class="chat-git-info" id="gitBranchInfo" style="display: none;">
                         <span class="git-branch-label">🌿 Ветка:</span>
