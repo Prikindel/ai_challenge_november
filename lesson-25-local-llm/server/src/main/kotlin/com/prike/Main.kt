@@ -39,12 +39,29 @@ fun main(args: Array<String>) {
     
     // Инициализация компонентов
     
-    // 1. LLM сервис (OpenRouter)
+    // 1. LLM сервис (OpenRouter или локальная LLM)
     val llmService = LLMService(
         aiConfig = config.ai,
+        localLLMConfig = config.localLLM,
         defaultTemperature = config.ai.temperature,
         defaultMaxTokens = config.ai.maxTokens
     )
+    
+    // Проверяем доступность локальной LLM при старте
+    if (config.localLLM?.enabled == true) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                val available = llmService.checkLocalLLMAvailability()
+                if (available) {
+                    logger.info("Local LLM is available: ${llmService.getProviderInfo()}")
+                } else {
+                    logger.warn("Local LLM is enabled but not available. Will fallback to OpenRouter.")
+                }
+            } catch (e: Exception) {
+                logger.warn("Failed to check local LLM availability: ${e.message}. Will fallback to OpenRouter.")
+            }
+        }
+    }
     
     // 2. PromptBuilder для формирования промптов с контекстом
     val promptBuilder = PromptBuilder()
