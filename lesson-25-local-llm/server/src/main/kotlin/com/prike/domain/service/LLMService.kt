@@ -228,7 +228,7 @@ class LLMService(
                 when (message.role) {
                     "system" -> {
                         if (!hasSystem) {
-                            append("System: ${message.content}\n\n")
+                        append("System: ${message.content}\n\n")
                             hasSystem = true
                         }
                     }

@@ -35,7 +35,7 @@ localLLM:
 
 rag:
   retrieval:
-    topK: 2
+    topK: 3
     minSimilarity: 0.4
   filter:
     enabled: true
