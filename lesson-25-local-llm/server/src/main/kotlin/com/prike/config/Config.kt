@@ -52,6 +52,18 @@ data class AIConfig(
 )
 
 /**
+ * Конфигурация локальной LLM (Ollama, LM Studio и др.)
+ */
+data class LocalLLMConfig(
+    val enabled: Boolean = false,
+    val provider: String = "ollama",  // ollama, lmstudio, llamacpp
+    val baseUrl: String = "http://localhost:11434",
+    val model: String = "llama3.2",
+    val apiPath: String = "/api/generate",  // для Ollama
+    val timeout: Long = 120000L
+)
+
+/**
  * Конфигурация поиска для RAG
  */
 data class RAGRetrievalConfig(
@@ -145,6 +157,7 @@ data class AppConfig(
     val knowledgeBase: KnowledgeBaseConfig,
     val indexing: IndexingConfig,
     val ai: AIConfig,
+    val localLLM: LocalLLMConfig? = null,
     val rag: RAGConfig = RAGConfig(),
     val chat: ChatConfig = ChatConfig(),
     val git: GitConfig = GitConfig()
@@ -287,12 +300,26 @@ object Config {
         )
         val git = GitConfig(mcp = gitMCP)
         
+        // Конфигурация локальной LLM
+        val localLLMMap = serverConfigMap["localLLM"] as? Map<String, Any>
+        val localLLM = localLLMMap?.let {
+            LocalLLMConfig(
+                enabled = (it["enabled"] as? Boolean) ?: false,
+                provider = resolveEnvVar(it["provider"] as? String ?: "ollama"),
+                baseUrl = resolveEnvVar(it["baseUrl"] as? String ?: "http://localhost:11434"),
+                model = resolveEnvVar(it["model"] as? String ?: "llama3.2"),
+                apiPath = it["apiPath"] as? String ?: "/api/generate",
+                timeout = (it["timeout"] as? Number)?.toLong() ?: 120000L
+            )
+        }
+        
         return AppConfig(
             server = server,
             ollama = ollama,
             knowledgeBase = knowledgeBase,
             indexing = indexing,
             ai = ai,
+            localLLM = localLLM,
             rag = rag,
             chat = chat,
             git = git

@@ -24,6 +24,15 @@ ai:
   temperature: 0.7
   maxTokens: 2000
 
+# Конфигурация локальной LLM (Ollama, LM Studio и др.)
+localLLM:
+  enabled: false  # Включить локальную LLM вместо OpenRouter
+  provider: "ollama"  # ollama, lmstudio, llamacpp
+  baseUrl: "http://localhost:11434"  # URL локальной LLM
+  model: "llama3.2"  # Модель для генерации текста (не эмбеддинги!)
+  apiPath: "/api/generate"  # Путь API для генерации (для Ollama)
+  timeout: 120000  # Таймаут в миллисекундах
+
 rag:
   retrieval:
     topK: 5
