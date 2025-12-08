@@ -9,9 +9,10 @@ import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 
 /**
@@ -63,6 +64,7 @@ class LocalLLMClient(
         val targetModel = model ?: defaultModel
         
         logger.debug("Generating response from local LLM (model: $targetModel, prompt length: ${prompt.length})")
+        logger.debug("Prompt preview: ${prompt.take(200)}...")
         
         return try {
             val request = OllamaGenerateRequest(
@@ -77,6 +79,7 @@ class LocalLLMClient(
             
             val response = client.post("$baseUrl/api/generate") {
                 header(HttpHeaders.ContentType, ContentType.Application.Json)
+                header(HttpHeaders.Accept, ContentType.Application.Json.toString())
                 setBody(request)
             }
             
@@ -89,13 +92,61 @@ class LocalLLMClient(
                 )
             }
             
-            val generateResponse = response.body<OllamaGenerateResponse>()
+            // Ollama может возвращать application/x-ndjson (newline-delimited JSON)
+            // даже когда stream: false, поэтому читаем как текст и парсим все строки
+            val responseText = response.bodyAsText()
+            logger.debug("Ollama raw response (first 500 chars): ${responseText.take(500)}")
             
-            if (!generateResponse.done) {
-                logger.warn("Local LLM response not done, but stream is false")
+            val generateResponse = try {
+                // Парсим все строки NDJSON и собираем полный ответ
+                val lines = responseText.lines().filter { it.isNotBlank() }
+                if (lines.isEmpty()) {
+                    throw LocalLLMException("Пустой ответ от Ollama")
+                }
+                
+                // Собираем все части ответа из всех строк
+                val fullResponse = StringBuilder()
+                var isDone = false
+                var lastModel = ""
+                
+                for (line in lines) {
+                    try {
+                        val jsonResponse = Json.decodeFromString<OllamaGenerateResponse>(line)
+                        fullResponse.append(jsonResponse.response)
+                        isDone = jsonResponse.done
+                        lastModel = jsonResponse.model
+                        
+                        if (isDone) {
+                            break
+                        }
+                    } catch (e: Exception) {
+                        logger.warn("Failed to parse line: $line, error: ${e.message}")
+                        // Продолжаем обработку других строк
+                    }
+                }
+                
+                val finalResponse = fullResponse.toString()
+                if (finalResponse.isEmpty()) {
+                    throw LocalLLMException("Пустой ответ после парсинга всех строк")
+                }
+                
+                if (!isDone) {
+                    logger.warn("Local LLM response not done after parsing all lines, but using collected response")
+                }
+                
+                OllamaGenerateResponse(
+                    model = lastModel.ifEmpty { targetModel },
+                    response = finalResponse,
+                    done = isDone
+                )
+            } catch (e: LocalLLMException) {
+                throw e
+            } catch (e: Exception) {
+                logger.error("Failed to parse Ollama response: $responseText", e)
+                throw LocalLLMException("Не удалось распарсить ответ от Ollama: ${e.message}", e)
             }
             
-            logger.debug("Local LLM response generated (length: ${generateResponse.response.length})")
+            logger.debug("Local LLM response generated (length: ${generateResponse.response.length}, done: ${generateResponse.done})")
             generateResponse.response
         } catch (e: LocalLLMException) {
             throw e
@@ -133,10 +184,11 @@ class LocalLLMClient(
         return try {
             val response = client.get("$baseUrl/api/tags")
             if (response.status.isSuccess()) {
-                val json = Json.parseToJsonElement(response.bodyAsText())
-                val models = json.jsonObject["models"]?.jsonArray
-                models?.mapNotNull { 
-                    it.jsonObject["name"]?.jsonPrimitive?.content 
+                val responseText = response.bodyAsText()
+                val json = Json.parseToJsonElement(responseText)
+                val models = (json as? JsonObject)?.get("models") as? JsonArray
+                models?.mapNotNull { modelElement ->
+                    (modelElement as? JsonObject)?.get("name")?.jsonPrimitive?.content
                 } ?: emptyList()
             } else {
                 emptyList()

@@ -186,7 +186,23 @@ class RequestRouterService(
 ВАЖНО для MCP_TOOL:
 - Для list_directory: toolArguments = {"path": "путь_к_директории"}
 - Для read_file: toolArguments = {"path": "путь_к_файлу"}
-- НЕ используй action = "DIRECT_ANSWER" если нужно вызвать инструмент - используй "MCP_TOOL"!"""
+- Для get_current_branch: toolArguments = {} (пустой объект)
+- НЕ используй action = "DIRECT_ANSWER" если нужно вызвать инструмент - используй "MCP_TOOL"!
+- Имя инструмента (toolName) должно точно совпадать с одним из доступных инструментов из списка выше
+
+Примеры правильных ответов:
+
+Вопрос: "Какие файлы в project/docs?"
+Ответ: {"action": "MCP_TOOL", "toolName": "list_directory", "toolArguments": {"path": "project/docs"}, "reasoning": "Нужно получить список файлов в директории"}
+
+Вопрос: "Что такое MCP?"
+Ответ: {"action": "RAG_SEARCH", "toolName": null, "toolArguments": null, "reasoning": "Общий вопрос о проекте, нужен поиск по документации"}
+
+Вопрос: "Покажи содержимое project/docs/api.md"
+Ответ: {"action": "MCP_TOOL", "toolName": "read_file", "toolArguments": {"path": "project/docs/api.md"}, "reasoning": "Нужно прочитать конкретный файл"}
+
+Вопрос: "Какая сейчас ветка git?"
+Ответ: {"action": "MCP_TOOL", "toolName": "get_current_branch", "toolArguments": {}, "reasoning": "Нужно узнать текущую ветку git"}"""
     }
     
     /**
@@ -210,8 +226,12 @@ $toolsDescription
         availableTools: List<MCPTool>
     ): RoutingDecision {
         return try {
+            // Логируем полный ответ для отладки
+            logger.debug("Parsing routing decision from LLM response (length: ${llmResponse.length}): ${llmResponse.take(500)}")
+            
             // Извлекаем JSON из ответа (может быть обернут в markdown код)
             val jsonText = extractJsonFromResponse(llmResponse)
+            logger.debug("Extracted JSON text: $jsonText")
             val json = json.parseToJsonElement(jsonText)
             
             if (json !is JsonObject) {
@@ -233,30 +253,22 @@ $toolsDescription
                 }
             }
             
-            // Если action = DIRECT_ANSWER, но указан toolName, меняем на MCP_TOOL
-            val action = if (rawAction == ActionType.DIRECT_ANSWER) {
-                val toolNameElement = json["toolName"]
-                val hasToolName = when (toolNameElement) {
-                    is JsonPrimitive -> toolNameElement.content.isNotEmpty()
-                    is JsonNull, null -> false
-                    else -> false
-                }
-                
-                if (hasToolName) {
-                    logger.debug("DIRECT_ANSWER with toolName detected, changing to MCP_TOOL")
-                    ActionType.MCP_TOOL
-                } else {
-                    rawAction
-                }
-            } else {
-                rawAction
-            }
-            
             // Обрабатываем toolName (может быть null или JsonNull)
             val toolName = when (val toolNameElement = json["toolName"]) {
-                is JsonPrimitive -> toolNameElement.content
+                is JsonPrimitive -> {
+                    val content = toolNameElement.content.trim()
+                    if (content.isEmpty() || content == "null") null else content
+                }
                 is JsonNull, null -> null
                 else -> null
+            }
+            
+            // Если action = DIRECT_ANSWER, но указан toolName, меняем на MCP_TOOL
+            val action = if (rawAction == ActionType.DIRECT_ANSWER && toolName != null) {
+                logger.debug("DIRECT_ANSWER with toolName detected, changing to MCP_TOOL")
+                ActionType.MCP_TOOL
+            } else {
+                rawAction
             }
             
             // Обрабатываем toolArguments (может быть null или JsonNull)
@@ -281,10 +293,11 @@ $toolsDescription
                 // Проверяем, что инструмент существует
                 val toolExists = availableTools.any { it.name == toolName }
                 if (!toolExists) {
-                    logger.warn("Tool $toolName not found, falling back to RAG_SEARCH")
+                    val availableToolNames = availableTools.map { it.name }.joinToString(", ")
+                    logger.warn("Tool '$toolName' not found. Available tools: $availableToolNames. Falling back to RAG_SEARCH")
                     return RoutingDecision(
                         action = ActionType.RAG_SEARCH,
-                        reasoning = "Tool $toolName not found"
+                        reasoning = "Tool $toolName not found. Available: $availableToolNames"
                     )
                 }
             }

@@ -35,14 +35,14 @@ localLLM:
 
 rag:
   retrieval:
-    topK: 5
+    topK: 2
     minSimilarity: 0.4
   filter:
     enabled: true
     type: "reranker"   # "none" | "threshold" | "reranker" | "hybrid"
     threshold:
       minSimilarity: 0.6
-      keepTop: 3
+      keepTop: 1
     reranker:
       model: "gpt-4o-mini"
       maxChunks: 6

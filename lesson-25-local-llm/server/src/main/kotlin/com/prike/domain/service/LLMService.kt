@@ -17,7 +17,7 @@ import kotlinx.serialization.json.*
  * Использует SimpleLLMAgent (BaseAgent) для соответствия архитектуре других уроков
  */
 class LLMService(
-    aiConfig: AIConfig,
+    private val aiConfig: AIConfig,
     localLLMConfig: LocalLLMConfig? = null,
     private val defaultTemperature: Double = 0.7,
     private val defaultMaxTokens: Int = 2000
@@ -281,8 +281,45 @@ class LLMService(
             throw IllegalArgumentException("Messages cannot be empty")
         }
         
-        logger.debug("Generating structured JSON answer with ${messages.size} messages")
+        logger.info("Generating structured JSON answer with ${messages.size} messages (useLocalLLM: $useLocalLLM)")
         
+        // Если локальная LLM включена, пытаемся использовать её
+        if (useLocalLLM && localLLMClient != null) {
+            try {
+                // Проверяем доступность локальной LLM
+                val isAvailable = localLLMClient.checkAvailability()
+                if (!isAvailable) {
+                    logger.warn("Local LLM not available, falling back to OpenAI")
+                    throw LocalLLMException("Local LLM not available", null)
+                }
+                
+                // Формируем промпт с инструкцией о JSON формате
+                val prompt = buildPromptFromMessages(messages) + "\n\nВАЖНО: Верни ТОЛЬКО валидный JSON объект без дополнительного текста или markdown разметки."
+                
+                logger.info("Using local LLM for structured JSON generation (routing decision)")
+                val answer = localLLMClient.generate(
+                    prompt = prompt,
+                    temperature = temperature
+                )
+                
+                // Для локальной LLM токены не всегда доступны, используем приблизительную оценку
+                val estimatedTokens = answer.length / 4 // Примерная оценка: 1 токен ≈ 4 символа
+                
+                return LLMResponse(
+                    answer = answer.trim(),
+                    tokensUsed = estimatedTokens
+                )
+            } catch (e: LocalLLMException) {
+                logger.warn("Local LLM failed for structured JSON, falling back to OpenAI: ${e.message}")
+                // Продолжаем к fallback на OpenAI
+            } catch (e: Exception) {
+                logger.error("Local LLM error for structured JSON: ${e.message}, falling back to OpenAI", e)
+                // Продолжаем к fallback на OpenAI
+            }
+        }
+        
+        // Fallback на OpenAI (если локальная LLM не используется или произошла ошибка)
+        logger.info("Using OpenAI for structured JSON generation (routing decision) - local LLM not available or failed")
         return try {
             // Используем JSON mode для структурированного ответа
             val responseFormat = kotlinx.serialization.json.buildJsonObject {
@@ -321,7 +358,7 @@ class LLMService(
         return if (useLocalLLM && localLLMConfigValue != null) {
             "local (${localLLMConfigValue.provider}: ${localLLMConfigValue.model})"
         } else {
-            "openrouter (${openAIClient.model})"
+            "openrouter (${aiConfig.model})"
         }
     }
     

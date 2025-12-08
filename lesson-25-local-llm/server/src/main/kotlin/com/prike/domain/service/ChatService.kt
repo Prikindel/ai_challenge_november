@@ -347,6 +347,10 @@ class ChatService(
             }
         }
         
+        // Логируем ответ для отладки citations
+        logger.debug("LLM answer (first 500 chars): ${llmResponse.answer.take(500)}")
+        logger.debug("Available documents for citations: ${availableDocumentsMap.keys.take(5).joinToString(", ")}")
+        
         val answerWithCitations = citationParser.parseCitations(
             rawAnswer = llmResponse.answer,
             availableDocuments = availableDocumentsMap
@@ -356,12 +360,12 @@ class ChatService(
         val validatedCitations = answerWithCitations.citations.filter { citation ->
             val isValid = citationParser.validateCitation(citation, availableDocumentsPaths)
             if (!isValid) {
-                logger.warn("Invalid citation detected: ${citation.documentPath} (not in context)")
+                logger.warn("Invalid citation detected: ${citation.documentPath} (not in context). Available paths: ${availableDocumentsPaths.take(3).joinToString(", ")}")
             }
             isValid
         }
         
-        logger.debug("Parsed ${answerWithCitations.citations.size} citations, ${validatedCitations.size} are valid")
+        logger.info("Parsed ${answerWithCitations.citations.size} citations, ${validatedCitations.size} are valid")
         
         val finalAnswer = answerWithCitations.answer
         val finalCitations = validatedCitations
