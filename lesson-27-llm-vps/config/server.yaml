@@ -1,0 +1,80 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+ollama:
+  baseUrl: "http://localhost:11434"  # URL Ollama сервера
+  model: "nomic-embed-text"          # Модель для эмбеддингов
+  timeout: 120000                    # Таймаут в миллисекундах (2 минуты для больших текстов)
+
+knowledgeBase:
+  databasePath: "data/knowledge_base.db"  # Путь к базе знаний
+  
+indexing:
+  chunkSize: 300      # Размер чанка в токенах (уменьшено для стабильности Ollama)
+  overlapSize: 50     # Перекрытие между чанками в токенах
+  documentsPath: "documents"  # Папка с документами для индексации
+  projectDocsPath: "project/docs"  # Папка с документацией проекта
+  projectReadmePath: "project/README.md"  # Путь к корневому README проекта
+
+ai:
+  provider: "openrouter"
+  apiKey: "${OPENAI_API_KEY}"  # берётся из .env
+  model: "gpt-4o-mini"  # модель для генерации ответов
+  temperature: 0.7
+  maxTokens: 2000
+
+# Конфигурация локальной LLM (Ollama, LM Studio и др.)
+localLLM:
+  enabled: true  # Включить локальную LLM вместо OpenRouter
+  provider: "ollama"  # ollama, lmstudio, llamacpp
+  baseUrl: "https://185.31.165.227"  # URL VPS LLM
+  model: "llama3.2"  # Модель для генерации текста (не эмбеддинги!)
+  apiPath: "/api/generate"  # Путь API для генерации (для Ollama)
+  timeout: 120000  # Таймаут в миллисекундах
+  auth:
+    type: "basic"       # basic auth для VPS
+    user: "user"        # имя пользователя для basic auth
+    password: "mypassword123"  # пароль для basic auth
+    token: ""           # не используется для basic auth
+
+# Пример конфигурации для локальной LLM (без авторизации):
+# localLLM:
+#   enabled: true
+#   provider: "ollama"
+#   baseUrl: "http://localhost:11434"  # локальный адрес
+#   model: "llama3.2"
+#   apiPath: "/api/generate"
+#   timeout: 120000
+#   # auth не требуется для локальной LLM
+
+rag:
+  retrieval:
+    topK: 3
+    minSimilarity: 0.4
+  filter:
+    enabled: true
+    type: "reranker"   # "none" | "threshold" | "reranker" | "hybrid"
+    threshold:
+      minSimilarity: 0.6
+      keepTop: 1
+    reranker:
+      model: "gpt-4o-mini"
+      maxChunks: 6
+      systemPrompt: "Ты — reranker. Оцени релевантность каждого чанка вопросу."
+  mcp:
+    enabled: true        # Включить RAG MCP сервер
+    jarPath: "rag-mcp-server/build/libs/rag-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
+
+chat:
+  history:
+    maxMessages: 10      # Максимальное количество сообщений в истории (sliding window)
+    maxTokens: 2000       # Максимальное количество токенов для истории диалога
+    strategy: "sliding"    # Стратегия оптимизации: "sliding" | "token_limit" | "none"
+
+git:
+  mcp:
+    enabled: true        # Включить Git MCP сервер
+    jarPath: "git-mcp-server/build/libs/git-mcp-server-1.0.0.jar"  # Путь к JAR файлу (null для запуска через Gradle)
+    cacheDurationMinutes: 5  # Время жизни кэша для git branch
+

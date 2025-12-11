@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Простой чат с локальной LLM</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .simple-chat-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .simple-chat-messages {
+            height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .message.user {
+            background: #e3f2fd;
+            text-align: right;
+        }
+        .message.assistant {
+            background: #f5f5f5;
+        }
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .simple-chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        .simple-chat-input textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            min-height: 60px;
+        }
+        .simple-chat-input button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .simple-chat-input button:hover {
+            background: #1976D2;
+        }
+        .simple-chat-input button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .llm-status {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+        }
+        .llm-status.unavailable {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 25. Простой чат с локальной LLM</h1>
+            <p>Прямой чат без RAG и MCP</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="simple-chat.html" class="tab active">Простой чат</a>
+                <a href="dev-assistant.html" class="tab">Ассистент (RAG+MCP)</a>
+            </nav>
+            
+            <div class="simple-chat-container">
+                <!-- Статус LLM -->
+                <div class="llm-status" id="llmStatus">
+                    <strong>🤖 LLM:</strong> <span id="llmProvider">Загрузка...</span>
+                </div>
+                
+                <!-- Область сообщений -->
+                <div class="simple-chat-messages" id="messages">
+                    <div class="message assistant">
+                        <div class="message-header">Ассистент</div>
+                        <div>Привет! Я простой чат-бот на локальной LLM. Задайте мне любой вопрос!</div>
+                    </div>
+                </div>
+                
+                <!-- Область ввода -->
+                <div class="simple-chat-input">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Введите ваше сообщение..."
+                        rows="3"
+                    ></textarea>
+                    <button id="sendButton" onclick="sendMessage()">Отправить</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Marked.js для рендеринга Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="simple-chat.js"></script>
+</body>
+</html>
+
