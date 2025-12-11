@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оптимизация LLM параметров</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .optimization-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .settings-panel {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .settings-section {
+            margin-bottom: 30px;
+        }
+        .settings-section h3 {
+            margin-top: 0;
+            color: #2196F3;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input[type="number"],
+        .form-group input[type="text"],
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .current-settings {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .current-settings h4 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        .current-settings code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 День 28. Оптимизация LLM параметров</h1>
+            <p>Настройка параметров модели и выбор шаблонов промптов</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Главная</a>
+                <a href="simple-chat.html" class="tab">Простой чат</a>
+                <a href="optimization.html" class="tab active">Оптимизация</a>
+            </nav>
+            
+            <div class="optimization-container">
+                <!-- Текущие настройки -->
+                <div class="current-settings" id="currentSettings">
+                    <h4>Текущие настройки</h4>
+                    <div id="currentSettingsContent">Загрузка...</div>
+                </div>
+                
+                <!-- Панель настроек -->
+                <div class="settings-panel">
+                    <h2>Параметры LLM</h2>
+                    
+                    <div class="settings-section">
+                        <h3>Основные параметры</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="temperature">Temperature (0.0-2.0)</label>
+                                <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                                <small>Креативность: 0.0=детерминированный, 2.0=креативный</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="maxTokens">Max Tokens</label>
+                                <input type="number" id="maxTokens" min="128" max="8192" step="128" value="2048">
+                                <small>Максимальная длина ответа</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="contextWindow">Context Window</label>
+                                <input type="number" id="contextWindow" min="2048" max="32768" step="2048" value="4096">
+                                <small>Размер контекстного окна</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="seed">Seed (опционально)</label>
+                                <input type="number" id="seed" min="0" placeholder="Не указан">
+                                <small>Для воспроизводимости результатов</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>Дополнительные параметры</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="topP">Top-P (0.0-1.0)</label>
+                                <input type="number" id="topP" min="0" max="1" step="0.05" value="0.9">
+                                <small>Nucleus sampling</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="topK">Top-K</label>
+                                <input type="number" id="topK" min="1" max="100" value="40">
+                                <small>Top-k sampling</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="repeatPenalty">Repeat Penalty</label>
+                            <input type="number" id="repeatPenalty" min="1.0" max="2.0" step="0.1" value="1.1">
+                            <small>Штраф за повторения (больше = меньше повторений)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>Шаблон промпта</h3>
+                        <div class="form-group">
+                            <label for="templateId">Выберите шаблон</label>
+                            <select id="templateId">
+                                <option value="">Загрузка...</option>
+                            </select>
+                            <small id="templateDescription"></small>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button onclick="saveSettings()">Сохранить настройки</button>
+                        <button onclick="resetSettings()">Сбросить к умолчанию</button>
+                    </div>
+                </div>
+                
+                <!-- Панель тестирования -->
+                <div class="settings-panel" style="margin-top: 30px;">
+                    <h2>Тестирование</h2>
+                    
+                    <div class="settings-section">
+                        <h3>Запуск теста</h3>
+                        <div class="form-group">
+                            <label for="testSelect">Выберите тест</label>
+                            <select id="testSelect">
+                                <option value="">Загрузка...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button onclick="runTest()" id="runTestButton">Запустить тест</button>
+                            <button onclick="compareResults()" id="compareButton" disabled>Сравнить результаты</button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>Результаты теста</h3>
+                        <div id="testResults"></div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>История тестов</h3>
+                        <div id="testHistory"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="optimization.js"></script>
+    <script src="testing.js"></script>
+</body>
+</html>
+
