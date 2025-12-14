@@ -3,8 +3,10 @@ package com.prike
 import com.prike.config.Config
 import com.prike.data.DatabaseManager
 import com.prike.data.repository.DataRepository
+import com.prike.domain.service.DataAnalysisService
 import com.prike.domain.service.LLMService
 import com.prike.domain.service.PromptTemplateService
+import com.prike.presentation.controller.AnalysisController
 import com.prike.presentation.controller.ClientController
 import com.prike.presentation.controller.DataController
 import io.ktor.server.application.*
@@ -15,6 +17,7 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -50,9 +53,17 @@ fun main(args: Array<String>) {
         localLLMConfig = config.localLLM,
         promptTemplateService = promptTemplateService
     )
+    val dataAnalysisService = DataAnalysisService(
+        dataRepository = dataRepository,
+        llmService = llmService
+    )
     
     // Инициализация контроллеров
     val dataController = DataController(dataRepository)
+    val analysisController = AnalysisController(
+        dataAnalysisService = dataAnalysisService,
+        dataRepository = dataRepository
+    )
     
     // Статический контент для UI
     val clientDir = File(lessonRoot, "client")
@@ -90,6 +101,9 @@ fun main(args: Array<String>) {
             
             // API маршруты для работы с данными
             dataController.registerRoutes(this)
+            
+            // API маршруты для аналитических вопросов
+            analysisController.registerRoutes(this)
         }
     }.start(wait = true)
 }

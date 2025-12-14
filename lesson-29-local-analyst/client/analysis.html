@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ данных - Локальный аналитик</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Анализ данных</h1>
+            <p class="subtitle">Задавайте аналитические вопросы на естественном языке</p>
+        </header>
+        
+        <main>
+            <nav class="tabs">
+                <a href="index.html" class="tab">Загрузка данных</a>
+                <a href="analysis.html" class="tab active">Анализ</a>
+            </nav>
+            
+            <section class="analysis-section">
+                <div class="question-input">
+                    <h2>Ваш вопрос</h2>
+                    <div class="filter-group">
+                        <label for="sourceFilter">Фильтр по категории:</label>
+                        <select id="sourceFilter">
+                            <option value="reviews">Все отзывы</option>
+                            <option value="positive">Положительные (POSITIVE)</option>
+                            <option value="negative">Отрицательные (NEGATIVE)</option>
+                            <option value="neutral">Нейтральные (NEUTRAL)</option>
+                        </select>
+                    </div>
+                    
+                    <textarea id="questionInput" placeholder="Например: Какая ошибка встречается чаще всего?"></textarea>
+                    
+                    <div class="example-questions">
+                        <h3>Примеры вопросов:</h3>
+                        <div class="example-buttons">
+                            <button class="example-btn" onclick="setQuestion('Какая категория отзывов встречается чаще всего?')">
+                                Какая категория отзывов встречается чаще всего?
+                            </button>
+                            <button class="example-btn" onclick="setQuestion('Какие темы чаще всего упоминаются в отрицательных отзывах?')">
+                                Какие темы чаще всего упоминаются в отрицательных отзывах?
+                            </button>
+                            <button class="example-btn" onclick="setQuestion('Какой средний рейтинг отзывов?')">
+                                Какой средний рейтинг отзывов?
+                            </button>
+                            <button class="example-btn" onclick="setQuestion('Какие топ-5 проблем по частоте в отзывах?')">
+                                Какие топ-5 проблем по частоте в отзывах?
+                            </button>
+                            <button class="example-btn" onclick="setQuestion('Есть ли сезонность в отзывах?')">
+                                Есть ли сезонность в отзывах?
+                            </button>
+                            <button class="example-btn" onclick="setQuestion('Какие отзывы имеют высокую критичность?')">
+                                Какие отзывы имеют высокую критичность?
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button onclick="askQuestion()" class="btn btn-primary" id="askBtn">
+                        Задать вопрос
+                    </button>
+                </div>
+                
+                <div id="answerSection" class="answer-section" style="display: none;">
+                    <h2>Ответ</h2>
+                    <div id="answer" class="answer-content"></div>
+                </div>
+                
+                <div id="loading" class="loading" style="display: none;">
+                    <p>Анализирую данные...</p>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 AI Challenge November</p>
+        </footer>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

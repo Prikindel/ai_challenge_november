@@ -81,3 +81,14 @@ tasks.named<JavaExec>("run") {
     workingDir = file(".")
 }
 
+// Задача для создания fat JAR файла со всеми зависимостями
+tasks.jar {
+    archiveBaseName.set("lesson-29-local-analyst-server")
+    manifest {
+        attributes["Main-Class"] = "com.prike.MainKt"
+    }
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}
+

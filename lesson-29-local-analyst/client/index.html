@@ -3,54 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Анализатор отзывов - День 24</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Локальный аналитик данных - День 29</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔥 День 24. Реальная задача</h1>
-            <p class="subtitle">Анализатор отзывов с недельным сравнением</p>
+            <h1>📊 День 29. Локальный аналитик данных</h1>
+            <p class="subtitle">Анализ CSV, JSON и логов через локальную LLM</p>
         </header>
         
         <main>
-            <div class="main-content-wrapper">
-                <nav class="tabs">
-                    <a href="index.html" class="tab active">Главная</a>
-                    <a href="chat.html" class="tab">Чат</a>
-                    <a href="reviews-analysis.html" class="tab">Анализ отзывов</a>
-                </nav>
-                
-            <section class="intro">
-                <h2>Добро пожаловать!</h2>
-                <p>
-                    Это система анализа отзывов из мобильных сторов с автоматическим сравнением недель 
-                    и выявлением улучшений/ухудшений.
-                </p>
-                
-                <h3>Возможности:</h3>
-                <ul>
-                    <li>✅ Сбор отзывов с Company Mobile Stores API</li>
-                    <li>✅ Классификация отзывов через LLM (Koog)</li>
-                    <li>✅ Сравнение текущей недели с предыдущей</li>
-                    <li>✅ Выявление улучшений и ухудшений</li>
-                    <li>✅ Генерация отчёта с анализом</li>
-                    <li>✅ Отправка отчёта в Telegram через MCP</li>
-                </ul>
-                
-                <div class="actions">
-                    <a href="/reviews-analysis.html" class="btn btn-primary">
-                        Начать анализ отзывов
-                    </a>
+            <nav class="tabs">
+                <a href="index.html" class="tab active">Данные</a>
+                <a href="analysis.html" class="tab">Анализ</a>
+            </nav>
+            
+            <section class="data-source-section">
+                <h2>Источник данных</h2>
+                <div class="info-box">
+                    <p><strong>Используется база данных из урока 24</strong></p>
+                    <p>Аналитик работает с данными отзывов из БД урока 24 (review_summaries).</p>
+                    <p>Данные включают: рейтинги, категории, темы, критичность отзывов.</p>
                 </div>
             </section>
-            </div>
+            
+            <section class="stats-section">
+                <h2>Статистика данных</h2>
+                <div id="stats" class="stats-container">
+                    <p>Загрузка статистики...</p>
+                </div>
+                <button onclick="loadStats()" class="btn btn-secondary">Обновить статистику</button>
+            </section>
         </main>
         
         <footer>
             <p>&copy; 2024 AI Challenge November</p>
         </footer>
     </div>
+    
+    <script src="app.js"></script>
 </body>
 </html>
-

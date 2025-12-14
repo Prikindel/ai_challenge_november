@@ -3,7 +3,7 @@ server:
   host: "0.0.0.0"
 
 database:
-  path: "data/analyst.db"
+  path: "../lesson-24-real-task/data/reviews.db"  # Используем БД из урока 24
 
 ollama:
   baseUrl: "http://localhost:11434"  # URL Ollama сервера
