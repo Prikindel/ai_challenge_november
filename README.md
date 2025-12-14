@@ -134,4 +134,5 @@ cp -r lesson-00-project-template lesson-XX-description
 - [lesson-25-local-llm](./lesson-25-local-llm/) — запустить локальную модель: установка и запуск локальной LLM (Ollama, LM Studio, LLaMA, Mistral, Phi, Qwen), проверка доступности через CLI/API, интеграция в существующий чат вместо внешнего API
 - [lesson-27-llm-vps](./lesson-27-llm-vps/) — локальная LLM на VPS: развертывание локальной LLM на VPS, настройка реверс-прокси с HTTPS и авторизацией, подключение клиента к удалённой LLM
 - [lesson-28-llm-optimization](./lesson-28-llm-optimization/) — оптимизация и адаптация локальной LLM: изменение параметров модели (temperature, maxTokens, contextWindow), настройка prompt-шаблонов, тестирование и сравнение результатов для нахождения оптимальных параметров
+- [lesson-29-local-analyst](./lesson-29-local-analyst/) — локальный аналитик: анализ данных (CSV, JSON, логи) через локальную LLM на VPS, ответы на аналитические вопросы ("какая ошибка чаще всего?", "где больше всего пользователей теряется?") полностью локально
 - [lesson-27-llm-vps](./lesson-27-llm-vps/) — локальная LLM на VPS: поднять LLM на удалённой машине, закрыть за HTTPS+auth и подключить клиент
