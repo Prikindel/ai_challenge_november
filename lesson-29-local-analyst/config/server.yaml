@@ -1,0 +1,34 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+database:
+  path: "data/analyst.db"
+
+ollama:
+  baseUrl: "http://localhost:11434"  # URL Ollama сервера
+  model: "nomic-embed-text"          # Модель для эмбеддингов
+  timeout: 120000                    # Таймаут в миллисекундах (2 минуты для больших текстов)
+
+# Конфигурация локальной LLM (Ollama, LM Studio и др.)
+localLLM:
+  enabled: true  # Включить локальную LLM вместо OpenRouter
+  provider: "ollama"  # ollama, lmstudio, llamacpp
+  baseUrl: "https://185.31.165.227"  # URL VPS LLM
+  model: "llama3.2"  # Модель для генерации текста (не эмбеддинги!)
+  apiPath: "/api/generate"  # Путь API для генерации (для Ollama)
+  timeout: 120000  # Таймаут в миллисекундах
+  auth:
+    type: "basic"       # basic auth для VPS
+    user: "user"        # имя пользователя для basic auth
+    password: "mypassword123"  # пароль для basic auth
+    token: ""           # не используется для basic auth
+  parameters:
+    temperature: 0.3        # Низкая для точного анализа
+    maxTokens: 2048        # максимальная длина ответа
+    topP: 0.9              # nucleus sampling
+    topK: 40               # top-k sampling
+    repeatPenalty: 1.1     # штраф за повторения
+    contextWindow: 4096    # размер контекстного окна
+    seed: null             # seed для воспроизводимости (null = случайный)
+

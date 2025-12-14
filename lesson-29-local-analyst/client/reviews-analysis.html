@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ отзывов - День 24</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Анализ отзывов</h1>
+            <p class="subtitle">Сравнение недель и выявление трендов</p>
+        </header>
+        
+        <main>
+            <div class="main-content-wrapper">
+                <nav class="tabs">
+                    <a href="index.html" class="tab">Главная</a>
+                    <a href="chat.html" class="tab">Чат</a>
+                    <a href="reviews-analysis.html" class="tab active">Анализ отзывов</a>
+                </nav>
+                
+                <section class="analysis-section">
+                    <div class="section-header">
+                        <h2>🔍 Запуск анализа</h2>
+                        <p class="section-description">Укажите период для анализа или оставьте пустым для автоматического определения текущей недели.</p>
+                    </div>
+                
+                    <form id="analysisForm" class="analysis-form">
+                        <div class="form-row">
+                    <div class="form-group">
+                                <label for="fromDate">
+                                    <span class="label-icon">📅</span>
+                                    Начало недели (опционально)
+                                </label>
+                                <input type="date" id="fromDate" name="fromDate" class="form-input">
+                    </div>
+                    
+                    <div class="form-group">
+                                <label for="toDate">
+                                    <span class="label-icon">📅</span>
+                                    Конец недели (опционально)
+                                </label>
+                                <input type="date" id="toDate" name="toDate" class="form-input">
+                            </div>
+                    </div>
+                    
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <span style="margin-right: 8px;">🚀</span>
+                                Анализировать
+                            </button>
+                        </div>
+                </form>
+            </section>
+            
+            <section id="loadingSection" class="hidden">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <p class="loading-text">Анализ выполняется, пожалуйста, подождите...</p>
+                </div>
+            </section>
+            
+                <section id="resultsSection" class="hidden results-section">
+                    <div class="section-header">
+                        <h2>📈 Результаты анализа</h2>
+                    </div>
+                    <div id="resultsContent" class="results-content">
+                <!-- Результаты будут добавлены динамически -->
+                    </div>
+            </section>
+            
+            <section id="errorSection" class="hidden">
+                    <div class="error-container">
+                        <div class="error-icon">⚠️</div>
+                        <p id="errorMessage" class="error-message"></p>
+                </div>
+            </section>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 AI Challenge November</p>
+        </footer>
+    </div>
+    
+    <!-- Marked.js для рендеринга Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="reviews-analysis.js"></script>
+</body>
+</html>
+
