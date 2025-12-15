@@ -1,0 +1,49 @@
+## Задача
+Добавить персонализацию агенту, чтобы он знал пользователя, его привычки, предпочтения и стиль работы. Персонализация настраивается через конфиг и влияет на поведение агента.
+
+## Требования
+- Модель профиля пользователя (UserProfile) с предпочтениями, стилем работы, контекстом
+- Конфигурация профиля через YAML (config/user-profile.yaml)
+- Репозиторий и сервис для работы с профилем
+- Интеграция персонализации в LLMService (персонализация промптов)
+- Адаптация шаблонов промптов под профиль
+- UI для настройки профиля
+- Форматирование ответов под предпочтения пользователя
+- История взаимодействий для обучения (опционально)
+
+## План (коммиты)
+1) Копирование структуры из lesson-29-local-analyst или lesson-24-real-task, обновление названий
+2) Модель профиля: UserProfile, UserPreferences, WorkStyle, CommunicationStyle, UserContext
+3) Репозиторий и сервис: UserProfileRepository, UserProfileService, загрузка из конфига
+4) Интеграция в LLMService: использование профиля для персонализации промптов, настройка параметров
+5) Персонализированные шаблоны: адаптация PromptTemplateService под профиль
+6) UI для профиля: форма настройки, API endpoints (GET/POST /api/profile)
+7) Форматирование ответов: ResponseFormatter для адаптации формата (brief/detailed/structured)
+8) История взаимодействий: InteractionHistory, репозиторий, сохранение для обучения
+9) Документация: PERSONALIZATION_GUIDE.md, примеры конфигов, обновить README.md
+
+## Ключевые компоненты
+- UserProfile: модель профиля с предпочтениями, стилем работы, контекстом
+- UserProfileService: сервис для работы с профилем и персонализации промптов
+- ResponseFormatter: форматирование ответов под предпочтения
+- ConfigUserProfileRepository: загрузка профиля из YAML конфига
+
+## Параметры персонализации
+- preferences: language, responseFormat (brief/detailed/structured), timezone, dateFormat
+- workStyle: preferredWorkingHours, focusAreas, tools, projects
+- communicationStyle: tone (professional/casual/friendly), detailLevel (low/medium/high), useExamples, useEmojis
+- context: currentProject, role, team, goals
+
+## Влияние на ответы
+- responseFormat: brief (512 токенов), detailed (2048), structured (1024)
+- detailLevel: low (temperature 0.5), medium (0.7), high (0.8)
+- tone: влияет на стиль промпта (professional/casual/friendly)
+- Персонализация добавляется в промпт перед отправкой в LLM
+
+## Примечания
+- Использовать структуру урока 29 или 24 как базу
+- Профиль хранится в конфиге (YAML), можно добавить БД для динамических изменений
+- Поддержка нескольких пользователей через userId (по умолчанию "default")
+- История взаимодействий для автоматической настройки предпочтений
+- Всё локально, профиль не отправляется в облако
+
