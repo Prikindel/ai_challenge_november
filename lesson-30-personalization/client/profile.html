@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки профиля - Персонализация агента</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="profile-styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚙️ Настройки профиля</h1>
+            <p class="subtitle">Персонализация агента</p>
+        </header>
+        
+        <nav class="tabs">
+            <a href="index.html" class="tab">Главная</a>
+            <a href="chat.html" class="tab">Чат</a>
+            <a href="reviews-analysis.html" class="tab">Анализ отзывов</a>
+            <a href="profile.html" class="tab active">⚙️ Профиль</a>
+        </nav>
+
+        <main>
+            <div class="main-content-wrapper">
+                <div class="profile-form-container">
+                <form id="profileForm">
+                    <h2>Общая информация</h2>
+                    <div class="form-group">
+                        <label for="name">Имя:</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+
+                    <h2>Предпочтения</h2>
+                    <div class="form-group">
+                        <label for="language">Язык:</label>
+                        <select id="language" name="language">
+                            <option value="ru">Русский</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="responseFormat">Формат ответа:</label>
+                        <select id="responseFormat" name="responseFormat">
+                            <option value="brief">Краткий</option>
+                            <option value="detailed">Подробный</option>
+                            <option value="structured">Структурированный</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="timezone">Часовой пояс:</label>
+                        <input type="text" id="timezone" name="timezone" placeholder="Europe/Moscow">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dateFormat">Формат даты:</label>
+                        <input type="text" id="dateFormat" name="dateFormat" placeholder="dd.MM.yyyy">
+                    </div>
+
+                    <h2>Стиль работы</h2>
+                    <div class="form-group">
+                        <label for="preferredWorkingHours">Предпочтительные рабочие часы:</label>
+                        <input type="text" id="preferredWorkingHours" name="preferredWorkingHours" placeholder="09:00-18:00">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="focusAreas">Области интересов (через запятую):</label>
+                        <input type="text" id="focusAreas" name="focusAreas" placeholder="backend, frontend, devops">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tools">Инструменты (через запятую):</label>
+                        <input type="text" id="tools" name="tools" placeholder="git, docker, kubernetes">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="projects">Проекты (через запятую):</label>
+                        <input type="text" id="projects" name="projects" placeholder="ai-challenge, mobile-app">
+                    </div>
+
+                    <h2>Стиль общения</h2>
+                    <div class="form-group">
+                        <label for="tone">Тон общения:</label>
+                        <select id="tone" name="tone">
+                            <option value="professional">Профессиональный</option>
+                            <option value="casual">Неформальный</option>
+                            <option value="friendly">Дружелюбный</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="detailLevel">Уровень детализации:</label>
+                        <select id="detailLevel" name="detailLevel">
+                            <option value="low">Низкий</option>
+                            <option value="medium">Средний</option>
+                            <option value="high">Высокий</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="useExamples" name="useExamples">
+                            Использовать примеры в ответах
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="useEmojis" name="useEmojis">
+                            Использовать эмодзи
+                        </label>
+                    </div>
+
+                    <h2>Контекст</h2>
+                    <div class="form-group">
+                        <label for="currentProject">Текущий проект:</label>
+                        <input type="text" id="currentProject" name="currentProject" placeholder="ai-challenge">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="role">Роль:</label>
+                        <input type="text" id="role" name="role" placeholder="developer">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="team">Команда:</label>
+                        <input type="text" id="team" name="team" placeholder="backend">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="goals">Цели (каждая с новой строки):</label>
+                        <textarea id="goals" name="goals" rows="4" placeholder="Изучить LLM&#10;Автоматизировать задачи"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Сохранить профиль</button>
+                        <button type="button" class="btn btn-secondary" id="resetBtn">🔄 Сбросить</button>
+                    </div>
+                </form>
+
+                    <div id="message" class="message"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="profile.js"></script>
+</body>
+</html>
+

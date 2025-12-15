@@ -1,0 +1,35 @@
+user:
+  id: "developer"
+  name: "Алексей"
+  preferences:
+    language: "ru"
+    responseFormat: "structured"  # brief, detailed, structured
+    timezone: "Europe/Moscow"
+    dateFormat: "dd.MM.yyyy"
+  workStyle:
+    preferredWorkingHours: "10:00-19:00"
+    focusAreas:
+      - "backend"
+      - "kotlin"
+      - "microservices"
+    tools:
+      - "git"
+      - "docker"
+      - "kubernetes"
+      - "postgresql"
+    projects:
+      - "api-service"
+      - "payment-system"
+  communicationStyle:
+    tone: "professional"  # professional, casual, friendly
+    detailLevel: "high"  # low, medium, high
+    useExamples: true
+    useEmojis: false
+  context:
+    currentProject: "api-service"
+    role: "developer"
+    team: "backend"
+    goals:
+      - "Улучшить производительность API"
+      - "Внедрить микросервисы"
+

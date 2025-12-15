@@ -1,0 +1,31 @@
+user:
+  id: Maxim
+  name: Максим
+  preferences:
+    language: ru
+    responseFormat: detailed
+    timezone: Europe/Moscow
+    dateFormat: dd.MM.yyyy
+  workStyle:
+    preferredWorkingHours: 09:00-18:00
+    focusAreas:
+    - mobile
+    tools:
+    - git
+    - kotlin
+    - android
+    projects:
+    - ai-challenge
+    - mobile-app
+  communicationStyle:
+    tone: friendly
+    detailLevel: medium
+    useExamples: true
+    useEmojis: true
+  context:
+    currentProject: ai-challenge
+    role: developer
+    team: backend
+    goals:
+    - Изучить LLM
+    - Автоматизировать задачи
