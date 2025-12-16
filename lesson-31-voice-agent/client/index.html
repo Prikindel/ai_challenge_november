@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с AI Агентом</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Чат с AI Агентом</h1>
+            <p class="subtitle">Простой интерфейс для общения с искусственным интеллектом</p>
+        </header>
+        
+        <div class="chat-container">
+            <div id="chatMessages" class="chat-messages">
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <p>Привет! Я AI агент. Задайте мне любой вопрос, и я постараюсь на него ответить.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="mic-hint" id="micHint" style="display: none;">
+                    <span id="micHintText">Микрофон не разрешен. Разрешите доступ, чтобы записывать голос.</span>
+                    <button id="micRequestButton" class="mic-request-button" type="button">Разрешить</button>
+                </div>
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Введите ваше сообщение или используйте запись" 
+                        maxlength="2000"
+                        autocomplete="off"
+                    >
+                    <div class="actions-row">
+                        <button id="sendButton" class="send-button">
+                            <span>Отправить</span>
+                        </button>
+                        <button id="voiceButton" class="voice-button" aria-label="Записать"></button>
+                    </div>
+                </div>
+                <div id="voiceStatus" class="voice-status"></div>
+                <div id="errorMessage" class="error-message"></div>
+            </div>
+        </div>
+        
+        <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <span>AI думает...</span>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
+

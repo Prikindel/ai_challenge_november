@@ -1,0 +1,8 @@
+# Environment
+.env
+*.log
+
+# Build artifacts
+bin/
+build/
+
