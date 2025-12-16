@@ -1,0 +1,53 @@
+## Задача
+Создать голосового агента, который распознаёт голосовые команды через Vosk, отправляет их в локальную LLM и возвращает текстовый ответ.
+
+## Требования
+- Простой чат как база (lesson-01-simple-chat-agent или lesson-19-rag-chat)
+- Vosk для распознавания речи (локально)
+- Запись голоса в браузере (Web Audio API)
+- API endpoint для приёма аудио и распознавания
+- Интеграция с локальной LLM (VPS из урока 28)
+- Конвертация аудио в формат Vosk (16kHz, mono, 16-bit PCM)
+- Текстовый вывод ответа (без синтеза речи)
+
+## План (коммиты)
+1) Копирование структуры из lesson-01 или lesson-19, обновление названий
+2) Установка Vosk: добавление зависимостей (vosk, jna), создание папки models/, инструкции по скачиванию модели
+3) Сервис распознавания: SpeechRecognitionService с загрузкой модели Vosk, метод recognize()
+4) API endpoint: VoiceController с POST /api/voice/recognize и /api/voice/process
+5) Frontend: UI для записи голоса (Web Audio API, MediaRecorder), отправка на сервер, отображение результатов
+6) Конвертация аудио: AudioConversionService для конвертации webm → WAV 16kHz через ffmpeg
+7) Интеграция LLM: подключение локальной LLM из урока 28, использование в VoiceController
+8) Тестирование: тестовые запросы ("посчитай", "дай определение", "скажи анекдот"), фиксация результатов
+9) Документация: VOSK_SETUP.md, обновить README.md, инструкции по установке ffmpeg
+
+## Ключевые компоненты
+- SpeechRecognitionService: загрузка модели Vosk, распознавание аудио
+- VoiceController: API endpoints для приёма аудио и обработки
+- AudioConversionService: конвертация аудио в формат Vosk (16kHz, mono, 16-bit PCM)
+- Frontend: Web Audio API для записи, MediaRecorder для захвата, отправка на сервер
+
+## Vosk модель
+- Модель: vosk-model-small-ru-0.22 (русская, ~40 МБ)
+- Скачать: https://alphacephei.com/vosk/models
+- Путь: models/vosk-model-small-ru-0.22/
+- Формат аудио: 16kHz, mono, 16-bit PCM WAV
+
+## Зависимости
+```kotlin
+implementation("com.alphacephei:vosk:0.3.45")
+implementation("net.java.dev.jna:jna:5.13.0")
+```
+
+## Требования
+- ffmpeg для конвертации аудио (brew install ffmpeg / apt install ffmpeg)
+- Локальная LLM на VPS (из урока 28)
+- Модель Vosk скачана и распакована в models/
+
+## Примечания
+- Использовать простой чат как базу (не сложный урок)
+- Vosk работает локально, без интернета
+- Аудио конвертируется из webm (браузер) в WAV 16kHz для Vosk
+- Ответ возвращается текстом (без синтеза речи)
+- Тестировать на разных типах запросов
+
