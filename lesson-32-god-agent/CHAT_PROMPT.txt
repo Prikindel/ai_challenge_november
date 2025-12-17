@@ -1,0 +1,51 @@
+## Задача
+Создать финальный персональный AI-помощник (God Agent), объединяющий все наработки: RAG для базы знаний, модульные MCP серверы (как плагины), голосовой ввод, персонализацию и аналитику данных.
+
+В файле PROMT.md полный промт
+
+## Требования
+- База: lesson-30-personalization (RAG, MCP, персонализация)
+- Система конфигурации для модульных MCP серверов (config/mcp-servers.yaml)
+- Динамический MCP Router для подключения плагинов
+- Расширенная RAG система для личной базы знаний (knowledge-base/)
+- Интеграция голосового ввода (Vosk из урока 31)
+- Analytics MCP сервер для анализа данных
+- God Agent Service — главный сервис, объединяющий всё
+- UI для управления MCP серверами и базой знаний
+- Примеры контента и документация
+
+## План (коммиты)
+1) Выбор базы: копирование lesson-30-personalization, создание структуры для модульных компонентов (mcp-servers/, knowledge-base/, data/)
+2) Конфигурация MCP: система конфигурации для модульных MCP серверов (config/mcp-servers.yaml, MCPServerConfig, MCPConfigService)
+3) MCP Router: динамический роутер для подключения MCP серверов из конфигурации (MCPRouterService, обновление RequestRouterService)
+4) Расширенная RAG: база знаний с категориями (projects, learning, personal, references), KnowledgeBaseService, API для управления
+5) Голосовой ввод: интеграция Vosk из урока 31 (SpeechRecognitionService, VoiceController, обновление UI)
+6) Analytics MCP: создание MCP сервера для анализа данных (analyze_csv, analyze_json, analyze_database, get_data_summary)
+7) God Agent Service: главный сервис, объединяющий все компоненты (роутинг, RAG, MCP, аналитика, персонализация)
+8) UI управления: интерфейс для управления MCP серверами и базой знаний (settings.html, настройки профиля)
+9) Документация: примеры контента для базы знаний, документация по MCP серверам, README
+
+## Ключевые компоненты
+- MCPConfigService: загрузка конфигурации MCP серверов
+- MCPRouterService: динамическое подключение и выполнение MCP инструментов
+- KnowledgeBaseService: расширенная RAG система с категориями
+- GodAgentService: главный сервис, объединяющий все компоненты
+- Analytics MCP Server: анализ данных из CSV, JSON, БД
+- UI для управления: настройки MCP серверов, индексация базы знаний, профиль пользователя
+
+## Архитектура
+Единый интерфейс → God Agent Service → Роутинг (MCP/RAG/Analytics) → Локальная LLM → Персонализированный ответ
+
+## Конфигурация
+- config/mcp-servers.yaml: конфигурация MCP серверов (Git, Telegram, Analytics, File System, Calendar)
+- config/server.yaml: настройки God Agent (MCP, RAG, голос, персонализация, LLM)
+- knowledge-base/: структура базы знаний (projects/, learning/, personal/, references/)
+
+## Примечания
+- Использовать lesson-30-personalization как базу (уже есть RAG, MCP, персонализация)
+- MCP серверы работают как плагины — можно включать/выключать через конфиг
+- База знаний индексируется автоматически или вручную через UI
+- Голосовой ввод интегрирован в основной чат
+- Analytics MCP анализирует данные из разных источников (CSV, JSON, БД)
+- Все компоненты объединены через God Agent Service
+
