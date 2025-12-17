@@ -63,20 +63,24 @@ class LLMRouterService {
         val queryLower = query.lowercase()
         
         // Проверка на запросы к базе знаний
-        val ragKeywords = listOf("найди", "найти", "поиск", "информация", "документ", "заметка", "проект")
+        val ragKeywords = listOf("найди", "найти", "поиск", "информация", "документ", "заметка", "проект", "база знаний")
         if (ragKeywords.any { queryLower.contains(it) }) {
+            val category = extractCategory(query)
             return RoutingDecision(
                 action = RoutingAction.RAG_SEARCH,
-                reasoning = "Запрос требует поиска в базе знаний"
+                category = category,
+                reasoning = "Запрос требует поиска в базе знаний${if (category != null) " (категория: $category)" else ""}"
             )
         }
         
         // Проверка на аналитические запросы
-        val analyticsKeywords = listOf("анализ", "анализировать", "метрики", "статистика", "данные", "отчет")
+        val analyticsKeywords = listOf("анализ", "анализировать", "метрики", "статистика", "данные", "отчет", "csv", "json", "база данных")
         if (analyticsKeywords.any { queryLower.contains(it) }) {
+            val dataSource = extractDataSource(query)
             return RoutingDecision(
                 action = RoutingAction.ANALYTICS,
-                reasoning = "Запрос требует анализа данных"
+                dataSource = dataSource,
+                reasoning = "Запрос требует анализа данных${if (dataSource != null) " (источник: $dataSource)" else ""}"
             )
         }
         
@@ -147,9 +151,55 @@ class LLMRouterService {
                 val path = query.substring(pathStart).trim()
                 args["path"] = path
             }
+            "analyze_csv", "analyze_json" -> {
+                // Попытка найти путь к файлу в запросе
+                val filePattern = Regex("(?:файл|file)[\\s:]+([^\\s]+)")
+                val match = filePattern.find(query)
+                if (match != null) {
+                    args["file_path"] = match.groupValues[1]
+                }
+                args["query"] = query
+            }
+            "analyze_database" -> {
+                val dbPattern = Regex("(?:баз|database|бд)[\\s:]+([^\\s]+)")
+                val match = dbPattern.find(query)
+                if (match != null) {
+                    args["db_path"] = match.groupValues[1]
+                }
+                args["query"] = query
+            }
         }
         
         return args
+    }
+    
+    /**
+     * Определить категорию для RAG поиска
+     */
+    fun extractCategory(query: String): String? {
+        val queryLower = query.lowercase()
+        
+        return when {
+            queryLower.contains("проект") -> "projects"
+            queryLower.contains("обучен") || queryLower.contains("изучен") -> "learning"
+            queryLower.contains("личн") || queryLower.contains("цел") -> "personal"
+            queryLower.contains("справоч") || queryLower.contains("референс") -> "references"
+            else -> null
+        }
+    }
+    
+    /**
+     * Определить источник данных для аналитики
+     */
+    fun extractDataSource(query: String): String? {
+        val queryLower = query.lowercase()
+        
+        return when {
+            queryLower.contains("csv") -> "data/analytics/metrics.csv"
+            queryLower.contains("json") -> "data/analytics/logs.json"
+            queryLower.contains("баз") || queryLower.contains("бд") -> "data/analytics/user_data.db"
+            else -> null
+        }
     }
 }
 
