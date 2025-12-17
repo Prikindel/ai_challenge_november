@@ -54,6 +54,24 @@ object ReviewSummaryChunksTable : Table("review_summary_chunks") {
 }
 
 /**
+ * Таблица для хранения чанков базы знаний с эмбеддингами для RAG
+ */
+object KnowledgeBaseChunksTable : Table("knowledge_base_chunks") {
+    val id = text("id")
+    val documentId = text("document_id").index()
+    val chunkIndex = integer("chunk_index")
+    val content = text("content")
+    val embedding = text("embedding") // JSON массив чисел (вектор эмбеддинга)
+    val category = text("category").index() // PROJECTS, LEARNING, PERSONAL, REFERENCES
+    val sourcePath = text("source_path") // Путь к файлу
+    val startIndex = integer("start_index").default(0)
+    val endIndex = integer("end_index").default(0)
+    val indexedAt = text("indexed_at").default(Instant.now().toString())
+    
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
  * Инициализация схемы БД
  */
 fun initDatabase(connection: Database) {
@@ -64,7 +82,8 @@ fun initDatabase(connection: Database) {
             ChatSessionsTable,
             ChatMessagesTable,
             ReviewSummaryChunksTable,
-            InteractionHistoryTable
+            InteractionHistoryTable,
+            KnowledgeBaseChunksTable
         )
     }
 }
