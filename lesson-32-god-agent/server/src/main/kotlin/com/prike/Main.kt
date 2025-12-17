@@ -199,6 +199,54 @@ fun main(args: Array<String>) {
     // Инициализация ProfileController
     val profileController = ProfileController(userProfileService)
     
+    // Инициализация MCP сервисов (если включены)
+    val mcpConfigService = if (config.godAgent.enabled) {
+        val service = com.prike.domain.service.MCPConfigService()
+        // Инициализируем конфигурацию с lessonRoot
+        service.loadConfig(lessonRoot)
+        service.also {
+            logger.info("MCPConfigService initialized")
+        }
+    } else {
+        null
+    }
+    
+    val mcpRouterService = if (mcpConfigService != null && embeddingService != null) {
+        // TODO: Инициализировать MCP клиенты из конфигурации
+        val mcpClients = emptyMap<String, com.prike.data.client.MCPClientInterface>()
+        com.prike.domain.service.MCPRouterService(mcpConfigService, mcpClients).also {
+            logger.info("MCPRouterService initialized")
+        }
+    } else {
+        null
+    }
+    
+    // Инициализация KnowledgeBaseService
+    val knowledgeBaseService = if (embeddingService != null) {
+        com.prike.domain.service.KnowledgeBaseService(embeddingService, database).also {
+            logger.info("KnowledgeBaseService initialized")
+        }
+    } else {
+        null
+    }
+    
+    // Инициализация контроллеров для God Agent
+    val mcpServersController = if (mcpConfigService != null && mcpRouterService != null) {
+        com.prike.presentation.controller.MCPServersController(mcpConfigService, mcpRouterService).also {
+            logger.info("MCPServersController initialized")
+        }
+    } else {
+        null
+    }
+    
+    val knowledgeBaseController = if (knowledgeBaseService != null) {
+        com.prike.presentation.controller.KnowledgeBaseController(knowledgeBaseService, lessonRoot).also {
+            logger.info("KnowledgeBaseController initialized")
+        }
+    } else {
+        null
+    }
+    
     // Статический контент для UI
     val clientDir = File(lessonRoot, "client")
     val clientController = ClientController(clientDir)
@@ -242,8 +290,11 @@ fun main(args: Array<String>) {
             // API маршруты для профиля
             profileController.registerRoutes(this)
             
-            // API маршруты для профиля
-            profileController.registerRoutes(this)
+            // API маршруты для MCP серверов
+            mcpServersController?.registerRoutes(application)
+            
+            // API маршруты для базы знаний
+            knowledgeBaseController?.registerRoutes(application)
         }
     }.start(wait = true)
 }

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>База знаний - God Agent</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 База знаний</h1>
+            <p class="subtitle">Управление персональной базой знаний с категориями</p>
+        </header>
+        
+        <main>
+            <div class="main-content-wrapper">
+                <nav class="tabs">
+                    <a href="index.html" class="tab">Главная</a>
+                    <a href="chat.html" class="tab">Чат</a>
+                    <a href="reviews-analysis.html" class="tab">Анализ отзывов</a>
+                    <a href="knowledge-base.html" class="tab active">База знаний</a>
+                    <a href="mcp-servers.html" class="tab">MCP серверы</a>
+                    <a href="profile.html" class="tab">⚙️ Профиль</a>
+                </nav>
+                
+                <section class="knowledge-base-section">
+                    <div class="section-header">
+                        <h2>Управление базой знаний</h2>
+                        <div class="actions">
+                            <button class="btn btn-primary" onclick="indexAll()">Индексировать всё</button>
+                            <button class="btn btn-secondary" onclick="loadStatistics()">Обновить статистику</button>
+                        </div>
+                    </div>
+                    
+                    <div id="statusMessage" class="status-message"></div>
+                    
+                    <!-- Статистика -->
+                    <div class="statistics-section">
+                        <h3>Статистика</h3>
+                        <div id="statistics" class="statistics-grid">
+                            <div class="loading">Загрузка статистики...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Категории -->
+                    <div class="categories-section">
+                        <h3>Категории</h3>
+                        <div class="categories-grid">
+                            <div class="category-card" onclick="indexCategory('projects')">
+                                <h4>📁 Проекты</h4>
+                                <p>Документация и заметки по проектам</p>
+                                <button class="btn btn-small" onclick="event.stopPropagation(); indexCategory('projects')">
+                                    Индексировать
+                                </button>
+                            </div>
+                            <div class="category-card" onclick="indexCategory('learning')">
+                                <h4>📖 Обучение</h4>
+                                <p>Материалы для обучения и изучения</p>
+                                <button class="btn btn-small" onclick="event.stopPropagation(); indexCategory('learning')">
+                                    Индексировать
+                                </button>
+                            </div>
+                            <div class="category-card" onclick="indexCategory('personal')">
+                                <h4>👤 Личное</h4>
+                                <p>Личные заметки и цели</p>
+                                <button class="btn btn-small" onclick="event.stopPropagation(); indexCategory('personal')">
+                                    Индексировать
+                                </button>
+                            </div>
+                            <div class="category-card" onclick="indexCategory('references')">
+                                <h4>📋 Справочники</h4>
+                                <p>Справочная информация и референсы</p>
+                                <button class="btn btn-small" onclick="event.stopPropagation(); indexCategory('references')">
+                                    Индексировать
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Поиск -->
+                    <div class="search-section">
+                        <h3>Поиск в базе знаний</h3>
+                        <div class="search-box">
+                            <input type="text" id="searchQuery" placeholder="Введите запрос для поиска..." />
+                            <select id="searchCategory">
+                                <option value="">Все категории</option>
+                                <option value="projects">Проекты</option>
+                                <option value="learning">Обучение</option>
+                                <option value="personal">Личное</option>
+                                <option value="references">Справочники</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="performSearch()">Поиск</button>
+                        </div>
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+    <script src="knowledge-base.js"></script>
+</body>
+</html>
+

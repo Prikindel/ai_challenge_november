@@ -104,5 +104,40 @@ class MCPRouterService(
         val client = mcpClients[serverName] ?: return false
         return client.isConnected() && mcpConfigService.isServerEnabled(serverName)
     }
+    
+    /**
+     * Подключить все клиенты
+     */
+    suspend fun connectAllClients() {
+        val enabledServers = mcpConfigService.getEnabledServers()
+        logger.info("Connecting ${enabledServers.size} enabled MCP clients...")
+        enabledServers.forEach { serverConfig ->
+            val client = mcpClients[serverConfig.name]
+            if (client != null) {
+                try {
+                    client.connect()
+                    logger.info("Successfully connected to ${serverConfig.name} MCP client.")
+                } catch (e: Exception) {
+                    logger.error("Failed to connect to ${serverConfig.name} MCP client: ${e.message}", e)
+                }
+            } else {
+                logger.warn("No MCP client implementation found for server: ${serverConfig.name}")
+            }
+        }
+    }
+    
+    /**
+     * Отключить все клиенты
+     */
+    suspend fun disconnectAllClients() {
+        logger.info("Disconnecting all MCP clients...")
+        mcpClients.values.forEach { client ->
+            try {
+                client.disconnect()
+            } catch (e: Exception) {
+                logger.warn("Error disconnecting client: ${e.message}")
+            }
+        }
+    }
 }
 

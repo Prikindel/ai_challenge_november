@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление MCP серверами - God Agent</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔌 Управление MCP серверами</h1>
+            <p class="subtitle">Настройка и мониторинг модульных MCP серверов</p>
+        </header>
+        
+        <main>
+            <div class="main-content-wrapper">
+                <nav class="tabs">
+                    <a href="index.html" class="tab">Главная</a>
+                    <a href="chat.html" class="tab">Чат</a>
+                    <a href="reviews-analysis.html" class="tab">Анализ отзывов</a>
+                    <a href="knowledge-base.html" class="tab">База знаний</a>
+                    <a href="mcp-servers.html" class="tab active">MCP серверы</a>
+                    <a href="profile.html" class="tab">⚙️ Профиль</a>
+                </nav>
+                
+                <section class="mcp-servers-section">
+                    <div class="section-header">
+                        <h2>MCP серверы</h2>
+                        <div class="actions">
+                            <button class="btn btn-primary" onclick="connectAllServers()">Подключить все</button>
+                            <button class="btn btn-secondary" onclick="disconnectAllServers()">Отключить все</button>
+                            <button class="btn btn-secondary" onclick="loadServers()">Обновить</button>
+                        </div>
+                    </div>
+                    
+                    <div id="serversStatus" class="status-message"></div>
+                    
+                    <div id="serversList" class="servers-list">
+                        <div class="loading">Загрузка серверов...</div>
+                    </div>
+                    
+                    <div class="tools-section">
+                        <h3>Доступные инструменты</h3>
+                        <button class="btn btn-secondary" onclick="loadTools()">Обновить список инструментов</button>
+                        <div id="toolsList" class="tools-list">
+                            <div class="loading">Загрузка инструментов...</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+    <script src="mcp-servers.js"></script>
+</body>
+</html>
+
