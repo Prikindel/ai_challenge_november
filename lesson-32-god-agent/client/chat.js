@@ -541,3 +541,139 @@ function closeCitationModal() {
     }
 }
 
+// ==================== Голосовой ввод ====================
+
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+/**
+ * Переключает запись голоса
+ */
+async function toggleVoiceRecording() {
+    if (isRecording) {
+        stopVoiceRecording();
+    } else {
+        startVoiceRecording();
+    }
+}
+
+/**
+ * Начинает запись голоса
+ */
+async function startVoiceRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'audio/webm'
+        });
+        
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            await sendVoiceMessage(audioBlob);
+            
+            // Останавливаем все треки потока
+            stream.getTracks().forEach(track => track.stop());
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        
+        // Обновляем UI
+        const voiceButton = document.getElementById('voiceButton');
+        const voiceIcon = document.getElementById('voiceIcon');
+        const voiceStatus = document.getElementById('voiceStatus');
+        
+        voiceButton.classList.add('recording');
+        voiceIcon.textContent = '🔴';
+        voiceStatus.style.display = 'block';
+        voiceButton.disabled = false;
+        
+        showStatus('Запись голоса...', 'info');
+    } catch (error) {
+        console.error('Error accessing microphone:', error);
+        showStatus('Не удалось получить доступ к микрофону', 'error');
+    }
+}
+
+/**
+ * Останавливает запись голоса
+ */
+function stopVoiceRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        
+        // Обновляем UI
+        const voiceButton = document.getElementById('voiceButton');
+        const voiceIcon = document.getElementById('voiceIcon');
+        const voiceStatus = document.getElementById('voiceStatus');
+        
+        voiceButton.classList.remove('recording');
+        voiceIcon.textContent = '🎤';
+        voiceStatus.style.display = 'none';
+        
+        showStatus('Обработка аудио...', 'info');
+    }
+}
+
+/**
+ * Отправляет голосовое сообщение на сервер
+ */
+async function sendVoiceMessage(audioBlob) {
+    if (!currentSessionId) {
+        await createNewSession();
+        if (!currentSessionId) {
+            showStatus('Не удалось создать сессию', 'error');
+            return;
+        }
+    }
+    
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'voice.webm');
+    
+    const loadingId = addLoadingMessage();
+    
+    try {
+        const response = await fetch(`${API_BASE}/chat/sessions/${currentSessionId}/voice`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        removeLoadingMessage(loadingId);
+        
+        // Добавляем распознанный текст как сообщение пользователя
+        if (data.recognizedText) {
+            addMessage('user', data.recognizedText);
+        }
+        
+        // Добавляем ответ ассистента
+        if (data.message) {
+            addMessage('assistant', data.message.content, data.message.citations || []);
+        }
+        
+        showStatus('Голосовое сообщение обработано', 'success');
+        scrollToBottom();
+    } catch (error) {
+        console.error('Error sending voice message:', error);
+        removeLoadingMessage(loadingId);
+        showStatus(`Ошибка: ${error.message}`, 'error');
+    }
+}
+

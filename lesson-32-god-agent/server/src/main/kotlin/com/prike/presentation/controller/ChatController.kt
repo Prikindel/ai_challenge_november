@@ -2,8 +2,13 @@ package com.prike.presentation.controller
 
 import com.prike.data.repository.ChatRepository
 import com.prike.domain.model.MessageRole
+import com.prike.domain.service.AudioConversionService
 import com.prike.domain.service.ReviewsChatService
+import com.prike.domain.service.SpeechRecognitionService
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.PartData
+import io.ktor.http.content.forEachPart
+import io.ktor.http.content.streamProvider
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -16,7 +21,9 @@ import org.slf4j.LoggerFactory
  */
 class ChatController(
     private val chatService: ReviewsChatService,
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val speechRecognitionService: SpeechRecognitionService? = null,
+    private val audioConversionService: AudioConversionService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ChatController::class.java)
 
@@ -240,7 +247,120 @@ class ChatController(
                     )
                 }
             }
+            
+            // Голосовой ввод
+            post("/sessions/{sessionId}/voice") {
+                if (speechRecognitionService == null || audioConversionService == null) {
+                    call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        ErrorResponse("Voice recognition is not available")
+                    )
+                    return@post
+                }
+                
+                try {
+                    val sessionId = call.parameters["sessionId"]
+                        ?: throw IllegalArgumentException("sessionId is required")
+                    
+                    // Извлекаем аудио из multipart запроса
+                    val audioData = extractAudio(call.receiveMultipart())
+                    if (audioData == null) {
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            ErrorResponse("No audio data provided")
+                        )
+                        return@post
+                    }
+                    
+                    // Конвертируем аудио в формат для Vosk
+                    val converted = runCatching {
+                        audioConversionService.convertToVoskWav(audioData)
+                    }.getOrElse {
+                        logger.error("Audio conversion failed", it)
+                        call.respond(
+                            HttpStatusCode.InternalServerError,
+                            ErrorResponse("Audio conversion failed: ${it.message}")
+                        )
+                        return@post
+                    }
+                    
+                    // Распознаем речь
+                    val recognizedText = runCatching {
+                        speechRecognitionService.recognize(converted)
+                    }.getOrElse {
+                        logger.error("Speech recognition failed", it)
+                        call.respond(
+                            HttpStatusCode.InternalServerError,
+                            ErrorResponse("Speech recognition failed: ${it.message}")
+                        )
+                        return@post
+                    }
+                    
+                    if (recognizedText.isBlank()) {
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            ErrorResponse("Could not recognize speech")
+                        )
+                        return@post
+                    }
+                    
+                    // Обрабатываем как обычное сообщение
+                    val assistantMessage = chatService.processMessage(
+                        sessionId = sessionId,
+                        userMessage = recognizedText
+                    )
+                    
+                    logger.info("Voice message processed: session=$sessionId, recognized='$recognizedText'")
+                    
+                    call.respond(
+                        VoiceMessageResponse(
+                            recognizedText = recognizedText,
+                            message = ChatMessageDto(
+                                id = assistantMessage.id,
+                                sessionId = assistantMessage.sessionId,
+                                role = assistantMessage.role.name,
+                                content = assistantMessage.content,
+                                citations = assistantMessage.citations.map { citation ->
+                                    MessageCitationDto(
+                                        text = citation.text,
+                                        documentPath = citation.documentPath,
+                                        documentTitle = citation.documentTitle,
+                                        chunkId = citation.chunkId
+                                    )
+                                },
+                                createdAt = assistantMessage.createdAt
+                            ),
+                            sessionId = sessionId
+                        )
+                    )
+                } catch (e: Exception) {
+                    logger.error("Failed to process voice message", e)
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        ErrorResponse("Failed to process voice message: ${e.message}")
+                    )
+                }
+            }
         }
+    }
+    
+    /**
+     * Извлекает аудио данные из multipart запроса
+     */
+    private suspend fun extractAudio(multipart: io.ktor.http.content.MultiPartData): ByteArray? {
+        var audioData: ByteArray? = null
+        
+        multipart.forEachPart { part ->
+            when (part) {
+                is PartData.FileItem -> {
+                    audioData = part.streamProvider().readBytes()
+                }
+                else -> {}
+            }
+            part.dispose()
+        }
+        
+        return audioData
     }
 }
 
@@ -311,6 +431,16 @@ data class MessageCitationDto(
 data class ChatHistoryResponse(
     val sessionId: String,
     val messages: List<ChatMessageDto>
+)
+
+/**
+ * DTO для ответа на голосовое сообщение
+ */
+@Serializable
+data class VoiceMessageResponse(
+    val recognizedText: String,
+    val message: ChatMessageDto,
+    val sessionId: String
 )
 
 /**

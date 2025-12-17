@@ -6,11 +6,13 @@ import com.prike.data.client.TelegramMCPClient
 import com.prike.data.repository.ChatRepository
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.agent.ReviewsAnalyzerAgent
+import com.prike.domain.service.AudioConversionService
 import com.prike.domain.service.EmbeddingService
 import com.prike.domain.service.KoogAgentService
 import com.prike.domain.service.ReviewSummaryRagService
 import com.prike.domain.service.ReviewsAnalysisService
 import com.prike.domain.service.ReviewsChatService
+import com.prike.domain.service.SpeechRecognitionService
 import com.prike.infrastructure.client.ReviewsApiClient
 import com.prike.presentation.controller.ChatController
 import com.prike.presentation.controller.ClientController
@@ -159,7 +161,40 @@ fun main(args: Array<String>) {
     // Инициализация ChatRepository и ChatService
     val chatRepository = ChatRepository(database)
     val reviewsChatService = ReviewsChatService(chatRepository, koogAgentService, reviewSummaryRagService, userProfileService, responseFormatter, interactionHistoryRepository)
-    val chatController = ChatController(reviewsChatService, chatRepository)
+    
+    // Инициализация сервисов голосового ввода (если включены)
+    val speechRecognitionService = if (config.godAgent.voice.enabled) {
+        val modelPath = if (File(config.godAgent.voice.voskModelPath).isAbsolute) {
+            config.godAgent.voice.voskModelPath
+        } else {
+            File(lessonRoot, config.godAgent.voice.voskModelPath).absolutePath
+        }
+        try {
+            SpeechRecognitionService(modelPath).also {
+                logger.info("Speech recognition service initialized with model: $modelPath")
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to initialize speech recognition service: ${e.message}", e)
+            null
+        }
+    } else {
+        null
+    }
+    
+    val audioConversionService = if (config.godAgent.voice.enabled) {
+        AudioConversionService().also {
+            logger.info("Audio conversion service initialized")
+        }
+    } else {
+        null
+    }
+    
+    val chatController = ChatController(
+        reviewsChatService, 
+        chatRepository,
+        speechRecognitionService,
+        audioConversionService
+    )
     
     // Инициализация ProfileController
     val profileController = ProfileController(userProfileService)

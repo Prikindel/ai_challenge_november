@@ -815,6 +815,71 @@ footer {
     transform: none;
 }
 
+.chat-input-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.chat-input-wrapper button#voiceButton {
+    min-width: 48px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chat-input-wrapper button#voiceButton:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary-color);
+}
+
+.chat-input-wrapper button#voiceButton.recording {
+    background: var(--error-color);
+    border-color: var(--error-color);
+    color: white;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.voice-status {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--error-color);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--error-color);
+    font-size: 0.9em;
+}
+
+.voice-status button {
+    padding: 4px 12px;
+    background: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: background 0.2s ease;
+}
+
+.voice-status button:hover {
+    background: #dc2626;
+}
+
 .chat-status {
     margin-top: 12px;
     font-size: 0.9em;

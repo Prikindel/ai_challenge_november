@@ -70,6 +70,13 @@ dependencies {
     // MCP Kotlin SDK для Telegram интеграции
     implementation("io.modelcontextprotocol:kotlin-sdk:0.7.7")
     
+    // Vosk для распознавания речи
+    implementation("com.alphacephei:vosk:0.3.45")
+    implementation("net.java.dev.jna:jna:5.13.0")
+    
+    // Утилиты для работы с аудио/архивами (для Vosk моделей)
+    implementation("org.apache.commons:commons-compress:1.21")
+    
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:1.9.22")

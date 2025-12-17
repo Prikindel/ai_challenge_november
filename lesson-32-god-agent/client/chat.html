@@ -65,12 +65,21 @@
                                 rows="3"
                                 maxlength="2000"
                             ></textarea>
-                            <button id="sendButton" onclick="sendMessage()">
-                                <span style="margin-right: 6px;">📤</span>
-                                Отправить
-                            </button>
+                            <div class="chat-input-buttons">
+                                <button id="voiceButton" onclick="toggleVoiceRecording()" title="Голосовой ввод">
+                                    <span id="voiceIcon">🎤</span>
+                                </button>
+                                <button id="sendButton" onclick="sendMessage()">
+                                    <span style="margin-right: 6px;">📤</span>
+                                    Отправить
+                                </button>
+                            </div>
                         </div>
                         <div class="chat-status" id="chatStatus"></div>
+                        <div id="voiceStatus" class="voice-status" style="display: none;">
+                            <span id="voiceStatusText">Запись...</span>
+                            <button onclick="stopVoiceRecording()">Остановить</button>
+                        </div>
                     </div>
                 </div>
             </div>
