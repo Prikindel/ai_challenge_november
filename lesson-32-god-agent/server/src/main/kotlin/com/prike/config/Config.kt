@@ -12,6 +12,7 @@ import java.io.FileInputStream
  */
 data class Config(
     val server: ServerConfig,
+    val godAgent: GodAgentConfig,
     val reviews: ReviewsConfig,
     val koog: KoogConfig,
     val telegram: TelegramConfig,
@@ -56,6 +57,7 @@ data class Config(
             
             return Config(
                 server = ServerConfig.fromMap(configMap["server"] as? Map<String, Any> ?: emptyMap()),
+                godAgent = GodAgentConfig.fromMap(configMap["god_agent"] as? Map<String, Any> ?: emptyMap()),
                 reviews = ReviewsConfig.fromMap(configMap["reviews"] as? Map<String, Any> ?: emptyMap()),
                 koog = KoogConfig.fromMap(configMap["koog"] as? Map<String, Any> ?: emptyMap()),
                 telegram = TelegramConfig.fromMap(configMap["telegram"] as? Map<String, Any> ?: emptyMap()),
@@ -347,6 +349,113 @@ data class OllamaConfig(
                 baseUrl = (map["baseUrl"] as? String) ?: "http://localhost:11434",
                 model = (map["model"] as? String) ?: "nomic-embed-text",
                 timeout = (map["timeout"] as? Number)?.toLong() ?: 120000L
+            )
+        }
+    }
+}
+
+data class GodAgentConfig(
+    val enabled: Boolean,
+    val mcpServers: GodAgentMCPServersConfig,
+    val knowledgeBase: GodAgentKnowledgeBaseConfig,
+    val personalization: GodAgentPersonalizationConfig,
+    val voice: GodAgentVoiceConfig,
+    val localLlm: GodAgentLocalLLMConfig
+) {
+    companion object {
+        @Suppress("UNCHECKED_CAST")
+        fun fromMap(map: Map<String, Any>): GodAgentConfig {
+            return GodAgentConfig(
+                enabled = (map["enabled"] as? Boolean) ?: true,
+                mcpServers = GodAgentMCPServersConfig.fromMap(
+                    (map["mcp_servers"] as? Map<String, Any>) ?: emptyMap()
+                ),
+                knowledgeBase = GodAgentKnowledgeBaseConfig.fromMap(
+                    (map["knowledge_base"] as? Map<String, Any>) ?: emptyMap()
+                ),
+                personalization = GodAgentPersonalizationConfig.fromMap(
+                    (map["personalization"] as? Map<String, Any>) ?: emptyMap()
+                ),
+                voice = GodAgentVoiceConfig.fromMap(
+                    (map["voice"] as? Map<String, Any>) ?: emptyMap()
+                ),
+                localLlm = GodAgentLocalLLMConfig.fromMap(
+                    (map["local_llm"] as? Map<String, Any>) ?: emptyMap()
+                )
+            )
+        }
+    }
+}
+
+data class GodAgentMCPServersConfig(
+    val configPath: String
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): GodAgentMCPServersConfig {
+            return GodAgentMCPServersConfig(
+                configPath = (map["config_path"] as? String) ?: "config/mcp-servers.yaml"
+            )
+        }
+    }
+}
+
+data class GodAgentKnowledgeBaseConfig(
+    val basePath: String,
+    val autoIndex: Boolean,
+    val watchChanges: Boolean
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): GodAgentKnowledgeBaseConfig {
+            return GodAgentKnowledgeBaseConfig(
+                basePath = (map["base_path"] as? String) ?: "knowledge-base",
+                autoIndex = (map["auto_index"] as? Boolean) ?: true,
+                watchChanges = (map["watch_changes"] as? Boolean) ?: true
+            )
+        }
+    }
+}
+
+data class GodAgentPersonalizationConfig(
+    val enabled: Boolean,
+    val profilePath: String
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): GodAgentPersonalizationConfig {
+            return GodAgentPersonalizationConfig(
+                enabled = (map["enabled"] as? Boolean) ?: true,
+                profilePath = (map["profile_path"] as? String) ?: "data/user-profile.json"
+            )
+        }
+    }
+}
+
+data class GodAgentVoiceConfig(
+    val enabled: Boolean,
+    val voskModelPath: String
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): GodAgentVoiceConfig {
+            return GodAgentVoiceConfig(
+                enabled = (map["enabled"] as? Boolean) ?: true,
+                voskModelPath = (map["vosk_model_path"] as? String) ?: "models/vosk-model-small-ru-0.22"
+            )
+        }
+    }
+}
+
+data class GodAgentLocalLLMConfig(
+    val enabled: Boolean,
+    val provider: String,
+    val baseUrl: String,
+    val model: String
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): GodAgentLocalLLMConfig {
+            return GodAgentLocalLLMConfig(
+                enabled = (map["enabled"] as? Boolean) ?: true,
+                provider = (map["provider"] as? String) ?: "ollama",
+                baseUrl = (map["base_url"] as? String) ?: "http://localhost:11434",
+                model = (map["model"] as? String) ?: "llama3.2"
             )
         }
     }
