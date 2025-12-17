@@ -1,965 +1,279 @@
-# 🔥 День 32. God Agent
+# God Agent - Универсальный AI-помощник
 
-Финальный персональный AI-помощник, объединяющий все наработки: RAG для базы знаний, модульные MCP серверы (как плагины), голосовой ввод, персонализацию и аналитику данных.
+God Agent - это персональный AI-помощник, объединяющий множество возможностей в едином интерфейсе. Он интегрирует MCP серверы, RAG поиск, аналитику данных, персонализацию и голосовой ввод.
 
-## 📑 Table of Contents
+## 🚀 Возможности
 
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-- [API Reference](#-api-reference)
-- [Troubleshooting](#-troubleshooting)
-- [Related Lessons](#-related-lessons)
+### 1. Модульные MCP серверы
+- **Git MCP** - работа с git репозиториями
+- **Telegram MCP** - отправка сообщений и напоминаний
+- **Analytics MCP** - анализ данных из CSV, JSON, БД
+- **File System MCP** - поиск и чтение файлов
+- **Calendar MCP** - управление событиями
 
-## ✨ Features
+### 2. База знаний (RAG)
+- Индексирование документов по категориям:
+  - 📁 **Проекты** - документация и заметки по проектам
+  - 📖 **Обучение** - материалы для обучения
+  - 👤 **Личное** - личные заметки и цели
+  - 📋 **Справочники** - справочная информация
+- Семантический поиск с использованием эмбеддингов
+- Автоматическая индексация при изменении файлов
 
-- 🔍 **Semantic Search** - RAG-powered knowledge base search with citations
-- 🔌 **Modular Plugins** - Extensible MCP server architecture (Git, Telegram, Analytics, File System)
-- 🎤 **Voice Input** - Speech recognition via Vosk (offline, local)
-- 🎯 **Personalization** - User profile-based responses and context awareness
-- 📊 **Data Analytics** - Multi-source data analysis (CSV, JSON, databases)
-- 🔐 **Privacy-First** - Fully local operation, no cloud dependencies
-- 📝 **Knowledge Base** - Personal knowledge management (like Obsidian)
-- 🔄 **Auto-indexing** - Automatic document indexing and updates
-- 💬 **Chat History** - Persistent conversation history with sessions
-- 🛠️ **Extensible** - Easy to add custom MCP servers and tools
+### 3. Голосовой ввод
+- Распознавание речи через Vosk
+- Поддержка русского языка
+- Интеграция с чатом
 
-## 🎥 Демонстрация
+### 4. Персонализация
+- Адаптация стиля общения под пользователя
+- Учет предпочтений и контекста
+- История взаимодействий
 
-> 📹 Видео появится после записи
+### 5. Аналитика данных
+- Анализ CSV файлов
+- Анализ JSON данных
+- Работа с SQLite базами данных
 
-**Сценарий использования:**
-1. Открытие единого интерфейса God Agent
-2. Запрос на естественном языке (текст или голос)
-3. Автоматический роутинг: RAG поиск, MCP инструменты, аналитика
-4. Персонализированный ответ с учетом профиля пользователя
-5. Управление MCP серверами и базой знаний через UI
+## 📋 Требования
 
-## 🎯 Цель урока
+- Java 17+
+- Kotlin 2.2.21+
+- Gradle 8.14+
+- Ollama (для локального LLM)
+- FFmpeg (для голосового ввода)
+- Vosk модель (для распознавания речи)
 
-Создать **персонального AI-помощника**, который:
-- **Объединяет все наработки** из предыдущих уроков
-- **Работает как персональная база знаний** (как Obsidian)
-- **Поддерживает модульные MCP серверы** (как плагины)
-- **Понимает контекст пользователя** и его данные
-- **Анализирует данные** из разных источников
-- **Персонализирует ответы** под пользователя
+## 🛠️ Установка
 
-## Что делаем
-
-- Берем базовый урок с RAG, MCP и персонализацией (lesson-30)
-- Создаём систему конфигурации для модульных MCP серверов
-- Реализуем динамический MCP Router
-- Расширяем базу знаний для личных документов
-- Интегрируем голосовой ввод (Vosk)
-- Создаём Analytics MCP сервер
-- Объединяем всё в единый God Agent Service
-- Создаём UI для управления MCP серверами
-- Добавляем примеры контента и документацию
-
-## Пайплайн
-
-1. **Выбор базы** — копируем lesson-30-personalization
-2. **Конфигурация MCP** — система конфигурации для плагинов
-3. **MCP Router** — динамический роутер для MCP серверов
-4. **Расширенная RAG** — база знаний с категориями
-5. **Голосовой ввод** — интеграция Vosk из урока 31
-6. **Analytics MCP** — сервер для анализа данных
-7. **God Agent Service** — главный сервис, объединяющий всё
-8. **UI управления** — интерфейс для настройки
-9. **Документация** — примеры и инструкции
-
-## Архитектура
-
-```
-┌─────────────────────────────────────────┐
-│         God Agent (Единый UI)           │
-│  ┌──────────┐  ┌──────────┐  ┌────────┐│
-│  │   Чат    │  │ База знаний│ │Аналитика││
-│  │ (текст+  │  │   (RAG)   │  │ (данные)││
-│  │ голос)   │  │           │  │         ││
-│  └──────────┘  └──────────┘  └────────┘│
-└─────────────────────────────────────────┘
-           │              │
-           ▼              ▼
-    ┌──────────────┐  ┌──────────────┐
-    │  MCP Router  │  │  RAG Engine  │
-    │  (плагины)   │  │  (поиск)     │
-    └──────────────┘  └──────────────┘
-           │
-           ▼
-    ┌─────────────────────────┐
-    │   MCP Servers (плагины) │
-    ├─────────────────────────┤
-    │ • Git MCP               │
-    │ • Telegram MCP          │
-    │ • Analytics MCP         │
-    │ • File System MCP       │
-    │ • Calendar MCP          │
-    │ • Custom MCP...         │
-    └─────────────────────────┘
-           │
-           ▼
-    ┌──────────────┐
-    │ Local LLM    │
-    │   (VPS)      │
-    └──────────────┘
-```
-
-## 🚀 Installation
-
-### Prerequisites
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| Java | 17+ | 17+ |
-| Gradle | 8.0+ | 8.0+ |
-| RAM | 2GB | 8GB+ |
-| Storage | 500MB | 2GB+ |
-| CPU | 2 cores | 4+ cores |
-
-**Additional Requirements:**
-- ffmpeg 4.0+ (for voice input)
-- Local LLM server (Ollama recommended) on VPS
-- Vosk model (~40MB for small Russian model)
-
-### Step 1: Clone or Copy Project
-
+1. Клонируйте репозиторий:
 ```bash
-# Option 1: Copy from lesson-30
-cp -r lesson-30-personalization lesson-32-god-agent
+git clone <repository-url>
 cd lesson-32-god-agent
-
-# Option 2: Clone repository (if available)
-# git clone https://github.com/yourusername/god-agent.git
-# cd god-agent
 ```
 
-### Step 2: Install Dependencies
-
+2. Установите зависимости:
 ```bash
 cd server
 ./gradlew build
 ```
 
-### Step 3: Download Vosk Model
+3. Настройте конфигурацию:
+- Скопируйте `.env.example` в `.env` и заполните переменные окружения
+- Настройте `config/server.yaml`
+- Настройте `config/mcp-servers.yaml`
 
+4. Запустите сервер:
 ```bash
-# Create models directory
-mkdir -p models
-cd models
-
-# Download Russian model (small, ~40MB)
-wget https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
-
-# Extract
-unzip vosk-model-small-ru-0.22.zip
-
-# Verify installation
-ls -la vosk-model-small-ru-0.22/
-# Should see: am/, graph/, ivector/, conf/ directories
+cd server
+./gradlew run
 ```
 
-**Alternative:** Download via browser from [Vosk Models](https://alphacephei.com/vosk/models)
-
-### Step 4: Install ffmpeg
-
-**macOS:**
-```bash
-brew install ffmpeg
+5. Откройте браузер:
+```
+http://localhost:8080
 ```
 
-**Ubuntu/Debian:**
-```bash
-sudo apt update
-sudo apt install ffmpeg
+## 📁 Структура проекта
+
+```
+lesson-32-god-agent/
+├── server/                    # Backend (Kotlin/Ktor)
+│   ├── src/main/kotlin/
+│   │   ├── com/prike/
+│   │   │   ├── domain/        # Доменная логика
+│   │   │   │   ├── model/     # Модели данных
+│   │   │   │   └── service/   # Бизнес-логика
+│   │   │   ├── data/          # Слой данных
+│   │   │   │   ├── client/    # MCP клиенты
+│   │   │   │   └── repository/# Репозитории
+│   │   │   └── presentation/  # API контроллеры
+│   │   └── Main.kt           # Точка входа
+│   └── build.gradle.kts
+├── client/                    # Frontend (HTML/JS/CSS)
+│   ├── index.html
+│   ├── chat.html
+│   ├── mcp-servers.html
+│   ├── knowledge-base.html
+│   └── ...
+├── config/                    # Конфигурация
+│   ├── server.yaml
+│   └── mcp-servers.yaml
+├── knowledge-base/            # База знаний
+│   ├── projects/
+│   ├── learning/
+│   ├── personal/
+│   └── references/
+├── mcp-servers/              # MCP серверы
+│   └── analytics-mcp-server/
+└── README.md
 ```
 
-**Windows:**
-```bash
-choco install ffmpeg
-# Or download from https://ffmpeg.org/download.html
-```
+## ⚙️ Конфигурация
 
-**Verify:**
-```bash
-ffmpeg -version
-```
-
-### Step 5: Setup Environment
-
-Create `.env` file in project root:
-
-```bash
-# Copy example (if exists)
-cp .env.example .env
-
-# Or create new
-cat > .env << EOF
-# LLM Configuration
-LLM_PROVIDER=ollama
-LLM_BASE_URL=https://your-vps.com
-LLM_MODEL=llama3.2
-LLM_API_KEY=your_key_here
-
-# Vosk Model
-VOSK_MODEL_PATH=models/vosk-model-small-ru-0.22
-
-# Knowledge Base
-KB_AUTO_INDEX=true
-KB_WATCH_CHANGES=true
-KB_BASE_PATH=knowledge-base
-
-# MCP Servers
-MCP_CONFIG_PATH=config/mcp-servers.yaml
-
-# Telegram (optional)
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-EOF
-```
-
-## ⚙️ Configuration
-
-### Main Configuration (`config/server.yaml`)
+### Основная конфигурация (config/server.yaml)
 
 ```yaml
+server:
+  port: 8080
+  host: "0.0.0.0"
+
 god_agent:
   enabled: true
   
-  # Server settings
-  server:
-    host: "0.0.0.0"
-    port: 8080
-  
-  # MCP Servers configuration
   mcp_servers:
-    enabled: true
     config_path: "config/mcp-servers.yaml"
   
-  # Knowledge Base settings
   knowledge_base:
-    enabled: true
     base_path: "knowledge-base"
     auto_index: true
     watch_changes: true
-    chunk_size: 500
-    chunk_overlap: 50
   
-  # Personalization
   personalization:
     enabled: true
-    profile_path: "config/user-profile.yaml"
-    learning_enabled: true
+    profile_path: "data/user-profile.json"
   
-  # Voice input
   voice:
     enabled: true
     vosk_model_path: "models/vosk-model-small-ru-0.22"
-    sample_rate: 16000
-    audio_format: "wav"
   
-  # Local LLM
   local_llm:
     enabled: true
-    provider: "ollama"  # ollama, openrouter
-    base_url: "https://your-vps.com"
+    provider: "ollama"
+    base_url: "http://localhost:11434"
     model: "llama3.2"
-    temperature: 0.7
-    max_tokens: 2048
-    timeout_seconds: 60
-  
-  # Logging
-  logging:
-    level: "INFO"  # DEBUG, INFO, WARN, ERROR
-    file: "logs/god-agent.log"
 ```
 
-### MCP Servers Configuration (`config/mcp-servers.yaml`)
+### Конфигурация MCP серверов (config/mcp-servers.yaml)
 
 ```yaml
 mcp_servers:
   enabled: true
-  
-  # Git MCP - Work with git repositories
+
   git:
     enabled: true
     name: "Git MCP"
-    description: "Work with git repositories and files"
+    description: "Работа с git репозиториями"
     repositories:
       - path: "${HOME}/projects/my-project"
         name: "My Project"
-      - path: "${HOME}/projects/other-project"
-        name: "Other Project"
-  
-  # Telegram MCP - Notifications and messages
+
   telegram:
-    enabled: false  # Set to true if you want Telegram integration
+    enabled: true
     name: "Telegram MCP"
-    description: "Send notifications and messages via Telegram"
+    description: "Напоминания и отправка сообщений"
     bot_token: "${TELEGRAM_BOT_TOKEN}"
     chat_id: "${TELEGRAM_CHAT_ID}"
-  
-  # Analytics MCP - Data analysis
+
   analytics:
     enabled: true
     name: "Analytics MCP"
-    description: "Analyze data from CSV, JSON, databases"
+    description: "Анализ данных из CSV, JSON, БД"
     data_sources:
       - type: "csv"
         path: "data/analytics/metrics.csv"
         name: "Metrics"
-      - type: "db"
-        path: "data/analytics/user_data.db"
-        name: "User Data"
-      - type: "json"
-        path: "data/analytics/logs.json"
-        name: "Logs"
-  
-  # File System MCP - File operations
-  filesystem:
-    enabled: true
-    name: "File System MCP"
-    description: "Search and read files"
-    allowed_paths:
-      - "${HOME}/Documents"
-      - "${HOME}/projects"
-      - "knowledge-base"
-  
-  # Calendar MCP - Events and reminders (optional)
-  calendar:
-    enabled: false
-    name: "Calendar MCP"
-    description: "Manage events and reminders"
-    storage_path: "data/calendar/events.json"
 ```
 
-### User Profile (`config/user-profile.yaml`)
+## 📚 Использование
 
-```yaml
-user_profile:
-  id: "default"
-  name: "Your Name"
-  
-  preferences:
-    language: "ru"  # ru, en
-    response_format: "detailed"  # brief, detailed, structured
-    timezone: "Europe/Moscow"
-  
-  work_style:
-    preferred_working_hours: "09:00-18:00"
-    focus_areas:
-      - "backend"
-      - "ai"
-    tools:
-      - "kotlin"
-      - "ktor"
-    projects:
-      - "god-agent"
-  
-  communication_style:
-    tone: "professional"  # casual, professional, friendly
-    verbosity: "medium"  # low, medium, high
-  
-  context:
-    current_projects:
-      - "God Agent development"
-    interests:
-      - "AI agents"
-      - "Knowledge management"
-```
+### Чат с God Agent
 
-### Step 6: Start Server
-
-```bash
-cd server
-./gradlew run
-```
-
-**Verify installation:**
-```bash
-# Check server is running
-curl http://localhost:8080/health
-
-# Or open in browser
-open http://localhost:8080
-```
-
-**Expected output:**
-```
-Server started at http://0.0.0.0:8080
-Knowledge base indexed: 42 documents
-MCP servers loaded: 4
-Voice recognition ready
-```
-
-```bash
-cd server
-./gradlew build
-./gradlew run
-```
-
-Откройте: `http://localhost:8080`
-
-## Использование
-
-### Основной чат
-
-1. Откройте главную страницу
-2. Введите запрос или используйте голосовой ввод
-3. Получите персонализированный ответ
+1. Откройте страницу "Чат"
+2. Создайте новую сессию или выберите существующую
+3. Введите запрос или используйте голосовой ввод
+4. God Agent автоматически определит, какие инструменты использовать
 
 ### Примеры запросов
 
-- **"Найди информацию о проекте X"**
-  - RAG ищет в базе знаний
-  - Git MCP читает файлы проекта
-  - Возвращает ответ с источниками
-
-- **"Проанализируй метрики за последний месяц"**
-  - Analytics MCP анализирует данные
-  - LLM генерирует отчет
-  - Визуализация результатов
-
-- **"Напомни мне о встрече завтра"**
-  - Calendar MCP создает напоминание
-  - Telegram MCP отправляет сообщение
-
-- **"Что я писал про архитектуру?"**
-  - RAG ищет в личных заметках
-  - Возвращает релевантные фрагменты
-
-### Управление MCP серверами
-
-1. Откройте страницу настроек (`/settings`)
-2. Включите/выключите MCP серверы
-3. Настройте параметры каждого сервера
-4. Добавьте свои MCP серверы
+- **MCP инструменты**: "Отправь сообщение в Telegram: Привет!"
+- **RAG поиск**: "Найди информацию о проекте X"
+- **Аналитика**: "Проанализируй данные из CSV файла"
+- **Прямой вопрос**: "Что такое RAG?"
 
 ### Управление базой знаний
 
-1. Добавьте документы в `knowledge-base/`
-2. Организуйте по категориям:
-   - `projects/` — документация проектов
-   - `learning/` — заметки и обучение
-   - `personal/` — личные заметки
-   - `references/` — справочные материалы
-3. Переиндексируйте через UI или API
+1. Откройте страницу "База знаний"
+2. Добавьте документы в соответствующие категории:
+   - `knowledge-base/projects/` - проекты
+   - `knowledge-base/learning/` - обучение
+   - `knowledge-base/personal/` - личное
+   - `knowledge-base/references/` - справочники
+3. Нажмите "Индексировать всё" или индексируйте отдельные категории
+4. Используйте поиск для нахождения информации
 
-## Структура базы знаний
+### Управление MCP серверами
 
-```
-knowledge-base/
-├── projects/
-│   ├── project-1/
-│   │   ├── docs/
-│   │   ├── notes.md
-│   │   └── ideas.md
-│   └── project-2/
-├── learning/
-│   ├── ai-notes.md
-│   ├── kotlin-tips.md
-│   └── architecture-patterns.md
-├── personal/
-│   ├── goals-2024.md
-│   ├── meeting-notes/
-│   └── ideas.md
-└── references/
-    ├── articles/
-    └── books/
-```
+1. Откройте страницу "MCP серверы"
+2. Просмотрите список доступных серверов
+3. Подключите/отключите серверы
+4. Просмотрите доступные инструменты
 
-## MCP Серверы (Плагины)
+## 🔧 Разработка
 
-### Встроенные серверы
+### Добавление нового MCP сервера
 
-- **Git MCP** — работа с git репозиториями и файлами
-- **Telegram MCP** — напоминания и отправка сообщений
-- **Analytics MCP** — анализ данных из CSV, JSON, БД
-- **File System MCP** — поиск и чтение файлов
-- **Calendar MCP** — управление событиями (опционально)
+1. Создайте новый MCP сервер в `mcp-servers/`
+2. Добавьте конфигурацию в `config/mcp-servers.yaml`
+3. Создайте клиент, реализующий `MCPClientInterface`
+4. Зарегистрируйте клиент в `Main.kt`
 
-### Создание своего MCP сервера
+### Добавление новой категории в базу знаний
 
-См. документацию: `docs/MCP_SERVERS.md`
+1. Добавьте новую категорию в `DocumentCategory` enum
+2. Создайте соответствующую директорию в `knowledge-base/`
+3. Обновите UI для отображения новой категории
 
-## 📚 API Reference
+## 📝 API Endpoints
 
-Base URL: `http://localhost:8080/api`
+### Чат
+- `POST /api/chat/sessions` - создать сессию
+- `GET /api/chat/sessions` - получить список сессий
+- `POST /api/chat/sessions/{id}/messages` - отправить сообщение
+- `POST /api/chat/sessions/{id}/voice` - голосовое сообщение
+- `GET /api/chat/sessions/{id}/messages` - получить историю
 
-### Chat API
+### База знаний
+- `POST /api/knowledge-base/index` - индексировать всё
+- `POST /api/knowledge-base/index/category/{name}` - индексировать категорию
+- `GET /api/knowledge-base/search?query=...&category=...` - поиск
+- `GET /api/knowledge-base/statistics` - статистика
+- `GET /api/knowledge-base/categories` - список категорий
 
-#### POST `/api/chat/message`
+### MCP серверы
+- `GET /api/mcp-servers` - список серверов
+- `GET /api/mcp-servers/tools` - список инструментов
+- `POST /api/mcp-servers/connect` - подключить все
+- `POST /api/mcp-servers/disconnect` - отключить все
 
-Send text message to agent.
+## 🐛 Устранение неполадок
 
-**Request:**
-```json
-{
-  "message": "Найди информацию о проекте X",
-  "sessionId": "session-123",
-  "userId": "user-456"
-}
-```
+### Проблемы с MCP серверами
 
-**Response:**
-```json
-{
-  "message": "Вот информация о проекте X...",
-  "sources": [
-    {
-      "document": "projects/project-x/README.md",
-      "chunk": "...",
-      "score": 0.95
-    }
-  ],
-  "toolsUsed": ["rag_search", "git_read_file"],
-  "sessionId": "session-123"
-}
-```
+- Проверьте, что серверы включены в `config/mcp-servers.yaml`
+- Убедитесь, что переменные окружения установлены
+- Проверьте логи сервера
 
-#### POST `/api/chat/voice`
+### Проблемы с базой знаний
 
-Send voice message (audio file).
+- Убедитесь, что Ollama запущен и доступен
+- Проверьте, что файлы находятся в правильных директориях
+- Попробуйте переиндексировать базу знаний
 
-**Request:**
-- Content-Type: `multipart/form-data`
-- Field: `audio` (audio file, webm/wav format)
+### Проблемы с голосовым вводом
 
-**Response:**
-```json
-{
-  "recognizedText": "Найди информацию о проекте",
-  "response": {
-    "message": "...",
-    "sources": []
-  }
-}
-```
+- Убедитесь, что FFmpeg установлен
+- Проверьте путь к модели Vosk в конфигурации
+- Проверьте права доступа к микрофону в браузере
 
-#### GET `/api/chat/history`
+## 📄 Лицензия
 
-Get chat history for session.
+MIT License
 
-**Query Parameters:**
-- `sessionId` (required) - Session ID
+## 🤝 Вклад
 
-**Response:**
-```json
-{
-  "sessionId": "session-123",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Hello",
-      "timestamp": 1234567890
-    },
-    {
-      "role": "assistant",
-      "content": "Hi! How can I help?",
-      "timestamp": 1234567891
-    }
-  ]
-}
-```
+Приветствуются pull requests и issues!
 
-### Knowledge Base API
+## 📧 Контакты
 
-#### POST `/api/knowledge-base/index`
-
-Index all documents in knowledge base.
-
-**Response:**
-```json
-{
-  "status": "success",
-  "documentsIndexed": 42,
-  "categories": ["projects", "learning", "personal", "references"]
-}
-```
-
-#### GET `/api/knowledge-base/search`
-
-Search in knowledge base.
-
-**Query Parameters:**
-- `query` (required) - Search query
-- `category` (optional) - Filter by category
-- `limit` (optional) - Max results (default: 5)
-
-**Response:**
-```json
-{
-  "query": "проект",
-  "results": [
-    {
-      "document": "projects/project-x/README.md",
-      "chunk": "...",
-      "score": 0.95,
-      "category": "projects"
-    }
-  ],
-  "total": 1
-}
-```
-
-#### GET `/api/knowledge-base/categories`
-
-Get list of categories.
-
-**Response:**
-```json
-{
-  "categories": ["projects", "learning", "personal", "references"]
-}
-```
-
-### MCP Servers API
-
-#### GET `/api/mcp/servers`
-
-Get list of all MCP servers and their status.
-
-**Response:**
-```json
-{
-  "servers": [
-    {
-      "name": "git",
-      "enabled": true,
-      "description": "Work with git repositories",
-      "toolsCount": 3
-    }
-  ]
-}
-```
-
-#### POST `/api/mcp/servers/{name}/toggle`
-
-Enable or disable MCP server.
-
-**Request:**
-```json
-{
-  "enabled": true
-}
-```
-
-#### GET `/api/mcp/tools`
-
-Get list of all available tools from all MCP servers.
-
-**Response:**
-```json
-{
-  "tools": [
-    {
-      "server": "git",
-      "name": "read_file",
-      "description": "Read file from repository"
-    }
-  ]
-}
-```
-
-### User Profile API
-
-#### GET `/api/profile`
-
-Get user profile.
-
-**Response:**
-```json
-{
-  "id": "default",
-  "name": "Your Name",
-  "preferences": {
-    "language": "ru",
-    "responseFormat": "detailed"
-  }
-}
-```
-
-#### PUT `/api/profile`
-
-Update user profile.
-
-**Request:**
-```json
-{
-  "name": "New Name",
-  "preferences": {
-    "language": "en"
-  }
-}
-```
-
-### Error Responses
-
-All endpoints may return errors:
-
-```json
-{
-  "error": "Error message",
-  "code": "ERROR_CODE",
-  "details": {}
-}
-```
-
-**HTTP Status Codes:**
-- `200` - Success
-- `400` - Bad Request
-- `401` - Unauthorized
-- `404` - Not Found
-- `500` - Internal Server Error
-
-See [Full API Documentation](docs/API.md) for details.
-
-## Файлы урока
-
-- `PROMPT.md` — промпт для реализации (по коммитам)
-- `README.md` — этот файл
-- `CHAT_PROMPT.txt` — краткий промпт для агента
-- `docs/MCP_SERVERS.md` — как создавать MCP серверы
-- `docs/KNOWLEDGE_BASE.md` — организация базы знаний
-- `docs/ANALYTICS.md` — использование аналитики
-- `docs/PERSONALIZATION.md` — настройка персонализации
-
-## 💡 Советы
-
-1. **Организуйте базу знаний** — используйте категории и структуру папок
-2. **Настройте MCP серверы** — включите только нужные
-3. **Обновляйте профиль** — персонализация улучшается с профилем
-4. **Регулярно индексируйте** — новые документы нужно индексировать
-5. **Используйте голосовой ввод** — удобно для быстрых запросов
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### MCP Server Connection Failed
-
-**Problem:** MCP server not responding or connection timeout
-
-**Solutions:**
-1. **Check server status:**
-   ```bash
-   curl http://localhost:8001/health
-   # Replace 8001 with your MCP server port
-   ```
-
-2. **Verify configuration:**
-   ```bash
-   # Check config file syntax
-   cat config/mcp-servers.yaml | grep -A 5 "git:"
-   ```
-
-3. **Check server is enabled:**
-   ```yaml
-   # config/mcp-servers.yaml
-   git:
-     enabled: true  # Must be true
-   ```
-
-4. **Check logs:**
-   ```bash
-   tail -f logs/god-agent.log | grep -i "mcp"
-   ```
-
-5. **Restart server:**
-   ```bash
-   # Stop server (Ctrl+C)
-   # Start again
-   ./gradlew run
-   ```
-
-#### Knowledge Base Not Indexing
-
-**Problem:** Documents not appearing in search results
-
-**Solutions:**
-1. **Check file format:**
-   - Supported: `.md`, `.txt`, `.markdown`
-   - Not supported: `.docx`, `.pdf` (without conversion)
-
-2. **Verify file location:**
-   ```bash
-   ls -la knowledge-base/projects/
-   # Files should be in correct category directories
-   ```
-
-3. **Check file permissions:**
-   ```bash
-   ls -l knowledge-base/projects/my-project/README.md
-   # Should be readable
-   ```
-
-4. **Manual indexing:**
-   ```bash
-   # Via API
-   curl -X POST http://localhost:8080/api/knowledge-base/index
-   
-   # Or via UI: Settings → Knowledge Base → Reindex
-   ```
-
-5. **Check configuration:**
-   ```yaml
-   knowledge_base:
-     auto_index: true  # Should be true
-     base_path: "knowledge-base"  # Correct path
-   ```
-
-6. **Check logs for errors:**
-   ```bash
-   tail -f logs/god-agent.log | grep -i "index"
-   ```
-
-#### Voice Recognition Not Working
-
-**Problem:** Vosk not recognizing speech or microphone not accessible
-
-**Solutions:**
-1. **Verify Vosk model:**
-   ```bash
-   ls -la models/vosk-model-small-ru-0.22/
-   # Should see: am/, graph/, ivector/, conf/ directories
-   ```
-
-2. **Check model path in config:**
-   ```yaml
-   voice:
-     vosk_model_path: "models/vosk-model-small-ru-0.22"  # Correct path
-   ```
-
-3. **Test ffmpeg:**
-   ```bash
-   ffmpeg -version
-   # Should show version 4.0+
-   ```
-
-4. **Check browser permissions:**
-   - Chrome: Settings → Privacy → Microphone → Allow
-   - Firefox: Preferences → Privacy → Permissions → Microphone
-   - Safari: Preferences → Websites → Microphone
-
-5. **Test audio format:**
-   - Vosk requires: 16kHz, mono, 16-bit PCM WAV
-   - Check conversion is working:
-     ```bash
-     ffmpeg -i input.webm -ar 16000 -ac 1 -f s16le output.wav
-     ```
-
-6. **Check server logs:**
-   ```bash
-   tail -f logs/god-agent.log | grep -i "voice\|vosk"
-   ```
-
-#### LLM Connection Failed
-
-**Problem:** Cannot connect to local LLM on VPS
-
-**Solutions:**
-1. **Test VPS connection:**
-   ```bash
-   curl https://your-vps.com/health
-   # Or
-   curl https://your-vps.com/api/tags
-   ```
-
-2. **Check configuration:**
-   ```yaml
-   local_llm:
-     base_url: "https://your-vps.com"  # Correct URL
-     model: "llama3.2"  # Model exists on VPS
-   ```
-
-3. **Check authentication:**
-   ```bash
-   # If using API key
-   curl -H "Authorization: Bearer YOUR_KEY" \
-        https://your-vps.com/api/generate
-   ```
-
-4. **Check network:**
-   ```bash
-   ping your-vps.com
-   # Should respond
-   ```
-
-5. **Check timeout:**
-   ```yaml
-   local_llm:
-     timeout_seconds: 60  # Increase if slow connection
-   ```
-
-#### Slow Response Times
-
-**Problem:** Agent responds slowly
-
-**Solutions:**
-1. **Check LLM response time:**
-   ```bash
-   time curl -X POST https://your-vps.com/api/generate \
-        -d '{"model":"llama3.2","prompt":"test"}'
-   ```
-
-2. **Reduce context size:**
-   ```yaml
-   knowledge_base:
-     chunk_size: 300  # Reduce from 500
-   ```
-
-3. **Limit search results:**
-   ```yaml
-   rag:
-     max_results: 3  # Reduce from 5
-   ```
-
-4. **Disable unused MCP servers:**
-   ```yaml
-   telegram:
-     enabled: false  # Disable if not using
-   ```
-
-### Debug Mode
-
-Enable detailed logging:
-
-```yaml
-# config/server.yaml
-logging:
-  level: "DEBUG"  # Change from INFO
-  file: "logs/god-agent.log"
-```
-
-Then check logs:
-```bash
-tail -f logs/god-agent.log
-```
-
-### Getting Help
-
-- 📖 Check [Documentation](docs/)
-- 🔍 Search [Issues](https://github.com/yourusername/god-agent/issues)
-- 💬 Ask in [Discussions](https://github.com/yourusername/god-agent/discussions)
-
-## 🔗 Связанные уроки
-
-- **Урок 19-20** — RAG и MCP (базовая функциональность)
-- **Урок 30** — Персонализация (профиль пользователя)
-- **Урок 31** — Голосовой ввод (Vosk)
-- **Урок 29** — Аналитика (анализ данных)
-- **Урок 27-28** — Локальная LLM (VPS)
-
-## 🎉 Результат
-
-Готовый продукт — персональный AI-помощник, который:
-- ✅ Объединяет все наработки
-- ✅ Работает как персональная база знаний
-- ✅ Поддерживает модульные плагины (MCP)
-- ✅ Персонализирован под пользователя
-- ✅ Анализирует данные из разных источников
-- ✅ Поддерживает голосовой ввод
-
+Для вопросов и предложений создайте issue в репозитории.
