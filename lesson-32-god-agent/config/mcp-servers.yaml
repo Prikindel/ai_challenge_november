@@ -1,0 +1,50 @@
+mcp_servers:
+  enabled: true
+  
+  git:
+    enabled: true
+    name: "Git MCP"
+    description: "Работа с git репозиториями и файлами проекта"
+    repositories:
+      - path: "${HOME}/projects/my-project"
+        name: "My Project"
+      - path: "${HOME}/projects/other-project"
+        name: "Other Project"
+  
+  telegram:
+    enabled: true
+    name: "Telegram MCP"
+    description: "Напоминания и отправка сообщений в Telegram"
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+  
+  analytics:
+    enabled: true
+    name: "Analytics MCP"
+    description: "Анализ данных из CSV, JSON, БД"
+    data_sources:
+      - type: "csv"
+        path: "data/analytics/metrics.csv"
+        name: "Metrics"
+      - type: "db"
+        path: "data/analytics/user_data.db"
+        name: "User Data"
+      - type: "json"
+        path: "data/analytics/logs.json"
+        name: "Logs"
+  
+  filesystem:
+    enabled: true
+    name: "File System MCP"
+    description: "Поиск и чтение файлов в файловой системе"
+    allowed_paths:
+      - "${HOME}/Documents"
+      - "${HOME}/projects"
+      - "knowledge-base"
+  
+  calendar:
+    enabled: false  # Опционально
+    name: "Calendar MCP"
+    description: "Управление событиями и напоминаниями"
+    storage_path: "data/calendar/events.json"
+

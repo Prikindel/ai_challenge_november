@@ -1,0 +1,57 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+god_agent:
+  enabled: true
+  
+  mcp_servers:
+    config_path: "config/mcp-servers.yaml"
+  
+  knowledge_base:
+    base_path: "knowledge-base"
+    auto_index: true
+    watch_changes: true
+  
+  personalization:
+    enabled: true
+    profile_path: "data/user-profile.json"
+  
+  voice:
+    enabled: true
+    vosk_model_path: "models/vosk-model-small-ru-0.22"
+  
+  local_llm:
+    enabled: true
+    provider: "ollama"
+    base_url: "http://localhost:11434"
+    model: "llama3.2"
+
+reviews:
+  api:
+    baseUrl: "https://stores.mobile.company-team.ru"
+    store: "googleplay"
+    packageId: "com.example.app"
+    oauthToken: "${REVIEWS_API_OAUTH_TOKEN}"
+
+koog:
+  enabled: true
+  model: "gpt-4o-mini"
+  apiKey: "${OPENAI_API_KEY}"
+  useOpenRouter: true  # Установите true, если используете OpenRouter ключ
+
+telegram:
+  mcp:
+    enabled: false
+    jarPath: "telegram-mcp-server/build/libs/telegram-mcp-server-1.0.0.jar"
+  botToken: "${TELEGRAM_BOT_TOKEN}"
+  chatId: "${TELEGRAM_CHAT_ID}"
+
+database:
+  path: "data/reviews.db"
+
+ollama:
+  baseUrl: "http://localhost:11434"  # URL Ollama сервера
+  model: "nomic-embed-text"          # Модель для эмбеддингов
+  timeout: 120000                    # Таймаут в миллисекундах (2 минуты для больших текстов)
+

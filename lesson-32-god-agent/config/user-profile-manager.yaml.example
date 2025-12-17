@@ -1,0 +1,34 @@
+user:
+  id: "manager"
+  name: "Мария"
+  preferences:
+    language: "ru"
+    responseFormat: "brief"  # brief, detailed, structured
+    timezone: "Europe/Moscow"
+    dateFormat: "dd.MM.yyyy"
+  workStyle:
+    preferredWorkingHours: "09:00-18:00"
+    focusAreas:
+      - "project-management"
+      - "analytics"
+      - "team-leadership"
+    tools:
+      - "jira"
+      - "confluence"
+      - "slack"
+    projects:
+      - "mobile-app"
+      - "web-platform"
+  communicationStyle:
+    tone: "professional"  # professional, casual, friendly
+    detailLevel: "medium"  # low, medium, high
+    useExamples: false
+    useEmojis: false
+  context:
+    currentProject: "mobile-app"
+    role: "manager"
+    team: "product"
+    goals:
+      - "Улучшить процессы разработки"
+      - "Повысить эффективность команды"
+

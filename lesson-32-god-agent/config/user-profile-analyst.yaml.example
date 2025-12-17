@@ -1,0 +1,35 @@
+user:
+  id: "analyst"
+  name: "Дмитрий"
+  preferences:
+    language: "ru"
+    responseFormat: "detailed"  # brief, detailed, structured
+    timezone: "Europe/Moscow"
+    dateFormat: "dd.MM.yyyy"
+  workStyle:
+    preferredWorkingHours: "09:00-18:00"
+    focusAreas:
+      - "data-analysis"
+      - "statistics"
+      - "machine-learning"
+    tools:
+      - "python"
+      - "pandas"
+      - "jupyter"
+      - "sql"
+    projects:
+      - "analytics-dashboard"
+      - "data-pipeline"
+  communicationStyle:
+    tone: "professional"  # professional, casual, friendly
+    detailLevel: "high"  # low, medium, high
+    useExamples: true
+    useEmojis: false
+  context:
+    currentProject: "analytics-dashboard"
+    role: "analyst"
+    team: "data"
+    goals:
+      - "Найти паттерны в данных"
+      - "Улучшить точность прогнозов"
+

@@ -1,0 +1,47 @@
+# Пример конфигурации профиля пользователя
+# Скопируйте этот файл в user-profile.yaml и настройте под себя
+
+user:
+  id: "default"
+  name: "Иван"
+  
+  # Предпочтения пользователя
+  preferences:
+    language: "ru"              # ru, en
+    responseFormat: "detailed"  # brief, detailed, structured
+    timezone: "Europe/Moscow"    # Часовой пояс
+    dateFormat: "dd.MM.yyyy"     # Формат даты
+  
+  # Стиль работы
+  workStyle:
+    preferredWorkingHours: "09:00-18:00"  # Предпочтительные рабочие часы
+    focusAreas:                            # Области интересов
+      - "backend"
+      - "devops"
+      - "kotlin"
+    tools:                                 # Используемые инструменты
+      - "git"
+      - "docker"
+      - "kubernetes"
+      - "postgresql"
+    projects:                              # Проекты пользователя
+      - "ai-challenge"
+      - "mobile-app"
+  
+  # Стиль общения
+  communicationStyle:
+    tone: "professional"    # professional, casual, friendly
+    detailLevel: "medium"   # low, medium, high
+    useExamples: true       # Использовать примеры в ответах
+    useEmojis: false       # Использовать эмодзи
+  
+  # Контекст работы
+  context:
+    currentProject: "ai-challenge"  # Текущий проект
+    role: "developer"               # Роль: developer, manager, analyst, designer
+    team: "backend"                 # Команда
+    goals:                          # Цели пользователя
+      - "Изучить LLM"
+      - "Автоматизировать задачи"
+      - "Улучшить навыки разработки"
+

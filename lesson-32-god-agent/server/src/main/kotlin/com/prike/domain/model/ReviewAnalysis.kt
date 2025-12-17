@@ -1,0 +1,14 @@
+package com.prike.domain.model
+
+import kotlinx.serialization.Serializable
+
+/**
+ * Анализ отзыва, выполненный через LLM
+ */
+@Serializable
+data class ReviewAnalysis(
+    val reviewId: String,
+    val category: ReviewCategory,
+    val topics: List<String>, // Названия категорий из ReviewTopic
+    val criticality: Criticality
+)
