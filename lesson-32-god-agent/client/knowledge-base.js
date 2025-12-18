@@ -34,11 +34,12 @@ async function loadStatistics() {
 function renderStatistics(stats) {
     const statistics = document.getElementById('statistics');
     
-    const categoryStats = Object.entries(stats.chunksByCategory || {})
-        .map(([category, count]) => `
+    // chunksByCategory теперь массив объектов {category: string, count: number}
+    const categoryStats = (stats.chunksByCategory || [])
+        .map(item => `
             <div class="stat-card">
-                <h4>${getCategoryDisplayName(category)}</h4>
-                <p class="stat-value">${count}</p>
+                <h4>${getCategoryDisplayName(item.category)}</h4>
+                <p class="stat-value">${item.count}</p>
                 <p class="stat-label">чанков</p>
             </div>
         `).join('');

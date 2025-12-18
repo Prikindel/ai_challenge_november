@@ -3,6 +3,8 @@ package com.prike
 import com.prike.config.Config
 import com.prike.data.DatabaseManager
 import com.prike.data.client.TelegramMCPClient
+import com.prike.data.client.TelegramMCPClientAdapter
+import com.prike.data.client.MCPClientInterface
 import com.prike.data.repository.ChatRepository
 import com.prike.data.repository.ReviewsRepository
 import com.prike.domain.agent.ReviewsAnalyzerAgent
@@ -212,10 +214,77 @@ fun main(args: Array<String>) {
     }
     
     val mcpRouterService = if (mcpConfigService != null && embeddingService != null) {
-        // TODO: Инициализировать MCP клиенты из конфигурации
-        val mcpClients = emptyMap<String, com.prike.data.client.MCPClientInterface>()
-        com.prike.domain.service.MCPRouterService(mcpConfigService, mcpClients).also {
-            logger.info("MCPRouterService initialized")
+        // Инициализируем MCP клиенты из конфигурации
+        val mcpClientsMap = mutableMapOf<String, com.prike.data.client.MCPClientInterface>()
+        
+        // Получаем список включенных серверов из конфигурации MCP
+        val enabledServers = mcpConfigService.getEnabledServers()
+        logger.info("Found ${enabledServers.size} enabled MCP servers: ${enabledServers.map { it.name }.joinToString()}")
+        
+        // Добавляем Telegram MCP клиент, если он включен в конфигурации MCP серверов
+        val telegramServerConfig = enabledServers.find { it.name == "Telegram MCP" }
+        if (telegramServerConfig != null && telegramServerConfig.enabled) {
+            val telegramAdapter = com.prike.data.client.TelegramMCPClientAdapter(telegramMCPClient, "Telegram MCP")
+            mcpClientsMap["Telegram MCP"] = telegramAdapter
+            logger.info("Telegram MCP client added to router")
+            
+            // Подключаем Telegram клиент, если он еще не подключен
+            if (!telegramMCPClient.isConnected() && config.telegram.mcp.enabled) {
+                kotlinx.coroutines.runBlocking {
+                    try {
+                        telegramMCPClient.connect()
+                        logger.info("Telegram MCP client connected")
+                    } catch (e: Exception) {
+                        logger.warn("Failed to connect Telegram MCP client: ${e.message}")
+                    }
+                }
+            }
+        } else {
+            logger.debug("Telegram MCP not enabled in MCP servers config")
+        }
+        
+        // Для остальных серверов создаем заглушки, которые будут показывать, что сервер не реализован
+        enabledServers.forEach { serverConfig ->
+            if (!mcpClientsMap.containsKey(serverConfig.name)) {
+                // Создаем заглушку для нереализованных серверов
+                val serverName = serverConfig.name
+                // Создаем заглушку для нереализованных серверов
+                // Возвращаем хотя бы один инструмент-заглушку, чтобы показать, что сервер существует
+                val stubClient = object : com.prike.data.client.MCPClientInterface {
+                    override suspend fun connect() {
+                        logger.warn("Stub client for $serverName - connect() not implemented")
+                    }
+                    
+                    override suspend fun disconnect() {
+                        logger.warn("Stub client for $serverName - disconnect() not implemented")
+                    }
+                    
+                    override fun isConnected(): Boolean = false
+                    
+                    override suspend fun listTools(): List<com.prike.domain.model.MCPTool> {
+                        // Возвращаем заглушку-инструмент, чтобы показать, что сервер существует, но не реализован
+                        logger.debug("Stub client for $serverName - returning placeholder tool")
+                        return listOf(
+                            com.prike.domain.model.MCPTool(
+                                serverName = serverName,
+                                name = "not_implemented",
+                                description = "Этот MCP сервер еще не реализован. Сервер существует в конфигурации, но функциональность пока не доступна.",
+                                parameters = emptyMap()
+                            )
+                        )
+                    }
+                    
+                    override suspend fun callTool(toolName: String, arguments: Map<String, Any>): com.prike.domain.model.MCPToolResult {
+                        return com.prike.domain.model.MCPToolResult.failure("MCP server '$serverName' is not implemented yet")
+                    }
+                }
+                mcpClientsMap[serverConfig.name] = stubClient
+                logger.debug("Stub client created for ${serverConfig.name}")
+            }
+        }
+        
+        com.prike.domain.service.MCPRouterService(mcpConfigService, mcpClientsMap).also {
+            logger.info("MCPRouterService initialized with ${mcpClientsMap.size} clients")
         }
     } else {
         null

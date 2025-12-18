@@ -49,9 +49,27 @@ function renderServers(data) {
     }
     
     serversList.innerHTML = data.servers.map(server => {
-        const statusClass = server.isConnected ? 'connected' : 'disconnected';
-        const statusIcon = server.isConnected ? '🟢' : '🔴';
-        const statusText = server.isConnected ? 'Подключен' : 'Отключен';
+        // Статус подключения: показывает реальное подключение через MCP протокол
+        // Для заглушек и адаптеров (например, Telegram) это может быть false,
+        // но сервер все равно доступен и может работать
+        let statusClass, statusIcon, statusText;
+        
+        if (!server.enabled) {
+            // Сервер выключен в конфигурации
+            statusClass = 'disconnected';
+            statusIcon = '⚫';
+            statusText = 'Выключен';
+        } else if (server.isConnected) {
+            // Сервер подключен через MCP протокол
+            statusClass = 'connected';
+            statusIcon = '🟢';
+            statusText = 'Подключен';
+        } else {
+            // Сервер включен, но не подключен (заглушка или адаптер без подключения)
+            statusClass = 'available';
+            statusIcon = '🟡';
+            statusText = 'Доступен';
+        }
         
         return `
             <div class="server-card">
@@ -76,19 +94,25 @@ function renderServers(data) {
  * Загрузить список инструментов
  */
 async function loadTools() {
+    const toolsList = document.getElementById('toolsList');
+    toolsList.innerHTML = '<div class="loading">Загрузка инструментов...</div>';
+    
     try {
+        console.log('Loading tools from:', `${API_BASE}/mcp-servers/tools`);
         const response = await fetch(`${API_BASE}/mcp-servers/tools`);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error('HTTP error:', response.status, errorText);
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
         
         const tools = await response.json();
+        console.log('Received tools:', tools);
         renderTools(tools);
     } catch (error) {
         console.error('Failed to load tools:', error);
-        const toolsList = document.getElementById('toolsList');
-        toolsList.innerHTML = '<div class="error">Ошибка загрузки инструментов</div>';
+        toolsList.innerHTML = `<div class="error">Ошибка загрузки инструментов: ${error.message}</div>`;
     }
 }
 
@@ -98,10 +122,16 @@ async function loadTools() {
 function renderTools(tools) {
     const toolsList = document.getElementById('toolsList');
     
+    console.log('renderTools called with:', tools);
+    console.log('toolsList element:', toolsList);
+    
     if (!tools || tools.length === 0) {
+        console.log('No tools to render');
         toolsList.innerHTML = '<div class="empty">Нет доступных инструментов</div>';
         return;
     }
+    
+    console.log(`Rendering ${tools.length} tools`);
     
     // Группируем инструменты по серверам
     const toolsByServer = tools.reduce((acc, tool) => {
@@ -112,16 +142,25 @@ function renderTools(tools) {
         return acc;
     }, {});
     
-    toolsList.innerHTML = Object.entries(toolsByServer).map(([serverName, serverTools]) => {
+    console.log('Tools grouped by server:', toolsByServer);
+    
+    const html = Object.entries(toolsByServer).map(([serverName, serverTools]) => {
         return `
             <div class="tools-group">
                 <h4>${escapeHtml(serverName)}</h4>
                 <div class="tools-grid">
-                    ${serverTools.map(tool => `
-                        <div class="tool-card">
-                            <h5>${escapeHtml(tool.name)}</h5>
+                    ${serverTools.map(tool => {
+                        const isNotImplemented = tool.name === 'not_implemented';
+                        const isDisabled = tool.name === 'disabled';
+                        return `
+                        <div class="tool-card ${isNotImplemented || isDisabled ? 'tool-card-disabled' : ''}">
+                            <h5>${escapeHtml(
+                                isNotImplemented ? '⚠️ Не реализовано' : 
+                                isDisabled ? '⚫ Выключен' : 
+                                tool.name
+                            )}</h5>
                             <p>${escapeHtml(tool.description)}</p>
-                            ${Object.keys(tool.parameters).length > 0 ? `
+                            ${Object.keys(tool.parameters || {}).length > 0 ? `
                                 <div class="tool-params">
                                     <strong>Параметры:</strong>
                                     <ul>
@@ -132,11 +171,16 @@ function renderTools(tools) {
                                 </div>
                             ` : ''}
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
             </div>
         `;
     }).join('');
+    
+    console.log('Generated HTML length:', html.length);
+    toolsList.innerHTML = html;
+    console.log('HTML inserted into toolsList');
 }
 
 /**

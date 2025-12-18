@@ -12,6 +12,10 @@ import org.slf4j.LoggerFactory
  * - RAG для поиска в базе знаний
  * - Analytics для анализа данных
  * - Персонализация для адаптации под пользователя
+ * 
+ * TODO: Интегрировать в ChatController для замены ReviewsChatService
+ * Сейчас используется ReviewsChatService, но GodAgentService предоставляет
+ * более полную функциональность с роутингом запросов.
  */
 class GodAgentService(
     private val mcpRouterService: MCPRouterService,

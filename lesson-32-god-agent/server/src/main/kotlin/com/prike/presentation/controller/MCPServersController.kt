@@ -29,11 +29,19 @@ class MCPServersController(
                     try {
                         val config = mcpConfigService.getConfig()
                         val servers = config.servers.map { (name, serverConfig) ->
+                            // isConnected показывает реальное подключение через MCP протокол
+                            // Для заглушек и адаптеров это может быть false, но сервер все равно доступен
+                            // Для выключенных серверов (enabled: false) клиент не создается, поэтому isConnected всегда false
+                            val isConnected = if (serverConfig.enabled) {
+                                mcpRouterService.isServerConnected(name)
+                            } else {
+                                false // Выключенные серверы не подключены
+                            }
                             MCPServerDto(
                                 name = name,
                                 enabled = serverConfig.enabled,
                                 description = serverConfig.description,
-                                isConnected = mcpRouterService.isServerAvailable(name)
+                                isConnected = isConnected
                             )
                         }
                         
@@ -57,7 +65,12 @@ class MCPServersController(
                  */
                 get("/tools") {
                     try {
-                        val tools = mcpRouterService.getAllAvailableTools()
+                        logger.debug("Getting MCP tools...")
+                        val tools = kotlinx.coroutines.runBlocking {
+                            mcpRouterService.getAllAvailableTools()
+                        }
+                        logger.debug("Retrieved ${tools.size} tools from MCP servers")
+                        
                         val toolsDto = tools.map { tool ->
                             MCPToolDto(
                                 serverName = tool.serverName,
@@ -67,7 +80,20 @@ class MCPServersController(
                             )
                         }
                         
-                        call.respond(toolsDto)
+                        // Добавляем информацию о выключенных серверах
+                        val config = mcpConfigService.getConfig()
+                        val disabledServers = config.servers.filter { !it.value.enabled }
+                        val disabledServersInfo = disabledServers.map { (name, serverConfig) ->
+                            MCPToolDto(
+                                serverName = serverConfig.name,
+                                name = "disabled",
+                                description = "Этот MCP сервер выключен в конфигурации (enabled: false). Включите его в config/mcp-servers.yaml, чтобы использовать.",
+                                parameters = emptyMap()
+                            )
+                        }
+                        
+                        logger.debug("Sending ${toolsDto.size} tools and ${disabledServersInfo.size} disabled servers info to client")
+                        call.respond(toolsDto + disabledServersInfo)
                     } catch (e: Exception) {
                         logger.error("Failed to get MCP tools: ${e.message}", e)
                         call.respond(

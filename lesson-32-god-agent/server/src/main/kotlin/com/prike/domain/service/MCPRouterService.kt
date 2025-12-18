@@ -19,26 +19,34 @@ class MCPRouterService(
      */
     suspend fun getAllAvailableTools(): List<MCPTool> {
         val enabledServers = mcpConfigService.getEnabledServers()
+        logger.debug("Getting tools from ${enabledServers.size} enabled servers")
+        logger.debug("Available clients: ${mcpClients.keys.joinToString()}")
         
-        return enabledServers.flatMap { serverConfig ->
+        val allTools = enabledServers.flatMap { serverConfig ->
+            logger.debug("Processing server: ${serverConfig.name}")
             val client = mcpClients[serverConfig.name]
             if (client == null) {
-                logger.warn("MCP client not found for server: ${serverConfig.name}")
+                logger.warn("MCP client not found for server: ${serverConfig.name}. Available clients: ${mcpClients.keys.joinToString()}")
                 emptyList()
             } else {
                 try {
-                    if (!client.isConnected()) {
-                        logger.warn("MCP client not connected: ${serverConfig.name}")
-                        emptyList()
-                    } else {
-                        client.listTools()
+                    // Некоторые клиенты могут возвращать инструменты без подключения
+                    // (например, TelegramMCPClientAdapter)
+                    val tools = client.listTools()
+                    logger.debug("Server ${serverConfig.name} returned ${tools.size} tools")
+                    if (tools.isEmpty() && !client.isConnected()) {
+                        logger.debug("MCP client not connected and no tools available: ${serverConfig.name}")
                     }
+                    tools
                 } catch (e: Exception) {
                     logger.error("Failed to list tools from ${serverConfig.name}: ${e.message}", e)
                     emptyList()
                 }
             }
         }
+        
+        logger.debug("Total tools retrieved: ${allTools.size}")
+        return allTools
     }
     
     /**
@@ -99,10 +107,25 @@ class MCPRouterService(
     
     /**
      * Проверить, доступен ли сервер
+     * Возвращает true, если сервер включен в конфигурации и имеет клиент
+     * Для некоторых клиентов (например, Telegram адаптер) подключение не обязательно
      */
     fun isServerAvailable(serverName: String): Boolean {
+        if (!mcpConfigService.isServerEnabled(serverName)) {
+            return false
+        }
         val client = mcpClients[serverName] ?: return false
-        return client.isConnected() && mcpConfigService.isServerEnabled(serverName)
+        // Для адаптеров и заглушек считаем доступными, если они есть в мапе
+        // Реальное подключение проверяется отдельно через isConnected()
+        return true
+    }
+    
+    /**
+     * Проверить, подключен ли сервер через MCP протокол
+     */
+    fun isServerConnected(serverName: String): Boolean {
+        val client = mcpClients[serverName] ?: return false
+        return client.isConnected()
     }
     
     /**

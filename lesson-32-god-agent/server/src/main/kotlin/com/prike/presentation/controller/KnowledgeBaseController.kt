@@ -116,7 +116,9 @@ class KnowledgeBaseController(
                         HttpStatusCode.OK,
                         StatisticsResponse(
                             totalChunks = stats.totalChunks,
-                            chunksByCategory = stats.chunksByCategory
+                            chunksByCategory = stats.chunksByCategory.map { (category, count) ->
+                                CategoryCount(category = category, count = count)
+                            }
                         )
                     )
                 } catch (e: Exception) {
@@ -203,8 +205,14 @@ data class CategoryInfo(
 )
 
 @KSerializable
+data class CategoryCount(
+    val category: String,
+    val count: Int
+)
+
+@KSerializable
 data class StatisticsResponse(
     val totalChunks: Int,
-    val chunksByCategory: Map<String, Int>
+    val chunksByCategory: List<CategoryCount>
 )
 

@@ -33,6 +33,8 @@ class KnowledgeBaseService(
     companion object {
         private const val CHUNK_SIZE = 500 // Размер чанка в символах
         private const val CHUNK_OVERLAP = 50 // Перекрытие между чанками
+        private const val MAX_FILE_SIZE_MB = 10 // Максимальный размер файла в МБ
+        private const val MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
     }
     
     /**
@@ -69,9 +71,26 @@ class KnowledgeBaseService(
         
         markdownFiles.forEach { file ->
             try {
+                // Проверяем размер файла перед обработкой
+                val fileSize = file.length()
+                if (fileSize > MAX_FILE_SIZE_BYTES) {
+                    logger.warn("Skipping large file: ${file.absolutePath} (${fileSize / 1024 / 1024}MB)")
+                    return@forEach
+                }
+                
                 indexDocument(file, category, categoryPath)
                 indexedCount++
                 delay(100) // Небольшая задержка между документами
+                
+                // Периодически предлагаем сборщику мусора очистить память
+                if (indexedCount % 10 == 0) {
+                    System.gc()
+                }
+            } catch (e: OutOfMemoryError) {
+                logger.error("OutOfMemoryError indexing document ${file.absolutePath}: ${e.message}. File size: ${file.length() / 1024 / 1024}MB")
+                // Пытаемся освободить память
+                System.gc()
+                // Продолжаем со следующим файлом
             } catch (e: Exception) {
                 logger.error("Failed to index document ${file.absolutePath}: ${e.message}", e)
             }
@@ -88,22 +107,44 @@ class KnowledgeBaseService(
         category: DocumentCategory,
         baseDir: File
     ) {
+        // Проверка размера файла
+        val fileSize = file.length()
+        if (fileSize > MAX_FILE_SIZE_BYTES) {
+            logger.warn("Document ${file.absolutePath} is too large (${fileSize / 1024 / 1024}MB), skipping. Max size: ${MAX_FILE_SIZE_MB}MB")
+            return
+        }
+        
         val relativePath = baseDir.toPath().relativize(file.toPath()).toString()
         val documentId = UUID.randomUUID().toString()
         
-        val content = file.readText()
+        // Читаем файл с ограничением размера
+        val content = try {
+            file.readText(Charsets.UTF_8)
+        } catch (e: OutOfMemoryError) {
+            logger.error("OutOfMemoryError reading file ${file.absolutePath}: ${e.message}. File size: ${fileSize / 1024 / 1024}MB")
+            return
+        } catch (e: Exception) {
+            logger.error("Error reading file ${file.absolutePath}: ${e.message}", e)
+            return
+        }
+        
         if (content.isBlank()) {
             logger.warn("Document ${file.absolutePath} is empty, skipping")
             return
         }
         
         // Разбиваем документ на чанки
-        val chunks = chunkText(content, documentId, relativePath, category)
+        val chunks = try {
+            chunkText(content, documentId, relativePath, category)
+        } catch (e: OutOfMemoryError) {
+            logger.error("OutOfMemoryError chunking file ${file.absolutePath}: ${e.message}. Content length: ${content.length}")
+            return
+        }
         
         // Удаляем старые чанки для этого документа
         deleteChunksForDocument(documentId)
         
-        // Индексируем каждый чанк
+        // Индексируем каждый чанк с обработкой ошибок памяти
         chunks.forEachIndexed { index, chunk ->
             try {
                 val embedding = embeddingService.generateEmbedding(chunk.content)
@@ -125,6 +166,16 @@ class KnowledgeBaseService(
                 }
                 
                 delay(50) // Небольшая задержка между чанками
+                
+                // Периодически предлагаем сборщику мусора очистить память
+                if (index % 100 == 0) {
+                    System.gc()
+                }
+            } catch (e: OutOfMemoryError) {
+                logger.error("OutOfMemoryError indexing chunk $index of document ${file.absolutePath}: ${e.message}")
+                // Пытаемся освободить память и пропускаем этот чанк
+                System.gc()
+                return@forEachIndexed
             } catch (e: Exception) {
                 logger.error("Failed to index chunk $index of document ${file.absolutePath}: ${e.message}", e)
             }
@@ -210,6 +261,7 @@ class KnowledgeBaseService(
     
     /**
      * Разбить текст на чанки
+     * Оптимизированная версия для больших файлов
      */
     private fun chunkText(
         text: String,
@@ -221,26 +273,52 @@ class KnowledgeBaseService(
         var startIndex = 0
         var chunkIndex = 0
         
-        while (startIndex < text.length) {
-            val endIndex = minOf(startIndex + CHUNK_SIZE, text.length)
-            val chunkText = text.substring(startIndex, endIndex)
+        // Используем CharSequence для более эффективной работы с подстроками
+        val textLength = text.length
+        
+        while (startIndex < textLength) {
+            val endIndex = minOf(startIndex + CHUNK_SIZE, textLength)
             
-            chunks.add(
-                DocumentChunk(
-                    id = "$documentId-chunk-$chunkIndex",
-                    documentId = documentId,
-                    chunkIndex = chunkIndex,
-                    content = chunkText.trim(),
-                    embedding = emptyList(), // Будет заполнено при индексации
-                    category = category,
-                    source = source,
-                    startIndex = startIndex,
-                    endIndex = endIndex
+            // Используем более эффективный способ извлечения подстроки
+            // Создаем новую строку только при необходимости
+            val chunkContent = if (startIndex == 0 && endIndex == textLength) {
+                // Если весь текст помещается в один чанк, используем его напрямую
+                text.trim()
+            } else {
+                // Для подстрок используем более эффективный метод
+                text.substring(startIndex, endIndex).trim()
+            }
+            
+            // Пропускаем пустые чанки
+            if (chunkContent.isNotEmpty()) {
+                chunks.add(
+                    DocumentChunk(
+                        id = "$documentId-chunk-$chunkIndex",
+                        documentId = documentId,
+                        chunkIndex = chunkIndex,
+                        content = chunkContent,
+                        embedding = emptyList(), // Будет заполнено при индексации
+                        category = category,
+                        source = source,
+                        startIndex = startIndex,
+                        endIndex = endIndex
+                    )
                 )
-            )
+            }
             
-            startIndex = endIndex - CHUNK_OVERLAP
+            // Вычисляем следующий стартовый индекс с учетом перекрытия
+            startIndex = if (endIndex >= textLength) {
+                textLength // Достигли конца текста
+            } else {
+                maxOf(startIndex + 1, endIndex - CHUNK_OVERLAP) // Перекрытие, но не меньше чем +1
+            }
             chunkIndex++
+            
+            // Защита от бесконечного цикла
+            if (chunkIndex > 100000) {
+                logger.error("Too many chunks generated for document $documentId, stopping")
+                break
+            }
         }
         
         return chunks

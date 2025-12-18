@@ -34,7 +34,11 @@ class MCPConfigService(
         
         val yaml = Yaml()
         @Suppress("UNCHECKED_CAST")
-        val configMap = yaml.load<Map<String, Any>>(FileInputStream(configFile)) as Map<String, Any>
+        val rootMap = yaml.load<Map<String, Any>>(FileInputStream(configFile)) as Map<String, Any>
+        
+        // Извлекаем содержимое ключа "mcp_servers"
+        @Suppress("UNCHECKED_CAST")
+        val configMap = (rootMap["mcp_servers"] as? Map<String, Any>) ?: emptyMap()
         
         // Разрешаем переменные окружения в конфигурации
         @Suppress("UNCHECKED_CAST")

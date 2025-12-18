@@ -942,6 +942,11 @@ footer {
     color: var(--error-color);
 }
 
+.server-status.available {
+    background: rgba(251, 191, 36, 0.1);
+    color: #f59e0b;
+}
+
 .server-description {
     color: var(--text-secondary);
     margin-bottom: 12px;
@@ -987,6 +992,12 @@ footer {
 .tool-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
+}
+
+.tool-card-disabled {
+    opacity: 0.7;
+    background: var(--bg-primary);
+    border-style: dashed;
     border-radius: var(--radius-md);
     padding: 16px;
 }
