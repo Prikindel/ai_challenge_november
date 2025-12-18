@@ -8,6 +8,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
+import io.ktor.server.request.*
 import org.slf4j.LoggerFactory
 
 /**
@@ -144,10 +146,74 @@ class MCPServersController(
                         )
                     }
                 }
+                
+                /**
+                 * Вызвать инструмент MCP сервера
+                 */
+                post("/call-tool") {
+                    try {
+                        val request = call.receive<CallToolRequest>()
+                        logger.debug("Calling tool: ${request.tool} from server: ${request.server} with args: ${request.arguments}")
+                        
+                        // Конвертируем JsonElement в Any для передачи в executeTool
+                        val arguments = request.arguments.mapValues { (_, value) ->
+                            when {
+                                value is JsonPrimitive -> {
+                                    when {
+                                        value.isString -> value.content
+                                        value.booleanOrNull != null -> value.boolean
+                                        value.longOrNull != null -> value.long
+                                        value.doubleOrNull != null -> value.double
+                                        else -> value.content
+                                    }
+                                }
+                                value is JsonArray -> value.toString()
+                                value is JsonObject -> value.toString()
+                                else -> value.toString()
+                            }
+                        }
+                        
+                        val result = kotlinx.coroutines.runBlocking {
+                            mcpRouterService.executeTool(request.server, request.tool, arguments)
+                        }
+                        
+                        call.respond(
+                            HttpStatusCode.OK,
+                            CallToolResponse(
+                                success = result.success,
+                                data = result.data?.toString(),
+                                error = result.error
+                            )
+                        )
+                    } catch (e: Exception) {
+                        logger.error("Failed to call tool: ${e.message}", e)
+                        call.respond(
+                            HttpStatusCode.InternalServerError,
+                            CallToolResponse(
+                                success = false,
+                                error = "Failed to call tool: ${e.message}"
+                            )
+                        )
+                    }
+                }
             }
         }
     }
 }
+
+@Serializable
+data class CallToolRequest(
+    val server: String,
+    val tool: String,
+    val arguments: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap()
+)
+
+@Serializable
+data class CallToolResponse(
+    val success: Boolean,
+    val data: String? = null,
+    val error: String? = null
+)
 
 @Serializable
 data class MCPServerDto(
