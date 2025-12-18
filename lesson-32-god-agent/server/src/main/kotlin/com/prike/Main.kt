@@ -37,12 +37,30 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.io.File
+import io.github.cdimascio.dotenv.dotenv
 
 fun main(args: Array<String>) {
     val logger = LoggerFactory.getLogger("Main")
     
-    val config = Config.load()
+    // Загружаем переменные окружения из .env файла ДО загрузки конфигурации
     val lessonRoot = findLessonRoot()
+    val envFile = File(lessonRoot, ".env")
+    if (envFile.exists()) {
+        logger.info("Loading environment variables from: ${envFile.absolutePath}")
+        try {
+            dotenv {
+                directory = lessonRoot.absolutePath
+                ignoreIfMissing = false
+            }
+            logger.info("Environment variables loaded successfully")
+        } catch (e: Exception) {
+            logger.warn("Failed to load .env file: ${e.message}")
+        }
+    } else {
+        logger.warn(".env file not found at: ${envFile.absolutePath}")
+    }
+    
+    val config = Config.load()
     
     logger.info("Starting lesson-32-god-agent server...")
     logger.info("Lesson root: ${lessonRoot.absolutePath}")
@@ -191,13 +209,6 @@ fun main(args: Array<String>) {
         null
     }
     
-    val chatController = ChatController(
-        reviewsChatService, 
-        chatRepository,
-        speechRecognitionService,
-        audioConversionService
-    )
-    
     // Инициализация ProfileController
     val profileController = ProfileController(userProfileService)
     
@@ -226,18 +237,25 @@ fun main(args: Array<String>) {
         if (telegramServerConfig != null && telegramServerConfig.enabled) {
             val telegramAdapter = com.prike.data.client.TelegramMCPClientAdapter(telegramMCPClient, "Telegram MCP")
             mcpClientsMap["Telegram MCP"] = telegramAdapter
-            logger.info("Telegram MCP client added to router")
+            logger.info("Telegram MCP client added to router (enabled: ${telegramServerConfig.enabled}, config.mcp.enabled: ${config.telegram.mcp.enabled})")
             
-            // Подключаем Telegram клиент, если он еще не подключен
-            if (!telegramMCPClient.isConnected() && config.telegram.mcp.enabled) {
+            // Подключаем Telegram клиент, если он включен в server.yaml
+            // Telegram MCP сервер требует подключения через MCP протокол
+            if (config.telegram.mcp.enabled) {
                 kotlinx.coroutines.runBlocking {
                     try {
-                        telegramMCPClient.connect()
-                        logger.info("Telegram MCP client connected")
+                        if (!telegramMCPClient.isConnected()) {
+                            telegramMCPClient.connect()
+                            logger.info("Telegram MCP client connected successfully")
+                        } else {
+                            logger.info("Telegram MCP client already connected")
+                        }
                     } catch (e: Exception) {
-                        logger.warn("Failed to connect Telegram MCP client: ${e.message}")
+                        logger.warn("Failed to connect Telegram MCP client: ${e.message}. Telegram MCP server may not be available, but adapter will still work.")
                     }
                 }
+            } else {
+                logger.warn("Telegram MCP is disabled in server.yaml (telegram.mcp.enabled=false). Enable it to use Telegram MCP server.")
             }
         } else {
             logger.debug("Telegram MCP not enabled in MCP servers config")
@@ -399,6 +417,42 @@ fun main(args: Array<String>) {
     } else {
         null
     }
+    
+    // Инициализация RequestRouterService
+    val requestRouterService = if (mcpRouterService != null) {
+        val llmRouterService = com.prike.domain.service.LLMRouterService()
+        com.prike.domain.service.RequestRouterService(mcpRouterService, llmRouterService).also {
+            logger.info("RequestRouterService initialized")
+        }
+    } else {
+        null
+    }
+    
+    // Инициализация GodAgentService (если доступны все необходимые сервисы)
+    val godAgentService = if (mcpRouterService != null && knowledgeBaseService != null && requestRouterService != null) {
+        com.prike.domain.service.GodAgentService(
+            mcpRouterService = mcpRouterService,
+            knowledgeBaseService = knowledgeBaseService,
+            requestRouterService = requestRouterService,
+            chatRepository = chatRepository,
+            koogAgentService = koogAgentService,
+            userProfileService = userProfileService,
+            responseFormatter = responseFormatter
+        ).also {
+            logger.info("GodAgentService initialized")
+        }
+    } else {
+        logger.warn("GodAgentService not initialized: missing dependencies (mcpRouterService=${mcpRouterService != null}, knowledgeBaseService=${knowledgeBaseService != null}, requestRouterService=${requestRouterService != null})")
+        null
+    }
+    
+    val chatController = ChatController(
+        reviewsChatService, 
+        chatRepository,
+        speechRecognitionService,
+        audioConversionService,
+        godAgentService
+    )
     
     // Статический контент для UI
     val clientDir = File(lessonRoot, "client")

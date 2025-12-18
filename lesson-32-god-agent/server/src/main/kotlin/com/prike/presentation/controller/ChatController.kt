@@ -23,7 +23,8 @@ class ChatController(
     private val chatService: ReviewsChatService,
     private val chatRepository: ChatRepository,
     private val speechRecognitionService: SpeechRecognitionService? = null,
-    private val audioConversionService: AudioConversionService? = null
+    private val audioConversionService: AudioConversionService? = null,
+    private val godAgentService: com.prike.domain.service.GodAgentService? = null
 ) {
     private val logger = LoggerFactory.getLogger(ChatController::class.java)
 
@@ -154,11 +155,26 @@ class ChatController(
                         return@post
                     }
                     
-                    // Обрабатываем сообщение через ChatService
-                    val assistantMessage = chatService.processMessage(
-                        sessionId = sessionId,
-                        userMessage = request.message
-                    )
+                    // Обрабатываем сообщение через GodAgentService (если доступен) или ReviewsChatService
+                    val assistantMessage = if (godAgentService != null) {
+                        logger.debug("Using GodAgentService for message processing")
+                        val userId = "default" // TODO: добавить userId в SendMessageRequest
+                        val response = kotlinx.coroutines.runBlocking {
+                            godAgentService.processUserRequest(
+                                message = request.message,
+                                sessionId = sessionId,
+                                userId = userId
+                            )
+                        }
+                        // ChatResponse уже содержит ChatMessage
+                        response.message
+                    } else {
+                        logger.debug("Using ReviewsChatService for message processing")
+                        chatService.processMessage(
+                            sessionId = sessionId,
+                            userMessage = request.message
+                        )
+                    }
                     
                     logger.info("Message processed: session=$sessionId, messageId=${assistantMessage.id}")
                     

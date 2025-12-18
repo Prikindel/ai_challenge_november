@@ -2,6 +2,7 @@ package com.prike.domain.service
 
 import com.prike.config.Config
 import com.prike.domain.model.MCPServersConfig
+import io.github.cdimascio.dotenv.dotenv
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.Yaml
 import java.io.File
@@ -70,10 +71,13 @@ class MCPConfigService(
     }
     
     /**
-     * Проверить, включен ли сервер
+     * Проверить, включен ли сервер по имени (name из конфигурации)
      */
     fun isServerEnabled(serverName: String): Boolean {
-        return getConfig().isServerEnabled(serverName)
+        val config = getConfig()
+        // Ищем сервер по имени (name) из конфигурации
+        val serverConfig = config.servers.values.find { it.name == serverName }
+        return serverConfig != null && serverConfig.enabled && config.enabled
     }
     
     /**

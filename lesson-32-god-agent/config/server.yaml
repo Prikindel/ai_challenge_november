@@ -42,7 +42,7 @@ koog:
 
 telegram:
   mcp:
-    enabled: false
+    enabled: true  # Включен для использования через God Agent
     jarPath: "telegram-mcp-server/build/libs/telegram-mcp-server-1.0.0.jar"
   botToken: "${TELEGRAM_BOT_TOKEN}"
   chatId: "${TELEGRAM_CHAT_ID}"

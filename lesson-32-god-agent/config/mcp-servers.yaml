@@ -6,10 +6,8 @@ mcp_servers:
     name: "Git MCP"
     description: "Работа с git репозиториями и файлами проекта"
     repositories:
-      - path: "${HOME}/projects/my-project"
-        name: "My Project"
-      - path: "${HOME}/projects/other-project"
-        name: "Other Project"
+      - path: "/Users/kiryakovm96/ai_challend/ai_challenge_november"
+        name: "AI Challenge November"
   
   telegram:
     enabled: true

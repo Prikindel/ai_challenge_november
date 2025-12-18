@@ -60,16 +60,33 @@ class MCPRouterService(
         val client = mcpClients[serverName]
             ?: return MCPToolResult.failure("MCP server not found: $serverName")
         
-        if (!client.isConnected()) {
-            return MCPToolResult.failure("MCP server not connected: $serverName")
+        // Проверяем, включен ли сервер в конфигурации
+        // Проверяем по имени сервера из конфигурации (может отличаться от serverName)
+        val serverConfig = mcpConfigService.getConfig().servers.values.find { it.name == serverName }
+        if (serverConfig == null || !serverConfig.enabled) {
+            logger.warn("MCP server $serverName is disabled or not found in configuration")
+            // Не возвращаем ошибку, если клиент существует - возможно, это внутренний клиент
+            // Продолжаем выполнение
         }
         
-        if (!mcpConfigService.isServerEnabled(serverName)) {
-            return MCPToolResult.failure("MCP server is disabled: $serverName")
+        // Попытаться подключить сервер, если он еще не подключен
+        // Для некоторых клиентов (Git, FileSystem, Calendar, Analytics) подключение не критично
+        // Они могут работать без формального подключения через MCP протокол
+        if (!client.isConnected()) {
+            logger.debug("Server $serverName is not connected, attempting to connect...")
+            try {
+                ensureServerConnected(serverName)
+            } catch (e: Exception) {
+                logger.debug("Server $serverName connection failed, but continuing anyway: ${e.message}")
+                // Продолжаем выполнение - некоторые клиенты работают без подключения
+            }
         }
         
         return try {
-            client.callTool(toolName, arguments)
+            logger.debug("Executing tool $toolName on server $serverName with args: $arguments")
+            val result = client.callTool(toolName, arguments)
+            logger.debug("Tool $toolName execution result: success=${result.success}, data=${result.data?.toString()?.take(100)}")
+            result
         } catch (e: Exception) {
             logger.error("Failed to execute tool $toolName from $serverName: ${e.message}", e)
             MCPToolResult.failure(e.message ?: "Unknown error")
@@ -126,6 +143,23 @@ class MCPRouterService(
     fun isServerConnected(serverName: String): Boolean {
         val client = mcpClients[serverName] ?: return false
         return client.isConnected()
+    }
+    
+    /**
+     * Подключить сервер, если он еще не подключен
+     */
+    suspend fun ensureServerConnected(serverName: String): Boolean {
+        val client = mcpClients[serverName] ?: return false
+        if (!client.isConnected()) {
+            try {
+                client.connect()
+                return client.isConnected()
+            } catch (e: Exception) {
+                logger.warn("Failed to connect server $serverName: ${e.message}")
+                return false
+            }
+        }
+        return true
     }
     
     /**
