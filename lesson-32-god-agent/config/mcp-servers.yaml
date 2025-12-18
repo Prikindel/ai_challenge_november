@@ -43,7 +43,7 @@ mcp_servers:
       - "knowledge-base"
   
   calendar:
-    enabled: false  # Опционально
+    enabled: true  # Включен для использования
     name: "Calendar MCP"
     description: "Управление событиями и напоминаниями"
     storage_path: "data/calendar/events.json"

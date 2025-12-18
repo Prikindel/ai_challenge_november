@@ -77,6 +77,9 @@ dependencies {
     // Утилиты для работы с аудио/архивами (для Vosk моделей)
     implementation("org.apache.commons:commons-compress:1.21")
     
+    // OpenCSV для работы с CSV файлами
+    implementation("com.opencsv:opencsv:5.9")
+    
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:1.9.22")

@@ -243,43 +243,127 @@ fun main(args: Array<String>) {
             logger.debug("Telegram MCP not enabled in MCP servers config")
         }
         
-        // Для остальных серверов создаем заглушки, которые будут показывать, что сервер не реализован
+        // Инициализируем остальные MCP клиенты
         enabledServers.forEach { serverConfig ->
             if (!mcpClientsMap.containsKey(serverConfig.name)) {
-                // Создаем заглушку для нереализованных серверов
                 val serverName = serverConfig.name
-                // Создаем заглушку для нереализованных серверов
-                // Возвращаем хотя бы один инструмент-заглушку, чтобы показать, что сервер существует
-                val stubClient = object : com.prike.data.client.MCPClientInterface {
-                    override suspend fun connect() {
-                        logger.warn("Stub client for $serverName - connect() not implemented")
+                val config = serverConfig.config
+                
+                try {
+                    val client: com.prike.data.client.MCPClientInterface? = when (serverName) {
+                        "Git MCP" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val repositories = (config["repositories"] as? List<Map<String, Any>>)?.map { repo ->
+                                com.prike.data.client.GitMCPClient.GitRepositoryConfig(
+                                    path = repo["path"] as? String ?: "",
+                                    name = repo["name"] as? String ?: ""
+                                )
+                            } ?: emptyList()
+                            
+                            com.prike.data.client.GitMCPClient(serverName, repositories, lessonRoot).also {
+                                logger.info("Git MCP client created with ${repositories.size} repositories")
+                            }
+                        }
+                        "File System MCP" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val allowedPaths = (config["allowed_paths"] as? List<String>) ?: emptyList()
+                            
+                            com.prike.data.client.FilesystemMCPClient(serverName, allowedPaths, lessonRoot).also {
+                                logger.info("File System MCP client created with ${allowedPaths.size} allowed paths")
+                            }
+                        }
+                        "Analytics MCP" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val dataSources = (config["data_sources"] as? List<Map<String, Any>>)?.map { source ->
+                                com.prike.data.client.AnalyticsMCPClient.DataSourceConfig(
+                                    type = source["type"] as? String ?: "",
+                                    path = source["path"] as? String ?: "",
+                                    name = source["name"] as? String ?: ""
+                                )
+                            } ?: emptyList()
+                            
+                            com.prike.data.client.AnalyticsMCPClient(serverName, dataSources, lessonRoot).also {
+                                logger.info("Analytics MCP client created with ${dataSources.size} data sources")
+                            }
+                        }
+                        "Calendar MCP" -> {
+                            val storagePath = config["storage_path"] as? String ?: "data/calendar/events.json"
+                            
+                            com.prike.data.client.CalendarMCPClient(serverName, storagePath, lessonRoot).also {
+                                logger.info("Calendar MCP client created with storage: $storagePath")
+                            }
+                        }
+                        else -> {
+                            logger.warn("Unknown MCP server: $serverName, creating stub")
+                            null
+                        }
                     }
                     
-                    override suspend fun disconnect() {
-                        logger.warn("Stub client for $serverName - disconnect() not implemented")
+                    if (client != null) {
+                        mcpClientsMap[serverConfig.name] = client
+                        // Подключаем клиент
+                        kotlinx.coroutines.runBlocking {
+                            try {
+                                client.connect()
+                                logger.info("$serverName MCP client connected")
+                            } catch (e: Exception) {
+                                logger.warn("Failed to connect $serverName MCP client: ${e.message}")
+                            }
+                        }
+                    } else {
+                        // Создаем заглушку для неизвестных серверов
+                        val stubClient = object : com.prike.data.client.MCPClientInterface {
+                            override suspend fun connect() {
+                                logger.warn("Stub client for $serverName - connect() not implemented")
+                            }
+                            
+                            override suspend fun disconnect() {
+                                logger.warn("Stub client for $serverName - disconnect() not implemented")
+                            }
+                            
+                            override fun isConnected(): Boolean = false
+                            
+                            override suspend fun listTools(): List<com.prike.domain.model.MCPTool> {
+                                return listOf(
+                                    com.prike.domain.model.MCPTool(
+                                        serverName = serverName,
+                                        name = "not_implemented",
+                                        description = "Этот MCP сервер еще не реализован. Сервер существует в конфигурации, но функциональность пока не доступна.",
+                                        parameters = emptyMap()
+                                    )
+                                )
+                            }
+                            
+                            override suspend fun callTool(toolName: String, arguments: Map<String, Any>): com.prike.domain.model.MCPToolResult {
+                                return com.prike.domain.model.MCPToolResult.failure("MCP server '$serverName' is not implemented yet")
+                            }
+                        }
+                        mcpClientsMap[serverConfig.name] = stubClient
+                        logger.debug("Stub client created for ${serverConfig.name}")
                     }
-                    
-                    override fun isConnected(): Boolean = false
-                    
-                    override suspend fun listTools(): List<com.prike.domain.model.MCPTool> {
-                        // Возвращаем заглушку-инструмент, чтобы показать, что сервер существует, но не реализован
-                        logger.debug("Stub client for $serverName - returning placeholder tool")
-                        return listOf(
-                            com.prike.domain.model.MCPTool(
-                                serverName = serverName,
-                                name = "not_implemented",
-                                description = "Этот MCP сервер еще не реализован. Сервер существует в конфигурации, но функциональность пока не доступна.",
-                                parameters = emptyMap()
+                } catch (e: Exception) {
+                    logger.error("Failed to initialize MCP client for $serverName: ${e.message}", e)
+                    // Создаем заглушку в случае ошибки
+                    val stubClient = object : com.prike.data.client.MCPClientInterface {
+                        override suspend fun connect() {}
+                        override suspend fun disconnect() {}
+                        override fun isConnected(): Boolean = false
+                        override suspend fun listTools(): List<com.prike.domain.model.MCPTool> {
+                            return listOf(
+                                com.prike.domain.model.MCPTool(
+                                    serverName = serverName,
+                                    name = "error",
+                                    description = "Ошибка инициализации MCP сервера: ${e.message}",
+                                    parameters = emptyMap()
+                                )
                             )
-                        )
+                        }
+                        override suspend fun callTool(toolName: String, arguments: Map<String, Any>): com.prike.domain.model.MCPToolResult {
+                            return com.prike.domain.model.MCPToolResult.failure("MCP server '$serverName' initialization failed: ${e.message}")
+                        }
                     }
-                    
-                    override suspend fun callTool(toolName: String, arguments: Map<String, Any>): com.prike.domain.model.MCPToolResult {
-                        return com.prike.domain.model.MCPToolResult.failure("MCP server '$serverName' is not implemented yet")
-                    }
+                    mcpClientsMap[serverConfig.name] = stubClient
                 }
-                mcpClientsMap[serverConfig.name] = stubClient
-                logger.debug("Stub client created for ${serverConfig.name}")
             }
         }
         
